@@ -63,7 +63,7 @@ jobs:
       - name: Build with Next.js
         run: pnpm build
         env:
-          NEXT_PUBLIC_BASE_PATH: /minecraft-mod-versioning-example
+          NEXT_PUBLIC_BASE_PATH: /dropper
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
