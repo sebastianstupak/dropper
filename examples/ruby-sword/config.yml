@@ -1,0 +1,11 @@
+mod:
+  id: example-mod
+  name: "Example Mod"
+  version: "1.0.0"
+  description: "A multi-loader, multi-version Minecraft mod example"
+  author: "YourName"
+  license: "MIT"
+
+  # Publishing (optional)
+  curse_project_id: null
+  modrinth_id: null

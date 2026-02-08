@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+@theme {
+  /* Minecraft Color Palette */
+  --color-minecraft-stone: #8B8B8B;
+  --color-minecraft-dark: #3C3C3C;
+  --color-minecraft-darker: #1E1E1E;
+  --color-minecraft-lime: #55FF55;
+  --color-minecraft-dirt: #8B6F47;
+  --color-minecraft-grass: #7CBD6B;
+  --color-minecraft-obsidian: #100819;
+  --color-minecraft-diamond: #5DCDE3;
+
+  /* Spacing (16px = 1 block) */
+  --spacing-block: 16px;
+  --spacing-2block: 32px;
+  --spacing-3block: 48px;
+
+  /* Shadows */
+  --shadow-minecraft: 4px 4px 0 rgba(0, 0, 0, 0.3);
+  --shadow-minecraft-lg: 8px 8px 0 rgba(0, 0, 0, 0.4);
+}
+
+@layer base {
+  body {
+    background-color: #100819;
+    color: white;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  .pixelated {
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+  }
+}
+
+@layer utilities {
+  .pixel-border {
+    border: 3px solid;
+    border-color: #373737 #FFF #FFF #373737;
+    box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.3),
+                inset 2px 2px 0 rgba(255, 255, 255, 0.3);
+  }
+
+  .pixel-border-inset {
+    border: 3px solid;
+    border-color: #FFF #373737 #373737 #FFF;
+    box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.3),
+                inset -2px -2px 0 rgba(255, 255, 255, 0.3);
+  }
+
+  .minecraft-button {
+    border: 3px solid;
+    border-color: #373737 #FFF #FFF #373737;
+    box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.3),
+                inset 2px 2px 0 rgba(255, 255, 255, 0.3);
+    background-color: #8B8B8B;
+    transition: all 75ms;
+    text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  }
+
+  .minecraft-button:hover {
+    filter: brightness(1.1);
+  }
+
+  .minecraft-button:active {
+    filter: brightness(0.9);
+  }
+
+  .minecraft-button-lime {
+    border: 3px solid;
+    border-color: #373737 #FFF #FFF #373737;
+    box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.3),
+                inset 2px 2px 0 rgba(255, 255, 255, 0.3);
+    background-color: #55FF55;
+    color: black;
+    transition: all 75ms;
+    text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .minecraft-button-lime:hover {
+    filter: brightness(1.1);
+  }
+
+  .minecraft-button-lime:active {
+    filter: brightness(0.9);
+  }
+
+  .text-shadow-dark {
+    text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.8);
+  }
+
+  .minecraft-panel {
+    border: 3px solid;
+    border-color: #373737 #FFF #FFF #373737;
+    box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.3),
+                inset 2px 2px 0 rgba(255, 255, 255, 0.3);
+    background-color: #C6C6C6;
+    color: #3C3C3C;
+  }
+
+  .gradient-dirt {
+    background: linear-gradient(180deg, #8B6F47 0%, #6B5437 100%);
+  }
+
+  .gradient-grass {
+    background: linear-gradient(180deg, #7CBD6B 0%, #5C9D4B 100%);
+  }
+}
+
+/* Custom animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pixelate-in {
+  0% { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pixelate-in {
+  animation: pixelate-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

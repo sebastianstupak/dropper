@@ -1,0 +1,8 @@
+[
+  {
+    "name": "dev.dropper.DropperCLIKt",
+    "methods": [
+      {"name": "main", "parameterTypes": ["java.lang.String[]"]}
+    ]
+  }
+]

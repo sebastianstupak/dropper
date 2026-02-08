@@ -1,0 +1,11 @@
+{
+  "name": "cli",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd ../.. && ./gradlew build",
+    "test": "cd ../.. && ./gradlew test",
+    "clean": "cd ../.. && ./gradlew clean",
+    "dev": "cd ../.. && ./gradlew build --continuous"
+  }
+}

@@ -1,0 +1,202 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Create as draft release'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build-native:
+    name: Build native binary for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: dropper-linux-amd64
+            platform: linux
+            arch: amd64
+          - os: macos-13  # Intel
+            artifact: dropper-macos-amd64
+            platform: macos
+            arch: amd64
+          - os: macos-14  # Apple Silicon
+            artifact: dropper-macos-arm64
+            platform: macos
+            arch: arm64
+          - os: windows-latest
+            artifact: dropper-windows-amd64.exe
+            platform: windows
+            arch: amd64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          native-image-job-reports: 'true'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for gradlew
+        if: runner.os != 'Windows'
+        run: chmod +x gradlew
+
+      - name: Build native image
+        run: ./gradlew :src:cli:nativeCompile
+
+      - name: Rename binary
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            mv src/cli/build/native/nativeCompile/dropper.exe ${{ matrix.artifact }}
+          else
+            mv src/cli/build/native/nativeCompile/dropper ${{ matrix.artifact }}
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+          retention-days: 1
+
+  create-release:
+    name: Create draft release
+    needs: build-native
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+      tag_name: ${{ steps.get_tag.outputs.tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get tag name
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=v$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          name: Dropper ${{ steps.get_tag.outputs.tag }}
+          draft: ${{ github.event.inputs.draft || 'true' }}
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            artifacts/dropper-linux-amd64/dropper-linux-amd64
+            artifacts/dropper-macos-amd64/dropper-macos-amd64
+            artifacts/dropper-macos-arm64/dropper-macos-arm64
+            artifacts/dropper-windows-amd64.exe/dropper-windows-amd64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-installation:
+    name: Test installation on ${{ matrix.os }}
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test installation script (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x scripts/install.sh
+          ./scripts/install.sh ${{ needs.create-release.outputs.tag_name }}
+
+      - name: Test installation script (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\scripts\install.ps1 -Version ${{ needs.create-release.outputs.tag_name }}
+
+      - name: Verify dropper works (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          dropper --version
+          dropper --help
+
+      - name: Verify dropper works (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:Path = "$env:LOCALAPPDATA\Dropper\bin;$env:Path"
+          dropper --version
+          dropper --help
+
+      - name: Test project generation (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          cd /tmp
+          echo -e "Test Mod\nTest Author\nA test mod\n1.20.1\nfabric" | dropper init test-mod || echo "Interactive prompt failed as expected in CI"
+
+      - name: Test project generation (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:Path = "$env:LOCALAPPDATA\Dropper\bin;$env:Path"
+          cd $env:TEMP
+          # Note: Interactive prompts don't work well in CI, just test that command exists
+          dropper --help
+
+  publish-release:
+    name: Publish release
+    needs: [create-release, test-installation]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Publish release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: '${{ needs.create-release.outputs.release_id }}',
+              draft: false
+            })

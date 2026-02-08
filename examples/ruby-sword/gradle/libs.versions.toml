@@ -1,0 +1,51 @@
+[versions]
+# Minecraft versions
+minecraft = "1.20.1"
+
+# Mod loaders
+neoForge = "20.1.84"
+forge = "47.2.0"
+fabricLoader = "0.15.11"
+fabricApi = "0.92.0+1.20.1"
+
+# Build tools
+neogradle = "7.0.154"
+forgeGradle = "6.0.24"
+fabricLoom = "1.5-SNAPSHOT"
+
+# Java
+javaTarget = "17"
+
+# Libraries
+snakeYaml = "2.2"
+jacksonDatabind = "2.16.1"
+
+# Testing
+junitJupiter = "5.10.1"
+
+[libraries]
+# Minecraft
+minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
+
+# Mod loaders
+neoforge = { module = "net.neoforged:neoforge", version.ref = "neoForge" }
+forge = { module = "net.minecraftforge:forge", version.ref = "forge" }
+fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabricLoader" }
+fabric-api = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabricApi" }
+
+# Build dependencies
+snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeYaml" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jacksonDatabind" }
+
+# Testing
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }
+junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junitJupiter" }
+
+[bundles]
+junit = ["junit-jupiter-api", "junit-jupiter-engine", "junit-jupiter-params"]
+
+[plugins]
+neoforge-gradle = { id = "net.neoforged.gradle.userdev", version.ref = "neogradle" }
+forge-gradle = { id = "net.minecraftforge.gradle", version.ref = "forgeGradle" }
+fabric-loom = { id = "fabric-loom", version.ref = "fabricLoom" }

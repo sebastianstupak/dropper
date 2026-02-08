@@ -1,0 +1,16 @@
+{
+  "name": "Dropper - Drop Versions Fast",
+  "short_name": "Dropper",
+  "description": "Minecraft mod build automation",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#100819",
+  "theme_color": "#55FF55",
+  "icons": [
+    {
+      "src": "/minecraft/dropper.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}

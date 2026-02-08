@@ -1,0 +1,16 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": "templates/.*"
+      },
+      {
+        "pattern": "build-logic/.*\\.kts"
+      },
+      {
+        "pattern": "build-logic/.*\\.kt"
+      }
+    ]
+  },
+  "bundles": []
+}

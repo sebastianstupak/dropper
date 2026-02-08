@@ -1,0 +1,77 @@
+# Gradle
+.gradle/
+build/
+build-temp/
+out/
+.kotlin/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Test projects (generated during tests)
+src/cli/build/test-projects/
+
+# Native binaries
+dropper
+dropper.exe
+*.dylib
+*.so
+*.dll
+
+# GraalVM
+*.h
+*.o
+
+# Java
+*.class
+*.log
+*.jar
+!gradle-wrapper.jar
+
+# Kotlin
+*.kotlin_module
+
+# Generated build-logic in test projects
+examples/**/build-logic/.gradle/
+examples/**/build-logic/build/
+
+# Monorepo / Web
+node_modules/
+.turbo/
+*.tsbuildinfo
+.next/
+dist/
+
+# Environment
+.env
+.env*.local
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+
+# Package manager locks (keep pnpm-lock.yaml, ignore others)
+package-lock.json
+yarn.lock
+
+# Distribution archives
+*.zip
+*.tar.gz
+*.tgz
