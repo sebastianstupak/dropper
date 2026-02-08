@@ -58,9 +58,9 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: dropper-linux-amd64
-          - os: macos-13  # Intel
+          - os: macos-15-large  # Intel x64
             artifact: dropper-macos-amd64
-          - os: macos-14  # Apple Silicon
+          - os: macos-latest  # Apple Silicon (M1/M2)
             artifact: dropper-macos-arm64
           - os: windows-latest
             artifact: dropper-windows-amd64.exe
