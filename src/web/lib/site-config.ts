@@ -36,8 +36,8 @@ export const siteConfig = {
 
   // Installation
   install: {
-    unix: "curl -fsSL https://raw.githubusercontent.com/sebastianstupak/dropper/main/scripts/install.sh | sh",
-    windows: "iwr https://raw.githubusercontent.com/sebastianstupak/dropper/main/scripts/install.ps1 -useb | iex",
+    unix: "curl -fsSL https://sebastianstupak.github.io/dropper/install.sh | sh",
+    windows: "iwr https://sebastianstupak.github.io/dropper/install.ps1 -useb | iex",
   },
 }
 
