@@ -27,6 +27,8 @@ export function BlockButton({
     "px-6 py-3",
     "font-[family-name:var(--font-minecraft)] text-xs sm:text-sm uppercase",
     "cursor-pointer select-none",
+    "transition-all duration-75",
+    "hover:brightness-110 active:brightness-90",
     variantStyles[variant],
     className
   )

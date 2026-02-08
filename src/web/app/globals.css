@@ -61,11 +61,13 @@
   }
 
   .minecraft-button:hover {
-    filter: brightness(1.1);
+    filter: brightness(1.15);
+    transform: translateY(-1px);
   }
 
   .minecraft-button:active {
-    filter: brightness(0.9);
+    filter: brightness(0.95);
+    transform: translateY(0);
   }
 
   .minecraft-button-lime {
@@ -80,11 +82,13 @@
   }
 
   .minecraft-button-lime:hover {
-    filter: brightness(1.1);
+    filter: brightness(1.15);
+    transform: translateY(-1px);
   }
 
   .minecraft-button-lime:active {
-    filter: brightness(0.9);
+    filter: brightness(0.95);
+    transform: translateY(0);
   }
 
   .text-shadow-dark {

@@ -1,4 +1,4 @@
-name: Release
+name: Deploy
 
 on:
   push:
@@ -13,28 +13,57 @@ on:
         default: true
 
 jobs:
+  check-tag:
+    name: Check if tag is new
+    runs-on: ubuntu-latest
+    outputs:
+      is_new_tag: ${{ steps.check.outputs.is_new }}
+      tag_name: ${{ steps.check.outputs.tag_name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if tag is new
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "is_new=true" >> $GITHUB_OUTPUT
+            echo "tag_name=v$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          else
+            TAG_NAME=${GITHUB_REF#refs/tags/}
+            echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+            # Check if release already exists for this tag
+            if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+              echo "is_new=false" >> $GITHUB_OUTPUT
+              echo "::warning::Release already exists for tag $TAG_NAME"
+            else
+              echo "is_new=true" >> $GITHUB_OUTPUT
+              echo "::notice::Tag $TAG_NAME is new, proceeding with deployment"
+            fi
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-native:
     name: Build native binary for ${{ matrix.os }}
+    needs: check-tag
+    if: needs.check-tag.outputs.is_new_tag == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
             artifact: dropper-linux-amd64
-            platform: linux
-            arch: amd64
           - os: macos-13  # Intel
             artifact: dropper-macos-amd64
-            platform: macos
-            arch: amd64
           - os: macos-14  # Apple Silicon
             artifact: dropper-macos-arm64
-            platform: macos
-            arch: arm64
           - os: windows-latest
             artifact: dropper-windows-amd64.exe
-            platform: windows
-            arch: amd64
 
     steps:
       - name: Checkout code
@@ -82,26 +111,17 @@ jobs:
           retention-days: 1
 
   create-release:
-    name: Create draft release
-    needs: build-native
+    name: Create release
+    needs: [check-tag, build-native]
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       release_id: ${{ steps.create_release.outputs.id }}
-      tag_name: ${{ steps.get_tag.outputs.tag }}
+      tag_name: ${{ needs.check-tag.outputs.tag_name }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Get tag name
-        id: get_tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=v$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          fi
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -115,8 +135,8 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.get_tag.outputs.tag }}
-          name: Dropper ${{ steps.get_tag.outputs.tag }}
+          tag_name: ${{ needs.check-tag.outputs.tag_name }}
+          name: Dropper ${{ needs.check-tag.outputs.tag_name }}
           draft: ${{ github.event.inputs.draft || 'true' }}
           prerelease: false
           generate_release_notes: true
@@ -194,9 +214,9 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.repos.updateRelease({
+            await github.rest.repos.updateRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: '${{ needs.create-release.outputs.release_id }}',
               draft: false
-            })
+            });

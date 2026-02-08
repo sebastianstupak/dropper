@@ -1,12 +1,9 @@
 import { CodeBlock } from "@/components/minecraft/CodeBlock"
+import { InstallTabs } from "@/components/minecraft/InstallTabs"
 import { BlockButton } from "@/components/minecraft/BlockButton"
+import { siteConfig } from "@/lib/site-config"
 
 const steps = [
-  {
-    title: "1. Install Dropper",
-    code: "npm install -g dropper",
-    description: "Install the Dropper CLI globally via npm"
-  },
   {
     title: "2. Initialize Your Mod",
     code: "dropper init my-awesome-mod",
@@ -38,11 +35,25 @@ export function Installation() {
         </div>
 
         <div className="max-w-3xl mx-auto space-y-8">
+          {/* Step 1: Install */}
+          <div className="animate-pixelate-in">
+            <div className="mb-3">
+              <h3 className="font-[family-name:var(--font-minecraft)] text-sm sm:text-base text-minecraft-lime mb-2">
+                1. Install Dropper
+              </h3>
+              <p className="text-sm text-gray-400">
+                Install the Dropper CLI for your platform
+              </p>
+            </div>
+            <InstallTabs className="max-w-none" />
+          </div>
+
+          {/* Remaining steps */}
           {steps.map((step, index) => (
             <div
               key={step.title}
               className="animate-pixelate-in"
-              style={{ animationDelay: `${index * 100}ms` }}
+              style={{ animationDelay: `${(index + 1) * 100}ms` }}
             >
               <div className="mb-3">
                 <h3 className="font-[family-name:var(--font-minecraft)] text-sm sm:text-base text-minecraft-lime mb-2">
@@ -58,7 +69,7 @@ export function Installation() {
         </div>
 
         <div className="text-center mt-12">
-          <BlockButton variant="lime" href="https://github.com/username/dropper">
+          <BlockButton variant="lime" href={siteConfig.github.repo}>
             View on GitHub
           </BlockButton>
         </div>

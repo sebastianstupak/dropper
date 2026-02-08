@@ -1,5 +1,5 @@
 import { BlockButton } from "@/components/minecraft/BlockButton"
-import { CodeBlock } from "@/components/minecraft/CodeBlock"
+import { InstallTabs } from "@/components/minecraft/InstallTabs"
 import { siteConfig } from "@/lib/site-config"
 import Image from "next/image"
 
@@ -62,7 +62,7 @@ export function Hero() {
 
           {/* Quick Install */}
           <div className="max-w-2xl mx-auto space-y-4">
-            <CodeBlock code="pnpm add -g dropper" />
+            <InstallTabs />
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <BlockButton variant="stone" href={siteConfig.github.repo}>
                 <span className="flex items-center gap-2">
