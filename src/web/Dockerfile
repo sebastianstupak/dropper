@@ -36,8 +36,8 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/out ./out
 COPY --from=builder /app/public ./public
 
-# Create a simple static file server
-RUN pnpm add -g serve
+# Install serve using npm (comes with Node.js)
+RUN npm install -g serve
 
 USER nextjs
 
