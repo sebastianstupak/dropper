@@ -27,9 +27,9 @@ Thumbs.db
 # Test projects (generated during tests)
 src/cli/build/test-projects/
 
-# Native binaries
-dropper
-dropper.exe
+# Native binaries (in root only)
+/dropper
+/dropper.exe
 *.dylib
 *.so
 *.dll

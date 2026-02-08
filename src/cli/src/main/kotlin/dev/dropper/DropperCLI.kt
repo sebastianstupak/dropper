@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.commands.BuildCommand
 import dev.dropper.commands.GenerateCommand
 import dev.dropper.commands.InitCommand
 
@@ -34,6 +35,7 @@ class DropperCLI : CliktCommand(
 fun main(args: Array<String>) = DropperCLI()
     .subcommands(
         InitCommand(),
+        BuildCommand(),
         GenerateCommand()
     )
     .main(args)
