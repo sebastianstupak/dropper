@@ -45,7 +45,8 @@
       "Bash(npx shadcn@latest add:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(git fetch:*)"
     ]
   }
 }
