@@ -44,7 +44,8 @@
       "Bash(scripts/test-full-workflow.ps1 << 'EOF'\n# Dropper Full Workflow Test \\(Windows\\)\n\nWrite-Host \"╔═══════════════════════════════════════════════════════════════╗\"\nWrite-Host \"║           Dropper Full Workflow Test                         ║\"\nWrite-Host \"╚═══════════════════════════════════════════════════════════════╝\"\nWrite-Host \"\"\nWrite-Host \"This test will:\"\nWrite-Host \"  1. Generate a test project using Dropper\"\nWrite-Host \"  2. Build the project with Gradle\"\nWrite-Host \"  3. Verify JAR files are created\"\nWrite-Host \"\"\nWrite-Host \"⚠️  This test takes 5-10 minutes as Gradle downloads dependencies\"\nWrite-Host \"\"\n\n# Run the full workflow test\n$env:RUN_FULL_BUILD = \"true\"\n.\\\\gradlew :src:cli:test --tests \"*.FullWorkflowTest.full workflow*\"\n\nWrite-Host \"\"\nWrite-Host \"✓ Full workflow test completed successfully!\"\nEOF)",
       "Bash(npx shadcn@latest add:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
