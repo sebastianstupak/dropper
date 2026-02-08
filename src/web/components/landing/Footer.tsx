@@ -1,4 +1,5 @@
 import { siteConfig } from "@/lib/site-config"
+import { getAssetPath } from "@/lib/get-asset-path"
 import Image from "next/image"
 
 export function Footer() {
@@ -19,7 +20,7 @@ export function Footer() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-minecraft-stone pixel-border flex items-center justify-center overflow-hidden">
               <Image
-                src="/minecraft/dropper.png"
+                src={getAssetPath("/minecraft/dropper.png")}
                 alt="Dropper"
                 width={40}
                 height={40}

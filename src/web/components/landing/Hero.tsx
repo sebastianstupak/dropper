@@ -1,6 +1,7 @@
 import { BlockButton } from "@/components/minecraft/BlockButton"
 import { InstallTabs } from "@/components/minecraft/InstallTabs"
 import { siteConfig } from "@/lib/site-config"
+import { getAssetPath } from "@/lib/get-asset-path"
 import Image from "next/image"
 
 export function Hero() {
@@ -33,7 +34,7 @@ export function Hero() {
             <div className="inline-block">
               <div className="w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-6 pixel-border animate-float relative bg-minecraft-stone">
                 <Image
-                  src="/minecraft/dropper.png"
+                  src={getAssetPath("/minecraft/dropper.png")}
                   alt="Dropper Block"
                   width={128}
                   height={128}
@@ -67,7 +68,7 @@ export function Hero() {
               <BlockButton variant="stone" href={siteConfig.github.repo}>
                 <span className="flex items-center gap-2">
                   <Image
-                    src="/minecraft/nether-star.webp"
+                    src={getAssetPath("/minecraft/nether-star.webp")}
                     alt="Star"
                     width={24}
                     height={24}
