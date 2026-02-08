@@ -1,4 +1,5 @@
 import Image from "next/image"
+import { getAssetPath } from "@/lib/get-asset-path"
 
 interface Feature {
   icon: string
@@ -44,7 +45,7 @@ function FeatureCard({ icon, title, description }: Feature) {
     <div className="minecraft-panel p-6 hover:brightness-105 transition-all duration-200 group">
       <div className="w-16 h-16 mb-4 group-hover:scale-110 transition-transform duration-200 mx-auto">
         <Image
-          src={icon}
+          src={getAssetPath(icon)}
           alt={title}
           width={64}
           height={64}
