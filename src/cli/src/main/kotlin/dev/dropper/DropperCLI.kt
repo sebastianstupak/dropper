@@ -4,12 +4,18 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.commands.AddAssetPackCommand
+import dev.dropper.commands.AddVersionCommand
 import dev.dropper.commands.BuildCommand
 import dev.dropper.commands.CreateCommand
 import dev.dropper.commands.CreateItemCommand
 import dev.dropper.commands.CreateBlockCommand
-import dev.dropper.commands.GenerateCommand
+import dev.dropper.commands.CreateRecipeCommand
+import dev.dropper.commands.CreateTagCommand
+import dev.dropper.commands.DevCommand
+import dev.dropper.commands.DocsCommand
 import dev.dropper.commands.InitCommand
+import dev.dropper.commands.dev.*
 
 /**
  * Main CLI class for Dropper - Multi-loader Minecraft mod development tool
@@ -40,9 +46,20 @@ fun main(args: Array<String>) = DropperCLI()
         InitCommand(),
         CreateCommand().subcommands(
             CreateItemCommand(),
-            CreateBlockCommand()
+            CreateBlockCommand(),
+            CreateRecipeCommand(),
+            CreateTagCommand(),
+            AddVersionCommand(),
+            AddAssetPackCommand()
         ),
         BuildCommand(),
-        GenerateCommand()
+        DevCommand().subcommands(
+            DevRunCommand(),
+            DevClientCommand(),
+            DevServerCommand(),
+            DevTestCommand(),
+            DevReloadCommand()
+        ),
+        DocsCommand()
     )
     .main(args)

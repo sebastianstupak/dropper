@@ -38,8 +38,13 @@ class CreateItemCommand : CliktCommand(
 
         Logger.info("Creating item: $name")
 
-        // Generate item registration code
+        // Generate common item code (shared across all loaders)
         generateItemRegistration(projectDir, name, modId, type)
+
+        // Generate loader-specific registration
+        generateFabricRegistration(projectDir, name, modId)
+        generateForgeRegistration(projectDir, name, modId)
+        generateNeoForgeRegistration(projectDir, name, modId)
 
         // Generate assets
         generateItemAssets(projectDir, name, modId)
@@ -53,7 +58,7 @@ class CreateItemCommand : CliktCommand(
         Logger.info("Next steps:")
         Logger.info("  1. Add texture: versions/shared/v1/assets/$modId/textures/item/$name.png")
         Logger.info("  2. Customize recipe: versions/shared/v1/data/$modId/recipe/$name.json")
-        Logger.info("  3. Register in ModItems class initialization")
+        Logger.info("  3. Build with: dropper build")
     }
 
     private fun extractModId(configFile: File): String? {
@@ -66,9 +71,9 @@ class CreateItemCommand : CliktCommand(
         val packageName = "com.$modId.items"
 
         val content = when (type) {
-            "tool" -> generateToolItem(className, itemName)
-            "food" -> generateFoodItem(className, itemName)
-            else -> generateBasicItem(className, itemName)
+            "tool" -> generateToolItem(className, itemName, modId)
+            "food" -> generateFoodItem(className, itemName, modId)
+            else -> generateBasicItem(className, itemName, modId)
         }
 
         val itemFile = File(projectDir, "shared/common/src/main/java/com/$modId/items/$className.java")
@@ -77,7 +82,7 @@ class CreateItemCommand : CliktCommand(
         Logger.info("  ✓ Created registration: shared/common/src/main/java/com/$modId/items/$className.java")
     }
 
-    private fun generateBasicItem(className: String, itemName: String): String {
+    private fun generateBasicItem(className: String, itemName: String, modId: String): String {
         return """
             package com.$modId.items;
 
@@ -112,7 +117,7 @@ class CreateItemCommand : CliktCommand(
         """.trimIndent()
     }
 
-    private fun generateToolItem(className: String, itemName: String): String {
+    private fun generateToolItem(className: String, itemName: String, modId: String): String {
         return """
             package com.$modId.items;
 
@@ -138,7 +143,7 @@ class CreateItemCommand : CliktCommand(
         """.trimIndent()
     }
 
-    private fun generateFoodItem(className: String, itemName: String): String {
+    private fun generateFoodItem(className: String, itemName: String, modId: String): String {
         return """
             package com.$modId.items;
 
@@ -210,6 +215,98 @@ class CreateItemCommand : CliktCommand(
         FileUtil.writeText(recipeFile, recipeContent)
 
         Logger.info("  ✓ Created recipe: versions/shared/v1/data/$modId/recipe/$itemName.json")
+    }
+
+    private fun generateFabricRegistration(projectDir: File, itemName: String, modId: String) {
+        val className = toClassName(itemName)
+        val content = """
+            package com.$modId.platform.fabric;
+
+            import com.$modId.items.$className;
+            import net.minecraft.item.Item;
+            import net.minecraft.registry.Registries;
+            import net.minecraft.registry.Registry;
+            import net.minecraft.util.Identifier;
+
+            /**
+             * Fabric-specific item registration for $className
+             */
+            public class ${className}Fabric {
+                public static void register() {
+                    // Example Fabric registration:
+                    // Registry.register(
+                    //     Registries.ITEM,
+                    //     Identifier.of("$modId", $className.ID),
+                    //     $className.INSTANCE
+                    // );
+                }
+            }
+        """.trimIndent()
+
+        val file = File(projectDir, "shared/fabric/src/main/java/com/$modId/platform/fabric/${className}Fabric.java")
+        FileUtil.writeText(file, content)
+
+        Logger.info("  ✓ Created Fabric registration: shared/fabric/src/main/java/com/$modId/platform/fabric/${className}Fabric.java")
+    }
+
+    private fun generateForgeRegistration(projectDir: File, itemName: String, modId: String) {
+        val className = toClassName(itemName)
+        val content = """
+            package com.$modId.platform.forge;
+
+            import com.$modId.items.$className;
+            import net.minecraft.world.item.Item;
+            import net.minecraftforge.registries.DeferredRegister;
+            import net.minecraftforge.registries.ForgeRegistries;
+            import net.minecraftforge.registries.RegistryObject;
+
+            /**
+             * Forge-specific item registration for $className
+             */
+            public class ${className}Forge {
+                // Example Forge registration:
+                // public static final DeferredRegister<Item> ITEMS =
+                //     DeferredRegister.create(ForgeRegistries.ITEMS, "$modId");
+                //
+                // public static final RegistryObject<Item> ${itemName.uppercase()} =
+                //     ITEMS.register($className.ID, () -> $className.INSTANCE);
+            }
+        """.trimIndent()
+
+        val file = File(projectDir, "shared/forge/src/main/java/com/$modId/platform/forge/${className}Forge.java")
+        FileUtil.writeText(file, content)
+
+        Logger.info("  ✓ Created Forge registration: shared/forge/src/main/java/com/$modId/platform/forge/${className}Forge.java")
+    }
+
+    private fun generateNeoForgeRegistration(projectDir: File, itemName: String, modId: String) {
+        val className = toClassName(itemName)
+        val content = """
+            package com.$modId.platform.neoforge;
+
+            import com.$modId.items.$className;
+            import net.minecraft.core.registries.Registries;
+            import net.minecraft.world.item.Item;
+            import net.neoforged.neoforge.registries.DeferredRegister;
+            import net.neoforged.neoforge.registries.DeferredItem;
+
+            /**
+             * NeoForge-specific item registration for $className
+             */
+            public class ${className}NeoForge {
+                // Example NeoForge registration:
+                // public static final DeferredRegister.Items ITEMS =
+                //     DeferredRegister.createItems("$modId");
+                //
+                // public static final DeferredItem<Item> ${itemName.uppercase()} =
+                //     ITEMS.register($className.ID, () -> $className.INSTANCE);
+            }
+        """.trimIndent()
+
+        val file = File(projectDir, "shared/neoforge/src/main/java/com/$modId/platform/neoforge/${className}NeoForge.java")
+        FileUtil.writeText(file, content)
+
+        Logger.info("  ✓ Created NeoForge registration: shared/neoforge/src/main/java/com/$modId/platform/neoforge/${className}NeoForge.java")
     }
 
     private fun toClassName(snakeCase: String): String {

@@ -100,86 +100,100 @@ class ProjectGenerator(
 
         // .gitignore
         FileUtil.writeText(File(projectDir, ".gitignore"), """
+            # Gradle
             .gradle/
             build/
             build-temp/
+
+            # IDE
             .idea/
             *.iml
             *.ipr
             *.iws
             out/
+
+            # OS
             .DS_Store
+
+            # Note: buildSrc/ is NOT ignored - it contains build logic and should be committed
         """.trimIndent())
     }
 
     private fun copyBuildLogic(projectDir: File) {
-        val buildLogicTarget = File(projectDir, "build-logic")
-        buildLogicTarget.mkdirs()
+        val buildSrcTarget = File(projectDir, "buildSrc")
+        buildSrcTarget.mkdirs()
 
-        // Copy build-logic from embedded resources
-        val resourceRoot = javaClass.getResource("/build-logic")
+        // Copy buildSrc from embedded resources
+        val resourceRoot = javaClass.getResource("/buildSrc")
         if (resourceRoot != null) {
             // When running from JAR/resources
-            copyBuildLogicFromResources(buildLogicTarget)
+            copyBuildSrcFromResources(buildSrcTarget)
         } else {
-            Logger.warn("build-logic resources not found, skipping")
+            Logger.warn("buildSrc resources not found, skipping")
         }
     }
 
-    private fun copyBuildLogicFromResources(target: File) {
-        // List of files to copy from build-logic
-        val files = mapOf(
-            "settings.gradle.kts" to """
-                dependencyResolutionManagement {
-                    repositories {
-                        gradlePluginPortal()
-                        mavenCentral()
-                    }
-                }
+    private fun copyBuildSrcFromResources(target: File) {
+        // Create build.gradle.kts for buildSrc
+        val buildGradleContent = """
+            plugins {
+                `kotlin-dsl`
+            }
 
-                rootProject.name = "build-logic"
-            """.trimIndent(),
-            "build.gradle.kts" to """
-                plugins {
-                    `kotlin-dsl`
-                }
+            repositories {
+                gradlePluginPortal()
+                mavenCentral()
+                maven("https://maven.fabricmc.net/") { name = "Fabric" }
+                maven("https://maven.neoforged.net/releases/") { name = "NeoForged" }
+                maven("https://maven.minecraftforge.net/") { name = "MinecraftForge" }
+            }
 
-                repositories {
-                    gradlePluginPortal()
-                    mavenCentral()
-                    maven("https://maven.fabricmc.net/")
-                    maven("https://maven.neoforged.net/releases/")
-                    maven("https://maven.minecraftforge.net/")
-                }
+            dependencies {
+                // YAML and JSON parsing
+                implementation("org.yaml:snakeyaml:2.2")
+                implementation("com.fasterxml.jackson.core:jackson-databind:2.16.0")
 
-                dependencies {
-                    implementation("org.yaml:snakeyaml:2.2")
-                    implementation("com.fasterxml.jackson.core:jackson-databind:2.16.0")
-                }
-            """.trimIndent()
-        )
+                // Mod loader Gradle plugins
+                // Fabric Loom - support for MC 1.20.x and 1.21.x
+                implementation("net.fabricmc:fabric-loom:1.6-SNAPSHOT")
 
-        files.forEach { (filename, content) ->
-            FileUtil.writeText(File(target, filename), content)
-        }
+                // ForgeGradle 6.x - compatible with Gradle 8.6+
+                implementation("net.minecraftforge.gradle:ForgeGradle:6.0.+")
 
-        // Create minimal build-logic structure
+                // Note: NeoGradle requires Gradle 9.1+ for newer versions
+                // Users can add manually if needed
+            }
+        """.trimIndent()
+
+        FileUtil.writeText(File(target, "build.gradle.kts"), buildGradleContent)
+
+        // Create src/main/kotlin structure
         val srcDir = File(target, "src/main/kotlin")
         srcDir.mkdirs()
 
-        // Copy actual build-logic files if they exist in resources
-        copyResourceFile("/build-logic/src/main/kotlin/config/ConfigModels.kt",
+        // Create plugin descriptor directory
+        val pluginDescriptorDir = File(target, "src/main/resources/META-INF/gradle-plugins")
+        pluginDescriptorDir.mkdirs()
+
+        // Create plugin properties file
+        FileUtil.writeText(
+            File(pluginDescriptorDir, "ModLoaderPlugin.properties"),
+            "implementation-class=ModLoaderPlugin\n"
+        )
+
+        // Copy support files
+        copyResourceFile("/buildSrc/src/main/kotlin/config/ConfigModels.kt",
             File(srcDir, "config/ConfigModels.kt"))
-        copyResourceFile("/build-logic/src/main/kotlin/config/ConfigLoader.kt",
+        copyResourceFile("/buildSrc/src/main/kotlin/config/ConfigLoader.kt",
             File(srcDir, "config/ConfigLoader.kt"))
-        copyResourceFile("/build-logic/src/main/kotlin/tasks/GenerateMetadataTask.kt",
+        copyResourceFile("/buildSrc/src/main/kotlin/utils/AssetPackResolver.kt",
+            File(srcDir, "utils/AssetPackResolver.kt"))
+        copyResourceFile("/buildSrc/src/main/kotlin/tasks/GenerateMetadataTask.kt",
             File(srcDir, "tasks/GenerateMetadataTask.kt"))
-        copyResourceFile("/build-logic/src/main/kotlin/tasks/AssemblePackagesTask.kt",
+        copyResourceFile("/buildSrc/src/main/kotlin/tasks/AssemblePackagesTask.kt",
             File(srcDir, "tasks/AssemblePackagesTask.kt"))
-        copyResourceFile("/build-logic/src/main/kotlin/mod.common.gradle.kts",
-            File(srcDir, "mod.common.gradle.kts"))
-        copyResourceFile("/build-logic/src/main/kotlin/mod.loader.gradle.kts",
-            File(srcDir, "mod.loader.gradle.kts"))
+        copyResourceFile("/buildSrc/src/main/kotlin/ModLoaderPlugin.kt",
+            File(srcDir, "ModLoaderPlugin.kt"))
     }
 
     private fun copyResourceFile(resourcePath: String, targetFile: File) {
@@ -285,6 +299,14 @@ class ProjectGenerator(
         mcVersion: String,
         config: ModConfig
     ) {
+        // Determine appropriate Fabric API version based on MC version
+        val fabricApiVersion = when {
+            mcVersion.startsWith("1.20.1") -> "0.92.0+1.20.1"
+            mcVersion.startsWith("1.20.4") -> "0.96.0+1.20.4"
+            mcVersion.startsWith("1.21") -> "0.100.0+1.21"
+            else -> ""  // Unknown - user must specify manually
+        }
+
         val versionConfig = """
             minecraft_version: "$mcVersion"
             asset_pack: "v1"
@@ -293,7 +315,7 @@ class ProjectGenerator(
             neoforge_version: "21.1.0"
             forge_version: "51.0.0"
             fabric_loader_version: "0.16.9"
-            fabric_api_version: "0.100.0"
+            ${if (fabricApiVersion.isNotEmpty()) "fabric_api_version: \"$fabricApiVersion\"" else "# fabric_api_version: \"\" # Specify Fabric API version for this MC version"}
         """.trimIndent()
 
         val versionPath = File(projectDir, "versions/$versionDir")

@@ -1,6 +1,0 @@
-Place your texture files (PNG) here.
-
-Example:
-  example_item.png - 16x16 texture for the example item
-
-This directory structure will be merged with version-specific assets during build.

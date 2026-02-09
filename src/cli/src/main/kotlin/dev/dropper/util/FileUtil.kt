@@ -63,4 +63,11 @@ object FileUtil {
         val target = targetPath.canonicalPath
         return target.startsWith(base)
     }
+
+    /**
+     * Read text from file
+     */
+    fun readText(file: File): String {
+        return file.readText()
+    }
 }

@@ -1,0 +1,7 @@
+minecraft_version: "1.16.5"
+asset_pack: "v1"
+loaders: [fabric, forge]
+java_version: 16
+forge_version: "36.2.42"
+fabric_loader_version: "0.16.9"
+fabric_api_version: "0.42.0+1.16"

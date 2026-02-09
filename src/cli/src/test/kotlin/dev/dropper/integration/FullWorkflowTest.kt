@@ -1,5 +1,7 @@
 package dev.dropper.integration
 
+import dev.dropper.config.ModConfig
+import dev.dropper.generator.ProjectGenerator
 import dev.dropper.util.FileUtil
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -129,7 +131,7 @@ class FullWorkflowTest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        val generator = dev.dropper.generator.ProjectGenerator()
+        val generator = ProjectGenerator()
         generator.generate(projectDir, config)
 
         assertTrue(projectDir.exists(), "Project directory should exist")

@@ -16,6 +16,11 @@ class CreateCommand : CliktCommand(
 fun main(args: Array<String>) = CreateCommand()
     .subcommands(
         CreateItemCommand(),
-        CreateBlockCommand()
+        CreateBlockCommand(),
+        CreateEntityCommand(),
+        CreateBiomeCommand(),
+        CreateEnchantmentCommand(),
+        CreateRecipeCommand(),
+        CreateTagCommand()
     )
     .main(args)

@@ -1,0 +1,16 @@
+# Gradle
+.gradle/
+build/
+build-temp/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# OS
+.DS_Store
+
+# Note: buildSrc/ is NOT ignored - it contains build logic and should be committed

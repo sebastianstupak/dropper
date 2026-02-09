@@ -1,12 +1,6 @@
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        maven("https://maven.fabricmc.net/")
-        maven("https://maven.neoforged.net/releases/")
-        maven("https://maven.minecraftforge.net/")
-    }
-
-    includeBuild("build-logic")
+plugins {
+    // Enable automatic Java toolchain download
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
 }
 
 rootProject.name = "{{modId}}"
@@ -34,7 +28,7 @@ mcVersions.forEach { version ->
         if (!buildFile.exists()) {
             buildFile.writeText("""
                 plugins {
-                    id("mod.loader")
+                    id("ModLoaderPlugin")
                 }
             """.trimIndent())
         }

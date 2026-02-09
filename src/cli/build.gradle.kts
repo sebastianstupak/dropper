@@ -31,6 +31,7 @@ dependencies {
     // Testing
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
     testImplementation("io.kotest:kotest-assertions-core:5.8.0")
+    testImplementation("com.google.code.gson:gson:2.10.1")
     testImplementation(kotlin("test"))
 }
 

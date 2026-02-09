@@ -39,7 +39,9 @@ This project uses a **layered architecture** where code and assets are organized
 │       ├── fabric/               # Fabric-specific
 │       └── forge/                # Forge-specific
 │   {{/minecraftVersions}}
-├── build-logic/                  # Convention plugins (Gradle best practice)
+├── buildSrc/                     # Build logic (custom Gradle plugin)
+│   ├── build.gradle.kts          # Build configuration for buildSrc
+│   └── src/main/kotlin/          # ModLoaderPlugin and build tasks
 └── build/                        # Generated JARs
 
 ```
@@ -80,10 +82,16 @@ For a specific version-loader (e.g., `1_20_1-neoforge`), sources are layered:
    - Only specific version? → `versions/1_20_1/common/`
    - Only specific loader? → `versions/1_20_1/neoforge/`
 
-2. **Use Dropper to generate code**:
+2. **Use Dropper CLI to generate code**:
    ```bash
-   dropper generate item ruby_sword
-   dropper generate block glass_block
+   # Create items
+   dropper create item ruby_sword --type tool
+   dropper create item ruby --type basic
+   dropper create item ruby_apple --type food
+
+   # Create blocks
+   dropper create block ruby_ore --type ore
+   dropper create block ruby_block --type basic
    ```
 
 ### Platform Abstraction Pattern
@@ -110,17 +118,33 @@ Services.PLATFORM.getPlatformName();
 ## Build Commands
 
 ```bash
-# Build everything
-./gradlew build
+# Build everything using Dropper CLI
+dropper build --all
 
-# Build specific version-loader
-./gradlew :1_20_1-neoforge:build
+# Build specific version
+dropper build --version 1.20.1
+
+# Build specific loader
+dropper build --loader fabric
+
+# Build specific version-loader combination
+dropper build --version 1.20.1 --loader fabric
 
 # Clean build
-./gradlew clean build
+dropper build --all --clean
 ```
 
 Output JARs: `build/<version>/<loader>.jar`
+
+## Version Management
+
+```bash
+# Add new Minecraft version
+dropper create version 1.21.1 --loaders fabric,neoforge
+
+# Create new asset pack
+dropper create asset-pack v2 --inherits v1 --mc-versions "1.21.1"
+```
 
 ## Mod Loader Documentation
 

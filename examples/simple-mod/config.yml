@@ -1,0 +1,7 @@
+mod:
+  id: simplemod
+  name: "Simple Mod"
+  version: "1.0.0"
+  description: "A simple multi-loader mod"
+  author: "Test Author"
+  license: "MIT"

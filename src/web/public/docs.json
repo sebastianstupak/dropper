@@ -1,0 +1,199 @@
+{
+  "version": "1.0.0",
+  "commands": [
+    {
+      "name": "init",
+      "description": "Initialize a new multi-loader Minecraft mod project",
+      "usage": "dropper init <PROJECT_NAME>",
+      "arguments": [
+        {"name": "PROJECT_NAME", "description": "Name of the project directory to create", "required": true}
+      ],
+      "options": [
+        {"name": "--name", "description": "Mod display name", "required": false},
+        {"name": "--id", "description": "Mod ID (lowercase, no spaces)", "required": false},
+        {"name": "--author", "description": "Mod author", "required": false},
+        {"name": "--description", "description": "Mod description", "required": false},
+        {"name": "--license", "description": "License (default: MIT)", "required": false},
+        {"name": "--versions", "description": "Minecraft versions (comma-separated)", "required": false},
+        {"name": "--loaders", "description": "Mod loaders (default: fabric,forge,neoforge)", "required": false}
+      ],
+      "examples": []
+    },
+    {
+      "name": "create",
+      "description": "Create new mod components (items, blocks, etc.)",
+      "usage": "dropper create <TYPE> <NAME>",
+      "arguments": [],
+      "options": [],
+      "examples": [],
+      "subcommands": [
+        {
+          "name": "item",
+          "description": "Create a new item with registration code and assets",
+          "usage": "dropper create item <NAME>",
+          "arguments": [
+            {"name": "NAME", "description": "Item name in snake_case (e.g., ruby_sword)", "required": true}
+          ],
+          "options": [
+            {"name": "--type, -t", "description": "Item type: basic, tool, food (default: basic)", "required": false},
+            {"name": "--recipe, -r", "description": "Generate recipe (default: true)", "required": false}
+          ],
+          "examples": []
+        },
+        {
+          "name": "block",
+          "description": "Create a new block with registration code and assets",
+          "usage": "dropper create block <NAME>",
+          "arguments": [
+            {"name": "NAME", "description": "Block name in snake_case (e.g., custom_ore)", "required": true}
+          ],
+          "options": [
+            {"name": "--type, -t", "description": "Block type: basic, ore, pillar, slab, stairs, fence, wall, door, trapdoor, button, pressure_plate, crop", "required": false},
+            {"name": "--drops-self, -d", "description": "Block drops itself (default: true)", "required": false},
+            {"name": "--max-age", "description": "Max age for crops (default: 7)", "required": false}
+          ],
+          "examples": []
+        },
+        {
+          "name": "entity",
+          "description": "Create a new entity with registration code, renderer, and assets",
+          "usage": "dropper create entity <NAME>",
+          "arguments": [
+            {"name": "NAME", "description": "Entity name in snake_case (e.g., custom_zombie)", "required": true}
+          ],
+          "options": [
+            {"name": "--type, -t", "description": "Entity type: mob, projectile, animal, monster, villager (default: mob)", "required": false},
+            {"name": "--spawn-egg, -s", "description": "Generate spawn egg item (default: true)", "required": false}
+          ],
+          "examples": [
+            "dropper create entity friendly_slime --type animal",
+            "dropper create entity fire_demon --type monster",
+            "dropper create entity magic_bolt --type projectile --spawn-egg false",
+            "dropper create entity custom_villager --type villager"
+          ]
+        },
+        {
+          "name": "biome",
+          "description": "Create a new biome with worldgen JSON configuration",
+          "usage": "dropper create biome <NAME>",
+          "arguments": [
+            {"name": "NAME", "description": "Biome name in snake_case (e.g., crystal_plains)", "required": true}
+          ],
+          "options": [
+            {"name": "--temperature", "description": "Temperature value between -2.0 and 2.0 (default: 0.8)", "required": false},
+            {"name": "--downfall", "description": "Downfall/humidity value between 0.0 and 1.0 (default: 0.4)", "required": false},
+            {"name": "--category", "description": "Biome category: plains, forest, desert, savanna, taiga, jungle, ocean, river, swamp, mountain, nether, the_end, beach, mesa, mushroom_fields, ice (default: plains)", "required": false},
+            {"name": "--precipitation", "description": "Precipitation type: rain, snow, none (default: rain)", "required": false}
+          ],
+          "examples": [
+            "dropper create biome crystal_plains",
+            "dropper create biome frozen_tundra --temperature -0.5 --precipitation snow --category ice",
+            "dropper create biome hot_desert --temperature 2.0 --downfall 0.0 --precipitation none --category desert",
+            "dropper create biome tropical_jungle --temperature 0.95 --downfall 0.9 --category jungle",
+            "dropper create biome crimson_wastes --category nether"
+          ]
+        },
+        {
+          "name": "enchantment",
+          "description": "Create a new enchantment with registration code and lang entries",
+          "usage": "dropper create enchantment <NAME>",
+          "arguments": [
+            {"name": "NAME", "description": "Enchantment name in snake_case (e.g., fire_aspect)", "required": true}
+          ],
+          "options": [
+            {"name": "--max-level", "description": "Maximum enchantment level (default: 1)", "required": false},
+            {"name": "--rarity", "description": "Enchantment rarity: common, uncommon, rare, very_rare (default: common)", "required": false},
+            {"name": "--category", "description": "Enchantment category: armor, armor_feet, armor_legs, armor_chest, armor_head, weapon, digger, fishing_rod, trident, breakable, bow, wearable, crossbow, vanishable (default: breakable)", "required": false},
+            {"name": "--treasure", "description": "Treasure-only enchantment (not available in enchanting table)", "required": false}
+          ],
+          "examples": [
+            "dropper create enchantment fire_aspect --max-level 2 --category weapon",
+            "dropper create enchantment soul_speed --max-level 3 --rarity very_rare --category armor_feet --treasure",
+            "dropper create enchantment sharpness --max-level 5 --rarity common --category weapon",
+            "dropper create enchantment efficiency --max-level 5 --category digger"
+          ]
+        },
+        {
+          "name": "recipe",
+          "description": "Create a new recipe JSON file",
+          "usage": "dropper create recipe <NAME>",
+          "arguments": [
+            {"name": "NAME", "description": "Recipe name in snake_case (e.g., iron_sword)", "required": true}
+          ],
+          "options": [
+            {"name": "--type, -t", "description": "Recipe type: crafting, smelting, blasting, smoking, stonecutting, smithing (default: crafting)", "required": false},
+            {"name": "--shaped", "description": "Use shaped crafting (default: true, only for crafting type)", "required": false},
+            {"name": "--shapeless", "description": "Use shapeless crafting (only for crafting type)", "required": false},
+            {"name": "--experience, -e", "description": "Experience reward for smelting types (default: 0.1)", "required": false},
+            {"name": "--cooking-time, -c", "description": "Cooking time in ticks for smelting types (default: 200)", "required": false}
+          ],
+          "examples": [
+            "dropper create recipe iron_sword --type crafting --shaped",
+            "dropper create recipe gold_nugget --type crafting --shapeless",
+            "dropper create recipe iron_ingot --type smelting --experience 0.7 --cooking-time 200",
+            "dropper create recipe cooked_beef --type smoking",
+            "dropper create recipe stone_slab --type stonecutting",
+            "dropper create recipe netherite_sword --type smithing"
+          ]
+        },
+        {
+          "name": "tag",
+          "description": "Create a new tag with JSON definition",
+          "usage": "dropper create tag <NAME>",
+          "arguments": [
+            {"name": "NAME", "description": "Tag name (e.g., mineable/pickaxe, ores/iron, custom_tag)", "required": true}
+          ],
+          "options": [
+            {"name": "--type, -t", "description": "Tag type: block, item, entity_type, fluid (required)", "required": true},
+            {"name": "--values, -v", "description": "Comma-separated list of resource locations to include (supports # prefix for tag references)", "required": false},
+            {"name": "--replace, -r", "description": "Replace existing tags (default: false)", "required": false}
+          ],
+          "examples": [
+            "dropper create tag mineable/pickaxe --type block --values testmod:custom_ore,testmod:hard_block",
+            "dropper create tag forge:ores/ruby --type block --values testmod:ruby_ore,testmod:deepslate_ruby_ore",
+            "dropper create tag all_ores --type block --values \"#forge:ores/iron,#forge:ores/gold,testmod:custom_ore\"",
+            "dropper create tag custom_items --type item --values testmod:item_one,testmod:item_two",
+            "dropper create tag minecraft:logs --type block --values testmod:custom_log --replace"
+          ]
+        },
+        {
+          "name": "version",
+          "description": "Add support for a new Minecraft version",
+          "usage": "dropper create version <VERSION>",
+          "arguments": [
+            {"name": "VERSION", "description": "Minecraft version (e.g., 1.20.1)", "required": true}
+          ],
+          "options": [
+            {"name": "--loaders", "description": "Mod loaders to support (default: fabric,forge,neoforge)", "required": false},
+            {"name": "--asset-pack", "description": "Asset pack to use", "required": false}
+          ],
+          "examples": []
+        },
+        {
+          "name": "asset-pack",
+          "description": "Create a new shared asset pack for multiple versions",
+          "usage": "dropper create asset-pack <NAME>",
+          "arguments": [
+            {"name": "NAME", "description": "Asset pack name (e.g., v1, v2)", "required": true}
+          ],
+          "options": [
+            {"name": "--inherits", "description": "Parent asset pack to inherit from", "required": false}
+          ],
+          "examples": []
+        }
+      ]
+    },
+    {
+      "name": "build",
+      "description": "Build your mod for all configured loaders and versions",
+      "usage": "dropper build [OPTIONS]",
+      "arguments": [],
+      "options": [
+        {"name": "--version", "description": "Build for specific Minecraft version", "required": false},
+        {"name": "--loader", "description": "Build for specific loader (fabric, forge, neoforge)", "required": false},
+        {"name": "--all", "description": "Build for all versions and loaders (default)", "required": false}
+      ],
+      "examples": []
+    }
+  ]
+}
