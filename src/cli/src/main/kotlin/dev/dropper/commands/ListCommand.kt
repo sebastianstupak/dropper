@@ -76,15 +76,16 @@ class ListCommand : CliktCommand(
     }
 }
 
-fun main(args: Array<String>) = ListCommand()
-    .subcommands(
-        ListItemsCommand(),
-        ListBlocksCommand(),
-        ListEntitiesCommand(),
-        ListRecipesCommand(),
-        ListEnchantmentsCommand(),
-        ListBiomesCommand(),
-        ListTagsCommand(),
-        ListAllCommand()
-    )
-    .main(args)
+// Standalone main function for testing (commented out to avoid conflicts)
+// fun main(args: Array<String>) = ListCommand()
+//     .subcommands(
+//         ListItemsCommand(),
+//         ListBlocksCommand(),
+//         ListEntitiesCommand(),
+//         ListRecipesCommand(),
+//         ListEnchantmentsCommand(),
+//         ListBiomesCommand(),
+//         ListTagsCommand(),
+//         ListAllCommand()
+//     )
+//     .main(args)

@@ -16,8 +16,15 @@ import dev.dropper.commands.DevCommand
 import dev.dropper.commands.DocsCommand
 import dev.dropper.commands.InitCommand
 import dev.dropper.commands.ListCommand
+import dev.dropper.commands.createMigrateCommand
+import dev.dropper.commands.createPublishCommand
+import dev.dropper.commands.ImportCommand
+import dev.dropper.commands.UpdateCommand
 import dev.dropper.commands.dev.*
+import dev.dropper.commands.import_.*
 import dev.dropper.commands.list.*
+import dev.dropper.commands.publish.*
+import dev.dropper.commands.update.*
 
 /**
  * Main CLI class for Dropper - Multi-loader Minecraft mod development tool
@@ -63,6 +70,21 @@ fun main(args: Array<String>) = DropperCLI()
             ListBiomesCommand(),
             ListTagsCommand(),
             ListAllCommand()
+        ),
+        createMigrateCommand(),
+        createPublishCommand(),
+        ImportCommand().subcommands(
+            ImportFabricCommand(),
+            ImportForgeCommand(),
+            ImportNeoForgeCommand(),
+            ImportConvertCommand()
+        ),
+        UpdateCommand().subcommands(
+            UpdateCheckCommand(),
+            UpdateMinecraftCommand(),
+            UpdateLoadersCommand(),
+            UpdateDependenciesCommand(),
+            UpdateApplyCommand()
         ),
         BuildCommand(),
         DevCommand().subcommands(

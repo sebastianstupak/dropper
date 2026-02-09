@@ -1,0 +1,58 @@
+# Dropper Publish Configuration
+# Copy this file to your project at: .dropper/publish-config.yml
+# Set your API tokens as environment variables for security
+
+# Modrinth Configuration
+# https://modrinth.com/dashboard
+modrinth:
+  projectId: "your-project-id"          # e.g., "abc123xyz"
+  apiToken: "${MODRINTH_TOKEN}"         # Environment variable
+
+# CurseForge Configuration
+# https://authors.curseforge.com/
+curseforge:
+  projectId: 123456                     # Numeric project ID
+  apiToken: "${CURSEFORGE_TOKEN}"       # Environment variable
+
+# GitHub Configuration
+# https://github.com/settings/tokens
+github:
+  repository: "owner/repo"              # e.g., "minecraft/dropper"
+  apiToken: "${GITHUB_TOKEN}"           # Environment variable
+
+# Default Settings
+defaults:
+  releaseType: "release"                # release, beta, or alpha
+  autoChangelog: true                   # Generate from git commits
+  gitTag: true                          # Create git tag for releases
+
+# Usage Examples:
+
+# Publish to all platforms:
+# dropper publish all --auto-changelog
+
+# Publish to specific platform:
+# dropper publish modrinth --version 1.2.0
+
+# Dry run (preview without publishing):
+# dropper publish all --dry-run
+
+# Custom version and settings:
+# dropper publish all \
+#   --version 2.0.0-beta.1 \
+#   --game-versions "1.20.1,1.21" \
+#   --loaders "fabric,forge,neoforge" \
+#   --release-type beta
+
+# Continue on error (publish to all even if one fails):
+# dropper publish all --continue-on-error
+
+# Set environment variables (Linux/macOS):
+# export MODRINTH_TOKEN="your-token-here"
+# export CURSEFORGE_TOKEN="your-token-here"
+# export GITHUB_TOKEN="your-token-here"
+
+# Set environment variables (Windows PowerShell):
+# $env:MODRINTH_TOKEN="your-token-here"
+# $env:CURSEFORGE_TOKEN="your-token-here"
+# $env:GITHUB_TOKEN="your-token-here"

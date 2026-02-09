@@ -1,8 +1,11 @@
 package dev.dropper.config
 
+import kotlinx.serialization.Serializable
+
 /**
  * Configuration for a mod project
  */
+@Serializable
 data class ModConfig(
     val id: String,
     val name: String,

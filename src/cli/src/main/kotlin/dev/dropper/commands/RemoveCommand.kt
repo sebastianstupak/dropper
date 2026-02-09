@@ -13,14 +13,15 @@ class RemoveCommand : CliktCommand(
     override fun run() = Unit
 }
 
-fun main(args: Array<String>) = RemoveCommand()
-    .subcommands(
-        RemoveItemCommand(),
-        RemoveBlockCommand(),
-        RemoveEntityCommand(),
-        RemoveRecipeCommand(),
-        RemoveEnchantmentCommand(),
-        RemoveBiomeCommand(),
-        RemoveTagCommand()
-    )
-    .main(args)
+// Standalone main function for testing (commented out to avoid conflicts)
+// fun main(args: Array<String>) = RemoveCommand()
+//     .subcommands(
+//         RemoveItemCommand(),
+//         RemoveBlockCommand(),
+//         RemoveEntityCommand(),
+//         RemoveRecipeCommand(),
+//         RemoveEnchantmentCommand(),
+//         RemoveBiomeCommand(),
+//         RemoveTagCommand()
+//     )
+//     .main(args)

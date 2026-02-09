@@ -1,0 +1,11 @@
+--- src/cli/src/main/kotlin/dev/dropper/commands/export/ExportResourcepackCommand.kt
++++ src/cli/src/main/kotlin/dev/dropper/commands/export/ExportResourcepackCommand.kt
+@@ -29,7 +29,7 @@ class ExportResourcepackCommand : CliktCommand(
+         Logger.info("Exporting resource pack for version $version...")
+ 
+         val exporter = ResourcepackExporter()
+-        val outputFile = exporter.export(projectDir, version, packFormat ?: 9)
++        val outputFile = exporter.export(projectDir, version, File(output))
+ 
+         if (outputFile != null) {
+             Logger.success("Resource pack exported to: ${outputFile.absolutePath}")

@@ -28,10 +28,15 @@ dependencies {
     // Mustache templates (GraalVM compatible)
     implementation("com.github.spullara.mustache.java:compiler:0.9.11")
 
+    // JSON libraries for indexers, validators, and packagers
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.15.0")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.0")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.0")
+
     // Testing
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
     testImplementation("io.kotest:kotest-assertions-core:5.8.0")
-    testImplementation("com.google.code.gson:gson:2.10.1")
     testImplementation(kotlin("test"))
 }
 

@@ -13,14 +13,15 @@ class CreateCommand : CliktCommand(
     override fun run() = Unit
 }
 
-fun main(args: Array<String>) = CreateCommand()
-    .subcommands(
-        CreateItemCommand(),
-        CreateBlockCommand(),
-        CreateEntityCommand(),
-        CreateBiomeCommand(),
-        CreateEnchantmentCommand(),
-        CreateRecipeCommand(),
-        CreateTagCommand()
-    )
-    .main(args)
+// Standalone main function for testing (commented out to avoid conflicts)
+// fun main(args: Array<String>) = CreateCommand()
+//     .subcommands(
+//         CreateItemCommand(),
+//         CreateBlockCommand(),
+//         CreateEntityCommand(),
+//         CreateBiomeCommand(),
+//         CreateEnchantmentCommand(),
+//         CreateRecipeCommand(),
+//         CreateTagCommand()
+//     )
+//     .main(args)
