@@ -86,27 +86,27 @@ tasks.test {
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:MaxMetaspaceSize=512m",
         "-Dfile.encoding=UTF-8",
-        "-Djava.io.tmpdir=${project.buildDir}/tmp"
+        "-Djava.io.tmpdir=${layout.buildDirectory.get().asFile}/tmp"
     )
 
-    // Exclude integration/e2e tests that cause executor crashes on Windows
-    // These tests modify user.dir and cause file locking issues
-    filter {
-        // Exclude all integration tests
-        excludeTestsMatching("dev.dropper.integration.*")
-        excludeTestsMatching("dev.dropper.commands.*")
+    // Exclude tests based on system property
+    // On Windows, exclude problematic tests. On Linux/Mac, run all tests.
+    val isWindows = System.getProperty("os.name").lowercase().contains("windows")
 
-        // Exclude problematic e2e tests that modify system properties
-        excludeTestsMatching("dev.dropper.e2e.AssetPackE2ETest")
-        excludeTestsMatching("dev.dropper.e2e.ComplexModpackE2ETest")
-        excludeTestsMatching("dev.dropper.e2e.DevCommandE2ETest")
-        excludeTestsMatching("dev.dropper.e2e.FullCLIBuildTest")
-        excludeTestsMatching("dev.dropper.e2e.MinecraftVersionsE2ETest")
-        excludeTestsMatching("dev.dropper.e2e.PackageNameGenerationE2ETest")
-        excludeTestsMatching("dev.dropper.e2e.SimpleModVersionsTest")
-        excludeTestsMatching("dev.dropper.e2e.TemplateValidationE2ETest")
-
-        // Keep: JarOutputE2ETest, JarValidationUtilsTest (these are gated by env var and don't modify user.dir)
+    if (isWindows) {
+        // On Windows, exclude integration/e2e tests that modify user.dir (causes crashes)
+        filter {
+            excludeTestsMatching("dev.dropper.integration.*")
+            excludeTestsMatching("dev.dropper.commands.*")
+            excludeTestsMatching("dev.dropper.e2e.AssetPackE2ETest")
+            excludeTestsMatching("dev.dropper.e2e.ComplexModpackE2ETest")
+            excludeTestsMatching("dev.dropper.e2e.DevCommandE2ETest")
+            excludeTestsMatching("dev.dropper.e2e.FullCLIBuildTest")
+            excludeTestsMatching("dev.dropper.e2e.MinecraftVersionsE2ETest")
+            excludeTestsMatching("dev.dropper.e2e.PackageNameGenerationE2ETest")
+            excludeTestsMatching("dev.dropper.e2e.SimpleModVersionsTest")
+            excludeTestsMatching("dev.dropper.e2e.TemplateValidationE2ETest")
+        }
     }
 
     // Proper test output
@@ -114,6 +114,8 @@ tasks.test {
         events("passed", "skipped", "failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         showStandardStreams = false
+        showExceptions = true
+        showCauses = true
     }
 }
 
