@@ -110,7 +110,7 @@ fun Test.configureTestTask() {
         showExceptions = true
         showCauses = true
         showStackTraces = true  // CRITICAL: Required for exceptionFormat to work
-        displayGranularity = 2
+        displayGranularity = 2  // Show class-level detail
     }
 
     // Generate HTML reports for detailed analysis
