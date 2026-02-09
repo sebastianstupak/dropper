@@ -74,33 +74,53 @@ graalvmNative {
 fun Test.configureTestTask() {
     useJUnitPlatform()
 
+    // Ensure tmp directory exists before tests run
+    doFirst {
+        val tmpDir = layout.buildDirectory.get().asFile.resolve("tmp")
+        tmpDir.mkdirs()
+    }
+
     // Aggressive resource allocation to prevent executor crashes
-    // Don't fork too often - reuse JVM more
-    forkEvery = 10  // Fork every 10 test classes (reuse JVM)
+    // Fork more often to prevent memory accumulation
+    forkEvery = 5  // Reduced from 10 - fork more frequently for stability
     maxParallelForks = 1  // No parallel execution
 
     // Increase heap size significantly - tests need lots of memory for file I/O
-    maxHeapSize = "6g"  // Was 4g, then 2g - try 6g
+    maxHeapSize = "6g"
     minHeapSize = "2g"
 
     // JVM args for stability with more resources
+    val tmpDir = System.getenv("RUNNER_TEMP") ?: layout.buildDirectory.get().asFile.resolve("tmp").absolutePath
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
+        "-XX:HeapDumpPath=${layout.buildDirectory.get().asFile.resolve("heap-dumps")}",
         "-XX:MaxMetaspaceSize=1g",  // More metaspace for many classes
         "-XX:+UseG1GC",  // Better GC for large heaps
         "-XX:MaxGCPauseMillis=100",  // Limit GC pauses
+        "-Xlog:gc*:file=${layout.buildDirectory.get().asFile.resolve("gc.log")}",
         "-Dfile.encoding=UTF-8",
-        "-Djava.io.tmpdir=${layout.buildDirectory.get().asFile}/tmp"
+        "-Djava.io.tmpdir=$tmpDir"
     )
 
-    // Proper test output
+    // Enhanced test output for debugging - CRITICAL for seeing failures
     testLogging {
-        events("passed", "skipped", "failed")
+        events("passed", "skipped", "failed", "standardError", "standardOut")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-        showStandardStreams = false
+        showStandardStreams = true  // Changed from false - needed to see test output
         showExceptions = true
         showCauses = true
+        showStackTraces = true  // CRITICAL: Required for exceptionFormat to work
+        displayGranularity = 2
     }
+
+    // Generate HTML reports for detailed analysis
+    reports {
+        html.required.set(true)
+        junitXml.required.set(true)
+    }
+
+    // Always show test results
+    outputs.upToDateWhen { false }
 }
 
 // Environment detection

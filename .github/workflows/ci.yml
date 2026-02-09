@@ -148,10 +148,16 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Setup test environment
+        run: |
+          mkdir -p ${{ runner.temp }}/dropper-tests
+          echo "RUNNER_TEMP=${{ runner.temp }}" >> $GITHUB_ENV
+
       - name: Run all tests in batches (with delays)
         run: ./gradlew :src:cli:allTests --no-daemon --stacktrace --info
         env:
           DROPPER_TEST_ENV: linux
+          RUNNER_TEMP: ${{ runner.temp }}
 
       - name: Upload E2E test results
         if: always()
@@ -159,9 +165,19 @@ jobs:
         with:
           name: e2e-test-results-linux
           path: |
-            src/cli/build/test-results/test/**/*.xml
-            src/cli/build/reports/tests/test/**
+            src/cli/build/test-results/**/*.xml
+            src/cli/build/reports/tests/**
           retention-days: 7
+
+      - name: Upload test HTML reports
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: e2e-html-reports-linux
+          path: |
+            src/cli/build/reports/tests/*/index.html
+            src/cli/build/reports/tests/**/*.html
+          retention-days: 30
 
   # Job 5: WSL Test Suite - Windows with WSL (all tests enabled)
   wsl-test-windows:
@@ -193,11 +209,18 @@ jobs:
         shell: wsl-bash {0}
         run: chmod +x gradlew
 
+      - name: Setup test environment
+        shell: wsl-bash {0}
+        run: |
+          mkdir -p /tmp/dropper-tests
+          echo "RUNNER_TEMP=/tmp/dropper-tests" >> $GITHUB_ENV
+
       - name: Run all tests in batches (with delays)
         shell: wsl-bash {0}
         run: ./gradlew :src:cli:allTests --no-daemon --stacktrace --info
         env:
           DROPPER_TEST_ENV: wsl
+          RUNNER_TEMP: /tmp/dropper-tests
 
       - name: Upload WSL test results
         if: always()
@@ -205,9 +228,19 @@ jobs:
         with:
           name: e2e-test-results-wsl
           path: |
-            src/cli/build/test-results/test/**/*.xml
-            src/cli/build/reports/tests/test/**
+            src/cli/build/test-results/**/*.xml
+            src/cli/build/reports/tests/**
           retention-days: 7
+
+      - name: Upload test HTML reports
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: e2e-html-reports-wsl
+          path: |
+            src/cli/build/reports/tests/*/index.html
+            src/cli/build/reports/tests/**/*.html
+          retention-days: 30
 
   # Job 6: Docker Test Suite - Container-based (all tests enabled)
   docker-test:
@@ -223,11 +256,16 @@ jobs:
       - name: Build test container
         run: docker build -t dropper-test -f Dockerfile.test .
 
+      - name: Setup test environment
+        run: mkdir -p ${{ runner.temp }}/dropper-tests
+
       - name: Run full test suite in Docker
         run: |
           docker run --rm \
             -v "$(pwd):/project" \
+            -v "${{ runner.temp }}/dropper-tests:/tmp/dropper-tests" \
             -e DROPPER_TEST_ENV=container \
+            -e RUNNER_TEMP=/tmp/dropper-tests \
             dropper-test
 
       - name: Extract test results from container
@@ -247,6 +285,16 @@ jobs:
             docker-test-results/**/*.xml
             docker-test-results/**
           retention-days: 7
+
+      - name: Upload test HTML reports
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: e2e-html-reports-docker
+          path: |
+            docker-test-results/reports/tests/*/index.html
+            docker-test-results/reports/tests/**/*.html
+          retention-days: 30
 
   # Job 7: Integration Test - Generated Project
   integration-test-linux:
