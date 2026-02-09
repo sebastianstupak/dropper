@@ -1,9 +1,9 @@
 package dev.dropper.commands.export
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.commands.DropperCommand
 import dev.dropper.exporters.DatapackExporter
 import dev.dropper.util.Logger
 import java.io.File
@@ -11,7 +11,7 @@ import java.io.File
 /**
  * Export project data as a Minecraft datapack
  */
-class ExportDatapackCommand : CliktCommand(
+class ExportDatapackCommand : DropperCommand(
     name = "datapack",
     help = "Export as a Minecraft datapack"
 ) {
@@ -20,7 +20,6 @@ class ExportDatapackCommand : CliktCommand(
     private val packFormat by option("--pack-format", "-f", help = "Pack format version")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
         val configFile = File(projectDir, "config.yml")
 
         if (!configFile.exists()) {

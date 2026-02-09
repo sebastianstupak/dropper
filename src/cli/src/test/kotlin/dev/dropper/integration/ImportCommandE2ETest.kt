@@ -2,6 +2,7 @@ package dev.dropper.integration
 
 import dev.dropper.importers.*
 import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test

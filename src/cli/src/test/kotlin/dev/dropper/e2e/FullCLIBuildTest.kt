@@ -4,22 +4,19 @@ import dev.dropper.commands.util.ConfigReader
 import dev.dropper.commands.util.GradleRunner
 import dev.dropper.config.ModConfig
 import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Assumptions.*
 import java.io.File
 
 /**
- * Full E2E test that creates a real project in examples/ and verifies dev command setup
+ * Full E2E test that creates a real project and verifies dev command setup
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class FullCLIBuildTest {
 
-    // Use absolute path to project root's examples/ directory
-    private val projectRoot = File(System.getProperty("user.dir")).parentFile.parentFile
-    private val examplesDir = File(projectRoot, "examples")
-    private val testProjectName = "test-dev-mod"
-    private val testProjectDir = File(examplesDir, testProjectName)
+    private lateinit var context: TestProjectContext
 
     @BeforeAll
     fun setup() {
@@ -27,30 +24,24 @@ class FullCLIBuildTest {
         println("║     Full E2E Test: Real Project Creation & Dev Setup        ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        // Ensure examples/ exists
-        examplesDir.mkdirs()
-        println("✓ Examples directory ready: ${examplesDir.absolutePath}")
+        context = TestProjectContext.create("test-dev-mod")
     }
 
     @AfterAll
     fun cleanup() {
         // Keep the project for manual testing
-        println("\n📁 Test project preserved at: ${testProjectDir.absolutePath}")
+        println("\n📁 Test project preserved at: ${context.projectDir.absolutePath}")
         println("   You can manually test with:")
-        println("   cd ${testProjectDir.absolutePath}")
+        println("   cd ${context.projectDir.absolutePath}")
         println("   ./gradlew tasks")
         println("   ./gradlew :1_20_1-fabric:runClient")
+
+        context.cleanup()
     }
 
     @Test
     fun `create real project and verify dev command setup`() {
-        println("Step 1: Creating project in examples/...")
-
-        // Clean existing
-        if (testProjectDir.exists()) {
-            println("  Cleaning existing project...")
-            testProjectDir.deleteRecursively()
-        }
+        println("Step 1: Creating project...")
 
         // Create project using ProjectGenerator
         val config = ModConfig(
@@ -64,16 +55,16 @@ class FullCLIBuildTest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        ProjectGenerator().generate(testProjectDir, config)
-        println("✓ Project created at: ${testProjectDir.absolutePath}")
+        context.createProject(config)
+        println("✓ Project created at: ${context.projectDir.absolutePath}")
 
         // Step 2: Verify project structure
         println("\nStep 2: Verifying project structure...")
 
-        assertTrue(testProjectDir.exists(), "Project directory should exist")
-        assertTrue(File(testProjectDir, "config.yml").exists(), "config.yml should exist")
-        assertTrue(File(testProjectDir, "build.gradle.kts").exists(), "build.gradle.kts should exist")
-        assertTrue(File(testProjectDir, "settings.gradle.kts").exists(), "settings.gradle.kts should exist")
+        assertTrue(context.projectDir.exists(), "Project directory should exist")
+        assertTrue(context.file("config.yml").exists(), "config.yml should exist")
+        assertTrue(context.file("build.gradle.kts").exists(), "build.gradle.kts should exist")
+        assertTrue(context.file("settings.gradle.kts").exists(), "settings.gradle.kts should exist")
 
         // Note: gradlew files are not created by ProjectGenerator
         // In real usage, they would be added via `gradle wrapper` command
@@ -81,31 +72,31 @@ class FullCLIBuildTest {
         // is configured correctly to use the wrapper task.
 
         // Verify version directories
-        assertTrue(File(testProjectDir, "versions/1_20_1").exists(), "1_20_1 version should exist")
-        assertTrue(File(testProjectDir, "versions/1_21_1").exists(), "1_21_1 version should exist")
-        assertTrue(File(testProjectDir, "versions/1_20_1/config.yml").exists(), "Version config should exist")
+        assertTrue(context.file("versions/1_20_1").exists(), "1_20_1 version should exist")
+        assertTrue(context.file("versions/1_21_1").exists(), "1_21_1 version should exist")
+        assertTrue(context.file("versions/1_20_1/config.yml").exists(), "Version config should exist")
 
         // Verify buildSrc
-        assertTrue(File(testProjectDir, "buildSrc/build.gradle.kts").exists(), "buildSrc should exist")
+        assertTrue(context.file("build-logic/build.gradle.kts").exists(), "build-logic should exist")
 
         println("✓ All required files present")
 
-        // Step 3: Verify buildSrc exists
-        println("\nStep 3: Verifying buildSrc structure...")
+        // Step 3: Verify build-logic exists
+        println("\nStep 3: Verifying build-logic structure...")
 
-        assertTrue(File(testProjectDir, "buildSrc").exists(), "buildSrc should exist")
-        assertTrue(File(testProjectDir, "buildSrc/build.gradle.kts").exists(), "buildSrc build file should exist")
+        assertTrue(context.file("build-logic").exists(), "build-logic should exist")
+        assertTrue(context.file("build-logic/build.gradle.kts").exists(), "build-logic build file should exist")
         assertTrue(
-            File(testProjectDir, "buildSrc/src/main/kotlin").exists(),
-            "buildSrc source directory should exist"
+            context.file("build-logic/src/main/kotlin").exists(),
+            "build-logic source directory should exist"
         )
 
-        println("✓ buildSrc structure verified")
+        println("✓ build-logic structure verified")
 
         // Step 4: Test ConfigReader can read the project
         println("\nStep 4: Testing ConfigReader...")
 
-        val configReader = ConfigReader(testProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo, "ConfigReader should read project info")
@@ -149,7 +140,7 @@ class FullCLIBuildTest {
 
         // Note: GradleRunner expects gradlew to exist, but we're testing the command building logic
         // In real usage, gradlew would be created via `gradle wrapper` task
-        val gradleRunner = GradleRunner(testProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         val command = gradleRunner.buildGradleCommand(
             version = "1_20_1",
@@ -187,10 +178,10 @@ class FullCLIBuildTest {
         println("=".repeat(65))
         println()
         println("Project created successfully at:")
-        println("  ${testProjectDir.absolutePath}")
+        println("  ${context.projectDir.absolutePath}")
         println()
         println("To complete setup, run:")
-        println("  cd ${testProjectDir.absolutePath}")
+        println("  cd ${context.projectDir.absolutePath}")
         println("  gradle wrapper                      # Create gradlew files")
         println("  ./gradlew tasks                     # List available tasks")
         println()
@@ -212,14 +203,14 @@ class FullCLIBuildTest {
         println("║     Slow Test: Actual Project Build                         ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        assumeTrue(testProjectDir.exists(), "Test project must exist (run main test first)")
+        assumeTrue(context.projectDir.exists(), "Test project must exist (run main test first)")
 
         val isWindows = System.getProperty("os.name").lowercase().contains("windows")
-        val gradlewFile = File(testProjectDir, if (isWindows) "gradlew.bat" else "gradlew")
+        val gradlewFile = File(context.projectDir, if (isWindows) "gradlew.bat" else "gradlew")
 
         assumeTrue(
             gradlewFile.exists(),
-            "Gradle wrapper must exist. Run 'gradle wrapper' in ${testProjectDir.absolutePath}"
+            "Gradle wrapper must exist. Run 'gradle wrapper' in ${context.projectDir.absolutePath}"
         )
 
         println("Building project (this may take several minutes)...")
@@ -229,7 +220,7 @@ class FullCLIBuildTest {
         val gradlewCmd = if (isWindows) "gradlew.bat" else "./gradlew"
 
         val result = ProcessBuilder()
-            .directory(testProjectDir)
+            .directory(context.projectDir)
             .command(listOf(gradlewCmd, "build", "--no-daemon", "--stacktrace"))
             .redirectOutput(ProcessBuilder.Redirect.PIPE)
             .redirectError(ProcessBuilder.Redirect.PIPE)
@@ -264,14 +255,14 @@ class FullCLIBuildTest {
         println("║     Slow Test: Verify Gradle Tasks                          ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        assumeTrue(testProjectDir.exists(), "Test project must exist")
+        assumeTrue(context.projectDir.exists(), "Test project must exist")
 
         val isWindows = System.getProperty("os.name").lowercase().contains("windows")
-        val gradlewFile = File(testProjectDir, if (isWindows) "gradlew.bat" else "gradlew")
+        val gradlewFile = File(context.projectDir, if (isWindows) "gradlew.bat" else "gradlew")
 
         assumeTrue(
             gradlewFile.exists(),
-            "Gradle wrapper must exist. Run 'gradle wrapper' in ${testProjectDir.absolutePath}"
+            "Gradle wrapper must exist. Run 'gradle wrapper' in ${context.projectDir.absolutePath}"
         )
 
         val gradlewCmd = if (isWindows) "gradlew.bat" else "./gradlew"
@@ -279,7 +270,7 @@ class FullCLIBuildTest {
         println("Listing all available tasks...")
 
         val result = ProcessBuilder()
-            .directory(testProjectDir)
+            .directory(context.projectDir)
             .command(listOf(gradlewCmd, "tasks", "--all", "--no-daemon"))
             .redirectOutput(ProcessBuilder.Redirect.PIPE)
             .redirectError(ProcessBuilder.Redirect.PIPE)

@@ -1,9 +1,9 @@
 package dev.dropper.commands
 
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
@@ -14,15 +14,16 @@ import com.google.gson.GsonBuilder
 
 class CreateBiomeCommandTest {
 
-    @TempDir
-    lateinit var tempDir: File
+    private lateinit var context: TestProjectContext
 
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
     @BeforeEach
     fun setup() {
+        context = TestProjectContext.create("biome-test")
+
         // Create a minimal config.yml for testing
-        val configFile = File(tempDir, "config.yml")
+        val configFile = File(context.projectDir, "config.yml")
         configFile.writeText("""
             mod:
               id: testmod
@@ -36,7 +37,7 @@ class CreateBiomeCommandTest {
 
     @AfterEach
     fun cleanup() {
-        tempDir.deleteRecursively()
+        context.cleanup()
     }
 
     @Test
@@ -46,7 +47,7 @@ class CreateBiomeCommandTest {
         executeBiomeCommand(biomeName)
 
         // Verify biome file exists
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         assertTrue(biomeFile.exists(), "Biome file should exist")
 
         // Parse and verify JSON structure
@@ -106,7 +107,7 @@ class CreateBiomeCommandTest {
             "--category" to "desert"
         ))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         assertTrue(biomeFile.exists())
 
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
@@ -123,7 +124,7 @@ class CreateBiomeCommandTest {
             "--category" to "ice"
         ))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         assertTrue(biomeFile.exists())
 
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
@@ -140,7 +141,7 @@ class CreateBiomeCommandTest {
             "--category" to "savanna"
         ))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         assertTrue(biomeFile.exists())
 
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
@@ -157,7 +158,7 @@ class CreateBiomeCommandTest {
             "--temperature" to "0.0"
         ))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         assertTrue(biomeFile.exists())
 
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
@@ -173,7 +174,7 @@ class CreateBiomeCommandTest {
             "--category" to "desert"
         ))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         assertTrue(biomeFile.exists())
 
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
@@ -186,7 +187,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "desert"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
         val effects = json.getAsJsonObject("effects")
 
@@ -203,7 +204,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "forest"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
         val effects = json.getAsJsonObject("effects")
 
@@ -217,7 +218,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "jungle"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
         val effects = json.getAsJsonObject("effects")
 
@@ -231,7 +232,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "swamp"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
         val effects = json.getAsJsonObject("effects")
 
@@ -246,7 +247,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "nether"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         // Verify nether-specific colors
@@ -274,7 +275,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "the_end"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         // Verify End-specific colors
@@ -298,7 +299,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "mushroom_fields"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         val spawners = json.getAsJsonObject("spawners")
@@ -311,7 +312,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "jungle"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         val spawners = json.getAsJsonObject("spawners")
@@ -329,7 +330,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "plains"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         val spawners = json.getAsJsonObject("spawners")
@@ -364,7 +365,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "desert"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         val spawners = json.getAsJsonObject("spawners")
@@ -380,7 +381,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName, mapOf("--category" to "plains"))
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         val spawners = json.getAsJsonObject("spawners")
@@ -403,7 +404,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName)
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         val features = json.getAsJsonArray("features")
@@ -423,7 +424,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName)
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         val carvers = json.getAsJsonObject("carvers")
@@ -448,7 +449,7 @@ class CreateBiomeCommandTest {
 
             executeBiomeCommand(biomeName, mapOf("--category" to category))
 
-            val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+            val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
             assertTrue(biomeFile.exists(), "Biome file should exist for category: $category")
 
             // Verify it's valid JSON
@@ -464,7 +465,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName)
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val content = biomeFile.readText()
 
         // Verify it's valid JSON by parsing
@@ -486,7 +487,7 @@ class CreateBiomeCommandTest {
         }
 
         for (biome in biomes) {
-            val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biome.json")
+            val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biome.json")
             assertTrue(biomeFile.exists(), "$biome should exist")
         }
     }
@@ -497,7 +498,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName)
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         assertTrue(biomeFile.exists())
     }
 
@@ -507,7 +508,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName)
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         assertTrue(json.has("spawn_costs"))
@@ -521,7 +522,7 @@ class CreateBiomeCommandTest {
 
         executeBiomeCommand(biomeName)
 
-        val biomeFile = File(tempDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
+        val biomeFile = File(context.projectDir, "versions/shared/v1/data/testmod/worldgen/biome/$biomeName.json")
         val json = JsonParser.parseString(biomeFile.readText()).asJsonObject
 
         val spawners = json.getAsJsonObject("spawners")
@@ -545,10 +546,10 @@ class CreateBiomeCommandTest {
             args.add(value)
         }
 
-        // Set working directory
-        System.setProperty("user.dir", tempDir.absolutePath)
+        // Set project directory before parsing
+        command.projectDir = context.projectDir
 
         // Execute command
-        command.main(args.toTypedArray())
+        command.parse(args.toTypedArray())
     }
 }

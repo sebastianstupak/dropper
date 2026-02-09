@@ -1,6 +1,5 @@
 package dev.dropper.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
@@ -11,7 +10,7 @@ import java.io.File
 /**
  * Command to add a new Minecraft version to an existing Dropper project
  */
-class AddVersionCommand : CliktCommand(
+class AddVersionCommand : DropperCommand(
     name = "version",
     help = "Add a new Minecraft version to the project"
 ) {
@@ -30,8 +29,7 @@ class AddVersionCommand : CliktCommand(
         .default("21")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")

@@ -1,10 +1,9 @@
 package dev.dropper.integration
 
 import dev.dropper.commands.migrate.*
-import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
 import dev.dropper.migrators.*
 import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -17,35 +16,23 @@ import kotlin.test.assertTrue
  */
 class MigrateCommandAdvancedE2ETest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testProjectDir = File("build/test-migrate-adv/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        context = TestProjectContext.create("test-migrate-adv")
 
-        val config = ModConfig(
+        context.createDefaultProject(
             id = "migrateadv",
             name = "Migrate Advanced Test",
-            version = "1.0.0",
-            description = "Advanced migration tests",
-            author = "Test",
-            license = "MIT",
             minecraftVersions = listOf("1.19.4"),
             loaders = listOf("fabric")
         )
-
-        ProjectGenerator().generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     // ========== Cross-Version Migration Tests (15 tests) ==========
@@ -55,7 +42,7 @@ class MigrateCommandAdvancedE2ETest {
         println("\n[TEST 01] Cross-version - 1.19 → 1.20")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "migrateadv",
             packageName = "com.migrateadv",
             params = mapOf(
@@ -75,7 +62,7 @@ class MigrateCommandAdvancedE2ETest {
         println("\n[TEST 02] Cross-version - 1.20 → 1.21")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "migrateadv",
             packageName = "com.migrateadv",
             params = mapOf(
@@ -95,7 +82,7 @@ class MigrateCommandAdvancedE2ETest {
         println("\n[TEST 03] Breaking changes - API")
 
         // Create code with old API
-        val codeFile = File(testProjectDir, "versions/1_19_4/common/src/main/java/Test.java")
+        val codeFile = File(context.projectDir, "versions/1_19_4/common/src/main/java/Test.java")
         codeFile.parentFile.mkdirs()
         FileUtil.writeText(codeFile, """
             public class Test {
@@ -190,7 +177,7 @@ class MigrateCommandAdvancedE2ETest {
         println("\n[TEST 11] Breaking changes - data formats")
 
         // Recipe format changes
-        val recipeFile = File(testProjectDir, "versions/shared/v1/data/migrateadv/recipes/test.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/migrateadv/recipes/test.json")
         recipeFile.parentFile.mkdirs()
         FileUtil.writeText(recipeFile, """
             {
@@ -254,7 +241,7 @@ class MigrateCommandAdvancedE2ETest {
 
         // Start with Fabric-only project
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "migrateadv",
             packageName = "com.migrateadv",
             params = mapOf(
@@ -273,7 +260,7 @@ class MigrateCommandAdvancedE2ETest {
         println("\n[TEST 17] Loader migration - Forge → NeoForge")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "migrateadv",
             packageName = "com.migrateadv",
             params = mapOf(
@@ -294,7 +281,7 @@ class MigrateCommandAdvancedE2ETest {
 
         // Remove all but one loader
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "migrateadv",
             packageName = "com.migrateadv",
             params = mapOf(
@@ -311,7 +298,7 @@ class MigrateCommandAdvancedE2ETest {
         println("\n[TEST 19] Loader migration - preserve mixins")
 
         // Create custom mixin
-        val mixinFile = File(testProjectDir, "shared/fabric/src/main/java/com/migrateadv/mixin/CustomMixin.java")
+        val mixinFile = File(context.projectDir, "shared/fabric/src/main/java/com/migrateadv/mixin/CustomMixin.java")
         mixinFile.parentFile.mkdirs()
         FileUtil.writeText(mixinFile, """
             @Mixin(Player.class)
@@ -321,7 +308,7 @@ class MigrateCommandAdvancedE2ETest {
         """.trimIndent())
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "migrateadv",
             packageName = "com.migrateadv",
             params = mapOf("loader" to "forge")
@@ -337,7 +324,7 @@ class MigrateCommandAdvancedE2ETest {
     fun `test 20 - preserve access wideners`() {
         println("\n[TEST 20] Loader migration - preserve access wideners")
 
-        val accessWidenerFile = File(testProjectDir, "shared/fabric/src/main/resources/migrateadv.accesswidener")
+        val accessWidenerFile = File(context.projectDir, "shared/fabric/src/main/resources/migrateadv.accesswidener")
         accessWidenerFile.parentFile.mkdirs()
         FileUtil.writeText(accessWidenerFile, "accessWidener v2 named")
 
@@ -348,7 +335,7 @@ class MigrateCommandAdvancedE2ETest {
     fun `test 21 - preserve build scripts`() {
         println("\n[TEST 21] Loader migration - preserve build scripts")
 
-        val buildFile = File(testProjectDir, "custom.gradle.kts")
+        val buildFile = File(context.projectDir, "custom.gradle.kts")
         FileUtil.writeText(buildFile, "// Custom build script")
 
         assertTrue(true, "Build scripts should be preserved")
@@ -360,7 +347,7 @@ class MigrateCommandAdvancedE2ETest {
 
         // Fabric API → Forge API dependencies
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "migrateadv",
             packageName = "com.migrateadv",
             params = mapOf(
@@ -378,7 +365,7 @@ class MigrateCommandAdvancedE2ETest {
 
         // fabric.mod.json → mods.toml
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "migrateadv",
             packageName = "com.migrateadv",
             params = mapOf(
@@ -397,11 +384,11 @@ class MigrateCommandAdvancedE2ETest {
         println("\n[TEST 24] Rollback - on failure")
 
         // Save original state
-        val originalFiles = testProjectDir.walkTopDown().filter { it.isFile }.map { it.path }.toSet()
+        val originalFiles = context.projectDir.walkTopDown().filter { it.isFile }.map { it.path }.toSet()
 
         try {
             val context = MigrationContext(
-                projectDir = testProjectDir,
+                projectDir = context.projectDir,
                 modId = "migrateadv",
                 packageName = "com.migrateadv",
                 params = mapOf(
@@ -431,7 +418,7 @@ class MigrateCommandAdvancedE2ETest {
         println("\n[TEST 26] Rollback - backup and restore")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "migrateadv",
             packageName = "com.migrateadv",
             params = mapOf(
@@ -453,12 +440,12 @@ class MigrateCommandAdvancedE2ETest {
         println("\n[TEST 27] Rollback - conflict resolution")
 
         // Create conflicting files
-        val targetFile = File(testProjectDir, "versions/1_20_1/common/src/main/java/Test.java")
+        val targetFile = File(context.projectDir, "versions/1_20_1/common/src/main/java/Test.java")
         targetFile.parentFile.mkdirs()
         FileUtil.writeText(targetFile, "// Existing content")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "migrateadv",
             packageName = "com.migrateadv",
             params = mapOf(

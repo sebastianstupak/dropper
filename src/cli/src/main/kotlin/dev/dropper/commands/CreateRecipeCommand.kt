@@ -1,6 +1,5 @@
 package dev.dropper.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
@@ -14,7 +13,7 @@ import java.io.File
  * Command to create a new recipe in the mod
  * Generates recipe JSON files for various recipe types
  */
-class CreateRecipeCommand : CliktCommand(
+class CreateRecipeCommand : DropperCommand(
     name = "recipe",
     help = "Create a new recipe JSON file"
 ) {
@@ -26,8 +25,7 @@ class CreateRecipeCommand : CliktCommand(
     private val cookingTime by option("--cooking-time", "-c", help = "Cooking time in ticks (for smelting types)").int().default(200)
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")

@@ -3,7 +3,7 @@ package dev.dropper.integration
 import com.google.gson.Gson
 import dev.dropper.commands.package_.*
 import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -20,14 +20,11 @@ import kotlin.test.assertTrue
  */
 class PackageCommandE2ETest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        // Create a test project
-        testProjectDir = File("build/test-package/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        context = TestProjectContext.create("test-package")
 
         // Generate a project with multiple versions and loaders
         val config = ModConfig(
@@ -41,28 +38,18 @@ class PackageCommandE2ETest {
             loaders = listOf("fabric", "forge", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
         // Create fake JAR files in build directory to simulate a built project
         createFakeJars()
 
         // Create additional files
         createProjectFiles()
-
-        // Change working directory to test project
-        System.setProperty("user.dir", testProjectDir.absolutePath)
     }
 
     @AfterEach
     fun cleanup() {
-        // Restore original working directory
-        System.setProperty("user.dir", originalUserDir)
-
-        // Clean up test project
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     // =================================================================
@@ -75,14 +62,16 @@ class PackageCommandE2ETest {
         println("║     Test 1: Package Modrinth Format                          ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        assertTrue(packageFile.exists(), "Modrinth package should exist")
-        assertTrue(packageFile.length() > 0, "Package should not be empty")
+            val packageFile = context.file("build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            assertTrue(packageFile.exists(), "Modrinth package should exist")
+            assertTrue(packageFile.length() > 0, "Package should not be empty")
 
-        println("✓ Modrinth package created successfully")
+            println("✓ Modrinth package created successfully")
+        }
     }
 
     @Test
@@ -91,14 +80,16 @@ class PackageCommandE2ETest {
         println("║     Test 2: Package CurseForge Format                       ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageCurseForgeCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageCurseForgeCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
-        assertTrue(packageFile.exists(), "CurseForge package should exist")
-        assertTrue(packageFile.length() > 0, "Package should not be empty")
+            val packageFile = context.file( "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
+            assertTrue(packageFile.exists(), "CurseForge package should exist")
+            assertTrue(packageFile.length() > 0, "Package should not be empty")
 
-        println("✓ CurseForge package created successfully")
+            println("✓ CurseForge package created successfully")
+        }
     }
 
     @Test
@@ -107,14 +98,16 @@ class PackageCommandE2ETest {
         println("║     Test 3: Package Bundle Format                           ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        assertTrue(packageFile.exists(), "Bundle package should exist")
-        assertTrue(packageFile.length() > 0, "Package should not be empty")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            assertTrue(packageFile.exists(), "Bundle package should exist")
+            assertTrue(packageFile.length() > 0, "Package should not be empty")
 
-        println("✓ Bundle package created successfully")
+            println("✓ Bundle package created successfully")
+        }
     }
 
     @Test
@@ -124,13 +117,15 @@ class PackageCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         val customOutput = "build/custom-packages"
-        val command = PackageModrinthCommand()
-        command.parse(arrayOf("--output", customOutput))
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(arrayOf("--output", customOutput))
 
-        val packageFile = File(testProjectDir, "$customOutput/modrinth/testpackage-1.0.0-modrinth.zip")
-        assertTrue(packageFile.exists(), "Package should exist in custom directory")
+            val packageFile = context.file( "$customOutput/modrinth/testpackage-1.0.0-modrinth.zip")
+            assertTrue(packageFile.exists(), "Package should exist in custom directory")
 
-        println("✓ Package created in custom directory")
+            println("✓ Package created in custom directory")
+        }
     }
 
     @Test
@@ -142,20 +137,22 @@ class PackageCommandE2ETest {
         // Create source JARs
         createFakeSourceJars()
 
-        val command = PackageModrinthCommand()
-        command.parse(arrayOf("--include-sources"))
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(arrayOf("--include-sources"))
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        assertTrue(packageFile.exists(), "Package should exist")
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            assertTrue(packageFile.exists(), "Package should exist")
 
-        // Verify sources are included
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val hasSourceJar = entries.any { it.name.contains("-sources.jar") }
-            assertTrue(hasSourceJar, "Package should contain source JARs")
+            // Verify sources are included
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val hasSourceJar = entries.any { it.name.contains("-sources.jar") }
+                assertTrue(hasSourceJar, "Package should contain source JARs")
+            }
+
+            println("✓ Source JARs included in package")
         }
-
-        println("✓ Source JARs included in package")
     }
 
     @Test
@@ -167,20 +164,22 @@ class PackageCommandE2ETest {
         // Create javadoc JARs
         createFakeJavadocJars()
 
-        val command = PackageModrinthCommand()
-        command.parse(arrayOf("--include-javadoc"))
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(arrayOf("--include-javadoc"))
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        assertTrue(packageFile.exists(), "Package should exist")
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            assertTrue(packageFile.exists(), "Package should exist")
 
-        // Verify javadoc is included
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val hasJavadocJar = entries.any { it.name.contains("-javadoc.jar") }
-            assertTrue(hasJavadocJar, "Package should contain javadoc JARs")
+            // Verify javadoc is included
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val hasJavadocJar = entries.any { it.name.contains("-javadoc.jar") }
+                assertTrue(hasJavadocJar, "Package should contain javadoc JARs")
+            }
+
+            println("✓ Javadoc JARs included in package")
         }
-
-        println("✓ Javadoc JARs included in package")
     }
 
     @Test
@@ -189,22 +188,24 @@ class PackageCommandE2ETest {
         println("║     Test 7: Specific Versions Only                          ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(arrayOf("--versions", "1.20.1"))
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(arrayOf("--versions", "1.20.1"))
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        assertTrue(packageFile.exists(), "Package should exist")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            assertTrue(packageFile.exists(), "Package should exist")
 
-        // Verify only 1.20.1 JARs are included
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val has1201 = entries.any { it.name.contains("1_20_1") }
-            val has1211 = entries.any { it.name.contains("1_21_1") }
-            assertTrue(has1201, "Should include 1.20.1 JARs")
-            assertFalse(has1211, "Should NOT include 1.21.1 JARs")
+            // Verify only 1.20.1 JARs are included
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val has1201 = entries.any { it.name.contains("1_20_1") }
+                val has1211 = entries.any { it.name.contains("1_21_1") }
+                assertTrue(has1201, "Should include 1.20.1 JARs")
+                assertFalse(has1211, "Should NOT include 1.21.1 JARs")
+            }
+
+            println("✓ Only specified version included")
         }
-
-        println("✓ Only specified version included")
     }
 
     @Test
@@ -213,24 +214,26 @@ class PackageCommandE2ETest {
         println("║     Test 8: Specific Loaders Only                           ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(arrayOf("--loaders", "fabric,forge"))
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(arrayOf("--loaders", "fabric,forge"))
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        assertTrue(packageFile.exists(), "Package should exist")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            assertTrue(packageFile.exists(), "Package should exist")
 
-        // Verify only fabric and forge JARs are included
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val hasFabric = entries.any { it.name.contains("fabric") }
-            val hasForge = entries.any { it.name.contains("forge") && !it.name.contains("neoforge") }
-            val hasNeoforge = entries.any { it.name.contains("neoforge") }
-            assertTrue(hasFabric, "Should include Fabric JARs")
-            assertTrue(hasForge, "Should include Forge JARs")
-            assertFalse(hasNeoforge, "Should NOT include NeoForge JARs")
+            // Verify only fabric and forge JARs are included
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val hasFabric = entries.any { it.name.contains("fabric") }
+                val hasForge = entries.any { it.name.contains("forge") && !it.name.contains("neoforge") }
+                val hasNeoforge = entries.any { it.name.contains("neoforge") }
+                assertTrue(hasFabric, "Should include Fabric JARs")
+                assertTrue(hasForge, "Should include Forge JARs")
+                assertFalse(hasNeoforge, "Should NOT include NeoForge JARs")
+            }
+
+            println("✓ Only specified loaders included")
         }
-
-        println("✓ Only specified loaders included")
     }
 
     // =================================================================
@@ -243,16 +246,18 @@ class PackageCommandE2ETest {
         println("║     Test 9: Modrinth Metadata JSON                          ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("modrinth.json")
-            assertTrue(entry != null, "Should contain modrinth.json")
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("modrinth.json")
+                assertTrue(entry != null, "Should contain modrinth.json")
+            }
+
+            println("✓ modrinth.json present in package")
         }
-
-        println("✓ modrinth.json present in package")
     }
 
     @Test
@@ -261,26 +266,28 @@ class PackageCommandE2ETest {
         println("║     Test 10: Validate Modrinth JSON Format                  ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("modrinth.json")
-            val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("modrinth.json")
+                val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
 
-            // Parse as JSON to validate format
-            val gson = Gson()
-            val metadata = gson.fromJson(content, Map::class.java)
+                // Parse as JSON to validate format
+                val gson = Gson()
+                val metadata = gson.fromJson(content, Map::class.java)
 
-            assertTrue(metadata.containsKey("project_id"), "Should have project_id")
-            assertTrue(metadata.containsKey("version_number"), "Should have version_number")
-            assertTrue(metadata.containsKey("name"), "Should have name")
-            assertEquals("testpackage", metadata["project_id"])
-            assertEquals("1.0.0", metadata["version_number"])
+                assertTrue(metadata.containsKey("project_id"), "Should have project_id")
+                assertTrue(metadata.containsKey("version_number"), "Should have version_number")
+                assertTrue(metadata.containsKey("name"), "Should have name")
+                assertEquals("testpackage", metadata["project_id"])
+                assertEquals("1.0.0", metadata["version_number"])
+            }
+
+            println("✓ Modrinth JSON format is valid")
         }
-
-        println("✓ Modrinth JSON format is valid")
     }
 
     @Test
@@ -290,19 +297,21 @@ class PackageCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Create icon file
-        val iconFile = File(testProjectDir, "icon.png")
+        val iconFile = context.file( "icon.png")
         iconFile.writeText("fake png data")
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val iconEntry = zip.getEntry("icon.png")
-            assertTrue(iconEntry != null, "Should include icon.png")
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val iconEntry = zip.getEntry("icon.png")
+                assertTrue(iconEntry != null, "Should include icon.png")
+            }
+
+            println("✓ Icon included in package")
         }
-
-        println("✓ Icon included in package")
     }
 
     @Test
@@ -311,18 +320,20 @@ class PackageCommandE2ETest {
         println("║     Test 12: Modrinth Package Without Icon                  ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        assertTrue(packageFile.exists(), "Package should be created without icon")
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            assertTrue(packageFile.exists(), "Package should be created without icon")
 
-        ZipFile(packageFile).use { zip ->
-            val iconEntry = zip.getEntry("icon.png")
-            assertTrue(iconEntry == null, "Should NOT include icon.png")
+            ZipFile(packageFile).use { zip ->
+                val iconEntry = zip.getEntry("icon.png")
+                assertTrue(iconEntry == null, "Should NOT include icon.png")
+            }
+
+            println("✓ Package created successfully without icon")
         }
-
-        println("✓ Package created successfully without icon")
     }
 
     @Test
@@ -331,22 +342,24 @@ class PackageCommandE2ETest {
         println("║     Test 13: Modrinth Version Metadata                      ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("modrinth.json")
-            val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("modrinth.json")
+                val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
 
-            val gson = Gson()
-            val metadata = gson.fromJson(content, Map::class.java)
+                val gson = Gson()
+                val metadata = gson.fromJson(content, Map::class.java)
 
-            assertTrue(metadata.containsKey("game_versions"), "Should have game_versions")
-            assertTrue(metadata.containsKey("loaders"), "Should have loaders")
+                assertTrue(metadata.containsKey("game_versions"), "Should have game_versions")
+                assertTrue(metadata.containsKey("loaders"), "Should have loaders")
+            }
+
+            println("✓ Version metadata present")
         }
-
-        println("✓ Version metadata present")
     }
 
     @Test
@@ -355,18 +368,20 @@ class PackageCommandE2ETest {
         println("║     Test 14: Modrinth Loader Metadata                       ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("modrinth.json")
-            val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("modrinth.json")
+                val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
 
-            assertTrue(content.contains("fabric") || content.contains("forge"), "Should mention loaders")
+                assertTrue(content.contains("fabric") || content.contains("forge"), "Should mention loaders")
+            }
+
+            println("✓ Loader metadata present")
         }
-
-        println("✓ Loader metadata present")
     }
 
     // =================================================================
@@ -379,16 +394,18 @@ class PackageCommandE2ETest {
         println("║     Test 15: CurseForge Manifest JSON                       ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageCurseForgeCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageCurseForgeCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("manifest.json")
-            assertTrue(entry != null, "Should contain manifest.json")
+            val packageFile = context.file( "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("manifest.json")
+                assertTrue(entry != null, "Should contain manifest.json")
+            }
+
+            println("✓ manifest.json present in package")
         }
-
-        println("✓ manifest.json present in package")
     }
 
     @Test
@@ -397,25 +414,27 @@ class PackageCommandE2ETest {
         println("║     Test 16: Validate CurseForge JSON Format                ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageCurseForgeCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageCurseForgeCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("manifest.json")
-            val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("manifest.json")
+                val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
 
-            // Parse as JSON to validate format
-            val gson = Gson()
-            val manifest = gson.fromJson(content, Map::class.java)
+                // Parse as JSON to validate format
+                val gson = Gson()
+                val manifest = gson.fromJson(content, Map::class.java)
 
-            assertTrue(manifest.containsKey("manifestType"), "Should have manifestType")
-            assertTrue(manifest.containsKey("manifestVersion"), "Should have manifestVersion")
-            assertTrue(manifest.containsKey("name"), "Should have name")
-            assertEquals("minecraftModpack", manifest["manifestType"])
+                assertTrue(manifest.containsKey("manifestType"), "Should have manifestType")
+                assertTrue(manifest.containsKey("manifestVersion"), "Should have manifestVersion")
+                assertTrue(manifest.containsKey("name"), "Should have name")
+                assertEquals("minecraftModpack", manifest["manifestType"])
+            }
+
+            println("✓ CurseForge JSON format is valid")
         }
-
-        println("✓ CurseForge JSON format is valid")
     }
 
     @Test
@@ -424,21 +443,23 @@ class PackageCommandE2ETest {
         println("║     Test 17: CurseForge Minecraft Section                   ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageCurseForgeCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageCurseForgeCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("manifest.json")
-            val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("manifest.json")
+                val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
 
-            val gson = Gson()
-            val manifest = gson.fromJson(content, Map::class.java)
+                val gson = Gson()
+                val manifest = gson.fromJson(content, Map::class.java)
 
-            assertTrue(manifest.containsKey("minecraft"), "Should have minecraft section")
+                assertTrue(manifest.containsKey("minecraft"), "Should have minecraft section")
+            }
+
+            println("✓ Minecraft section present")
         }
-
-        println("✓ Minecraft section present")
     }
 
     @Test
@@ -447,18 +468,20 @@ class PackageCommandE2ETest {
         println("║     Test 18: CurseForge Mod Loaders                         ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageCurseForgeCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageCurseForgeCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("manifest.json")
-            val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("manifest.json")
+                val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
 
-            assertTrue(content.contains("modLoaders"), "Should have modLoaders")
+                assertTrue(content.contains("modLoaders"), "Should have modLoaders")
+            }
+
+            println("✓ Mod loaders included")
         }
-
-        println("✓ Mod loaders included")
     }
 
     @Test
@@ -467,21 +490,23 @@ class PackageCommandE2ETest {
         println("║     Test 19: CurseForge Files Section                       ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageCurseForgeCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageCurseForgeCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("manifest.json")
-            val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("manifest.json")
+                val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
 
-            val gson = Gson()
-            val manifest = gson.fromJson(content, Map::class.java)
+                val gson = Gson()
+                val manifest = gson.fromJson(content, Map::class.java)
 
-            assertTrue(manifest.containsKey("files"), "Should have files section")
+                assertTrue(manifest.containsKey("files"), "Should have files section")
+            }
+
+            println("✓ Files section present")
         }
-
-        println("✓ Files section present")
     }
 
     @Test
@@ -490,20 +515,22 @@ class PackageCommandE2ETest {
         println("║     Test 20: CurseForge File Structure                      ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageCurseForgeCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageCurseForgeCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val hasManifest = entries.any { it.name == "manifest.json" }
-            val hasJars = entries.any { it.name.endsWith(".jar") }
+            val packageFile = context.file( "build/packages/curseforge/testpackage-1.0.0-curseforge.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val hasManifest = entries.any { it.name == "manifest.json" }
+                val hasJars = entries.any { it.name.endsWith(".jar") }
 
-            assertTrue(hasManifest, "Should have manifest.json")
-            assertTrue(hasJars, "Should have JAR files")
+                assertTrue(hasManifest, "Should have manifest.json")
+                assertTrue(hasJars, "Should have JAR files")
+            }
+
+            println("✓ File structure is correct")
         }
-
-        println("✓ File structure is correct")
     }
 
     // =================================================================
@@ -516,16 +543,18 @@ class PackageCommandE2ETest {
         println("║     Test 21: Bundle ZIP Structure                           ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            assertTrue(entries.isNotEmpty(), "ZIP should not be empty")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                assertTrue(entries.isNotEmpty(), "ZIP should not be empty")
+            }
+
+            println("✓ ZIP structure is valid")
         }
-
-        println("✓ ZIP structure is valid")
     }
 
     @Test
@@ -534,20 +563,22 @@ class PackageCommandE2ETest {
         println("║     Test 22: Bundle Includes All JARs                       ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val jars = entries.filter { it.name.endsWith(".jar") }
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val jars = entries.filter { it.name.endsWith(".jar") }
 
-            // Should have JARs for all version/loader combinations
-            // 2 versions * 3 loaders = 6 JARs
-            assertTrue(jars.size >= 6, "Should have at least 6 JARs (2 versions * 3 loaders)")
+                // Should have JARs for all version/loader combinations
+                // 2 versions * 3 loaders = 6 JARs
+                assertTrue(jars.size >= 6, "Should have at least 6 JARs (2 versions * 3 loaders)")
+            }
+
+            println("✓ All JARs included")
         }
-
-        println("✓ All JARs included")
     }
 
     @Test
@@ -556,16 +587,18 @@ class PackageCommandE2ETest {
         println("║     Test 23: Bundle Includes README                         ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val readmeEntry = zip.getEntry("README.md")
-            assertTrue(readmeEntry != null, "Should include README.md")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val readmeEntry = zip.getEntry("README.md")
+                assertTrue(readmeEntry != null, "Should include README.md")
+            }
+
+            println("✓ README.md included")
         }
-
-        println("✓ README.md included")
     }
 
     @Test
@@ -574,16 +607,18 @@ class PackageCommandE2ETest {
         println("║     Test 24: Bundle Includes CHANGELOG                      ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val changelogEntry = zip.getEntry("CHANGELOG.md")
-            assertTrue(changelogEntry != null, "Should include CHANGELOG.md")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val changelogEntry = zip.getEntry("CHANGELOG.md")
+                assertTrue(changelogEntry != null, "Should include CHANGELOG.md")
+            }
+
+            println("✓ CHANGELOG.md included")
         }
-
-        println("✓ CHANGELOG.md included")
     }
 
     @Test
@@ -592,16 +627,18 @@ class PackageCommandE2ETest {
         println("║     Test 25: Bundle Includes LICENSE                        ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val licenseEntry = zip.getEntry("LICENSE")
-            assertTrue(licenseEntry != null, "Should include LICENSE")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val licenseEntry = zip.getEntry("LICENSE")
+                assertTrue(licenseEntry != null, "Should include LICENSE")
+            }
+
+            println("✓ LICENSE included")
         }
-
-        println("✓ LICENSE included")
     }
 
     @Test
@@ -610,20 +647,22 @@ class PackageCommandE2ETest {
         println("║     Test 26: Bundle Multiple Versions                       ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val has1201 = entries.any { it.name.contains("1_20_1") }
-            val has1211 = entries.any { it.name.contains("1_21_1") }
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val has1201 = entries.any { it.name.contains("1_20_1") }
+                val has1211 = entries.any { it.name.contains("1_21_1") }
 
-            assertTrue(has1201, "Should include 1.20.1 JARs")
-            assertTrue(has1211, "Should include 1.21.1 JARs")
+                assertTrue(has1201, "Should include 1.20.1 JARs")
+                assertTrue(has1211, "Should include 1.21.1 JARs")
+            }
+
+            println("✓ Multiple versions supported")
         }
-
-        println("✓ Multiple versions supported")
     }
 
     @Test
@@ -632,22 +671,24 @@ class PackageCommandE2ETest {
         println("║     Test 27: Bundle Multiple Loaders                        ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val hasFabric = entries.any { it.name.contains("fabric") }
-            val hasForge = entries.any { it.name.contains("forge") && !it.name.contains("neoforge") }
-            val hasNeoforge = entries.any { it.name.contains("neoforge") }
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val hasFabric = entries.any { it.name.contains("fabric") }
+                val hasForge = entries.any { it.name.contains("forge") && !it.name.contains("neoforge") }
+                val hasNeoforge = entries.any { it.name.contains("neoforge") }
 
-            assertTrue(hasFabric, "Should include Fabric JARs")
-            assertTrue(hasForge, "Should include Forge JARs")
-            assertTrue(hasNeoforge, "Should include NeoForge JARs")
+                assertTrue(hasFabric, "Should include Fabric JARs")
+                assertTrue(hasForge, "Should include Forge JARs")
+                assertTrue(hasNeoforge, "Should include NeoForge JARs")
+            }
+
+            println("✓ Multiple loaders supported")
         }
-
-        println("✓ Multiple loaders supported")
     }
 
     @Test
@@ -656,20 +697,22 @@ class PackageCommandE2ETest {
         println("║     Test 28: Bundle Info File                               ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val infoEntry = zip.getEntry("BUNDLE_INFO.txt")
-            assertTrue(infoEntry != null, "Should include BUNDLE_INFO.txt")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val infoEntry = zip.getEntry("BUNDLE_INFO.txt")
+                assertTrue(infoEntry != null, "Should include BUNDLE_INFO.txt")
 
-            val content = zip.getInputStream(infoEntry).bufferedReader().use { it.readText() }
-            assertTrue(content.contains("Test Package Mod"), "Should contain mod name")
-            assertTrue(content.contains("1.0.0"), "Should contain version")
+                val content = zip.getInputStream(infoEntry).bufferedReader().use { it.readText() }
+                assertTrue(content.contains("Test Package Mod"), "Should contain mod name")
+                assertTrue(content.contains("1.0.0"), "Should contain version")
+            }
+
+            println("✓ Bundle info file included")
         }
-
-        println("✓ Bundle info file included")
     }
 
     // =================================================================
@@ -684,17 +727,19 @@ class PackageCommandE2ETest {
 
         createFakeSourceJars()
 
-        val command = PackageModrinthCommand()
-        command.parse(arrayOf("--include-sources"))
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(arrayOf("--include-sources"))
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val sourceJars = entries.filter { it.name.contains("-sources.jar") }
-            assertTrue(sourceJars.isNotEmpty(), "Should include source JARs")
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val sourceJars = entries.filter { it.name.contains("-sources.jar") }
+                assertTrue(sourceJars.isNotEmpty(), "Should include source JARs")
+            }
+
+            println("✓ Source JARs included")
         }
-
-        println("✓ Source JARs included")
     }
 
     @Test
@@ -705,17 +750,19 @@ class PackageCommandE2ETest {
 
         createFakeJavadocJars()
 
-        val command = PackageModrinthCommand()
-        command.parse(arrayOf("--include-javadoc"))
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(arrayOf("--include-javadoc"))
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val javadocJars = entries.filter { it.name.contains("-javadoc.jar") }
-            assertTrue(javadocJars.isNotEmpty(), "Should include javadoc JARs")
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val javadocJars = entries.filter { it.name.contains("-javadoc.jar") }
+                assertTrue(javadocJars.isNotEmpty(), "Should include javadoc JARs")
+            }
+
+            println("✓ Javadoc JARs included")
         }
-
-        println("✓ Javadoc JARs included")
     }
 
     @Test
@@ -727,19 +774,21 @@ class PackageCommandE2ETest {
         createFakeSourceJars()
         createFakeJavadocJars()
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val sourceJars = entries.filter { it.name.contains("-sources.jar") }
-            val javadocJars = entries.filter { it.name.contains("-javadoc.jar") }
-            assertTrue(sourceJars.isEmpty(), "Should NOT include source JARs by default")
-            assertTrue(javadocJars.isEmpty(), "Should NOT include javadoc JARs by default")
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val sourceJars = entries.filter { it.name.contains("-sources.jar") }
+                val javadocJars = entries.filter { it.name.contains("-javadoc.jar") }
+                assertTrue(sourceJars.isEmpty(), "Should NOT include source JARs by default")
+                assertTrue(javadocJars.isEmpty(), "Should NOT include javadoc JARs by default")
+            }
+
+            println("✓ Sources and javadoc skipped by default")
         }
-
-        println("✓ Sources and javadoc skipped by default")
     }
 
     @Test
@@ -751,19 +800,21 @@ class PackageCommandE2ETest {
         createFakeSourceJars()
         createFakeJavadocJars()
 
-        val command = PackageModrinthCommand()
-        command.parse(arrayOf("--include-sources", "--include-javadoc"))
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(arrayOf("--include-sources", "--include-javadoc"))
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val sourceJars = entries.filter { it.name.contains("-sources.jar") }
-            val javadocJars = entries.filter { it.name.contains("-javadoc.jar") }
-            assertTrue(sourceJars.isNotEmpty(), "Should include source JARs")
-            assertTrue(javadocJars.isNotEmpty(), "Should include javadoc JARs")
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val sourceJars = entries.filter { it.name.contains("-sources.jar") }
+                val javadocJars = entries.filter { it.name.contains("-javadoc.jar") }
+                assertTrue(sourceJars.isNotEmpty(), "Should include source JARs")
+                assertTrue(javadocJars.isNotEmpty(), "Should include javadoc JARs")
+            }
+
+            println("✓ Both sources and javadoc included")
         }
-
-        println("✓ Both sources and javadoc included")
     }
 
     @Test
@@ -772,21 +823,23 @@ class PackageCommandE2ETest {
         println("║     Test 33: Include Project Files                          ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val hasReadme = zip.getEntry("README.md") != null
-            val hasChangelog = zip.getEntry("CHANGELOG.md") != null
-            val hasLicense = zip.getEntry("LICENSE") != null
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val hasReadme = zip.getEntry("README.md") != null
+                val hasChangelog = zip.getEntry("CHANGELOG.md") != null
+                val hasLicense = zip.getEntry("LICENSE") != null
 
-            assertTrue(hasReadme, "Should include README.md")
-            assertTrue(hasChangelog, "Should include CHANGELOG.md")
-            assertTrue(hasLicense, "Should include LICENSE")
+                assertTrue(hasReadme, "Should include README.md")
+                assertTrue(hasChangelog, "Should include CHANGELOG.md")
+                assertTrue(hasLicense, "Should include LICENSE")
+            }
+
+            println("✓ Project files included")
         }
-
-        println("✓ Project files included")
     }
 
     // =================================================================
@@ -799,17 +852,19 @@ class PackageCommandE2ETest {
         println("║     Test 34: Find JAR Files                                 ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val jars = entries.filter { it.name.endsWith(".jar") }
-            assertTrue(jars.isNotEmpty(), "Should find JAR files")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val jars = entries.filter { it.name.endsWith(".jar") }
+                assertTrue(jars.isNotEmpty(), "Should find JAR files")
+            }
+
+            println("✓ JAR files found")
         }
-
-        println("✓ JAR files found")
     }
 
     @Test
@@ -819,17 +874,19 @@ class PackageCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Delete build directory
-        val buildDir = File(testProjectDir, "build")
+        val buildDir = context.file( "build")
         buildDir.deleteRecursively()
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        // Should still create package (even if empty)
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        assertTrue(packageFile.exists(), "Should create package even without build directory")
+            // Should still create package (even if empty)
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            assertTrue(packageFile.exists(), "Should create package even without build directory")
 
-        println("✓ Handled missing build directory")
+            println("✓ Handled missing build directory")
+        }
     }
 
     @Test
@@ -838,25 +895,27 @@ class PackageCommandE2ETest {
         println("║     Test 36: Verify JAR Naming Convention                   ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val jars = entries.filter { it.name.endsWith(".jar") }
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val jars = entries.filter { it.name.endsWith(".jar") }
 
-            jars.forEach { jar ->
-                // Should follow naming convention: modid-version-loader.jar
-                assertTrue(
-                    jar.name.contains("testpackage") || jar.name.contains("fabric") ||
-                    jar.name.contains("forge") || jar.name.contains("neoforge"),
-                    "JAR should follow naming convention: ${jar.name}"
-                )
+                jars.forEach { jar ->
+                    // Should follow naming convention: modid-version-loader.jar
+                    assertTrue(
+                        jar.name.contains("testpackage") || jar.name.contains("fabric") ||
+                        jar.name.contains("forge") || jar.name.contains("neoforge"),
+                        "JAR should follow naming convention: ${jar.name}"
+                    )
+                }
             }
-        }
 
-        println("✓ JAR naming verified")
+            println("✓ JAR naming verified")
+        }
     }
 
     @Test
@@ -865,26 +924,28 @@ class PackageCommandE2ETest {
         println("║     Test 37: Handle Multiple Versions                       ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val jars = entries.filter { it.name.endsWith(".jar") }
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val jars = entries.filter { it.name.endsWith(".jar") }
 
-            val versions = jars.map { jar ->
-                when {
-                    jar.name.contains("1_20_1") -> "1.20.1"
-                    jar.name.contains("1_21_1") -> "1.21.1"
-                    else -> "unknown"
-                }
-            }.distinct()
+                val versions = jars.map { jar ->
+                    when {
+                        jar.name.contains("1_20_1") -> "1.20.1"
+                        jar.name.contains("1_21_1") -> "1.21.1"
+                        else -> "unknown"
+                    }
+                }.distinct()
 
-            assertTrue(versions.size >= 2, "Should handle multiple versions")
+                assertTrue(versions.size >= 2, "Should handle multiple versions")
+            }
+
+            println("✓ Multiple versions handled")
         }
-
-        println("✓ Multiple versions handled")
     }
 
     @Test
@@ -894,24 +955,26 @@ class PackageCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Create dev and shadow JARs
-        val buildDir = File(testProjectDir, "build/1_20_1")
+        val buildDir = context.file( "build/1_20_1")
         File(buildDir, "testpackage-1.0.0-dev.jar").writeText("dev")
         File(buildDir, "testpackage-1.0.0-shadow.jar").writeText("shadow")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val entries = zip.entries().toList()
-            val devJars = entries.filter { it.name.contains("-dev.jar") }
-            val shadowJars = entries.filter { it.name.contains("-shadow.jar") }
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val entries = zip.entries().toList()
+                val devJars = entries.filter { it.name.contains("-dev.jar") }
+                val shadowJars = entries.filter { it.name.contains("-shadow.jar") }
 
-            assertTrue(devJars.isEmpty(), "Should exclude dev JARs")
-            assertTrue(shadowJars.isEmpty(), "Should exclude shadow JARs")
+                assertTrue(devJars.isEmpty(), "Should exclude dev JARs")
+                assertTrue(shadowJars.isEmpty(), "Should exclude shadow JARs")
+            }
+
+            println("✓ Dev and shadow JARs excluded")
         }
-
-        println("✓ Dev and shadow JARs excluded")
     }
 
     // =================================================================
@@ -924,19 +987,21 @@ class PackageCommandE2ETest {
         println("║     Test 39: Read Metadata from config.yml                  ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("modrinth.json")
-            val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("modrinth.json")
+                val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
 
-            assertTrue(content.contains("Test Package Mod"), "Should read mod name from config")
-            assertTrue(content.contains("testpackage"), "Should read mod ID from config")
+                assertTrue(content.contains("Test Package Mod"), "Should read mod name from config")
+                assertTrue(content.contains("testpackage"), "Should read mod ID from config")
+            }
+
+            println("✓ Metadata read from config.yml")
         }
-
-        println("✓ Metadata read from config.yml")
     }
 
     @Test
@@ -945,16 +1010,18 @@ class PackageCommandE2ETest {
         println("║     Test 40: Generate Bundle README                         ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val readmeEntry = zip.getEntry("README.md")
-            assertTrue(readmeEntry != null, "Should include README.md")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val readmeEntry = zip.getEntry("README.md")
+                assertTrue(readmeEntry != null, "Should include README.md")
+            }
+
+            println("✓ README included in bundle")
         }
-
-        println("✓ README included in bundle")
     }
 
     @Test
@@ -963,16 +1030,18 @@ class PackageCommandE2ETest {
         println("║     Test 41: Generate Bundle CHANGELOG                      ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val changelogEntry = zip.getEntry("CHANGELOG.md")
-            assertTrue(changelogEntry != null, "Should include CHANGELOG.md")
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val changelogEntry = zip.getEntry("CHANGELOG.md")
+                assertTrue(changelogEntry != null, "Should include CHANGELOG.md")
+            }
+
+            println("✓ CHANGELOG included in bundle")
         }
-
-        println("✓ CHANGELOG included in bundle")
     }
 
     @Test
@@ -981,18 +1050,20 @@ class PackageCommandE2ETest {
         println("║     Test 42: Metadata Version Info                          ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("modrinth.json")
-            val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("modrinth.json")
+                val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
 
-            assertTrue(content.contains("1.0.0"), "Should include version number")
+                assertTrue(content.contains("1.0.0"), "Should include version number")
+            }
+
+            println("✓ Version info included")
         }
-
-        println("✓ Version info included")
     }
 
     @Test
@@ -1001,21 +1072,23 @@ class PackageCommandE2ETest {
         println("║     Test 43: Metadata Loader Info                           ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        ZipFile(packageFile).use { zip ->
-            val entry = zip.getEntry("modrinth.json")
-            val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            ZipFile(packageFile).use { zip ->
+                val entry = zip.getEntry("modrinth.json")
+                val content = zip.getInputStream(entry).bufferedReader().use { it.readText() }
 
-            assertTrue(
-                content.contains("fabric") || content.contains("forge") || content.contains("neoforge"),
-                "Should include loader info"
-            )
+                assertTrue(
+                    content.contains("fabric") || content.contains("forge") || content.contains("neoforge"),
+                    "Should include loader info"
+                )
+            }
+
+            println("✓ Loader info included")
         }
-
-        println("✓ Loader info included")
     }
 
     @Test
@@ -1024,18 +1097,20 @@ class PackageCommandE2ETest {
         println("║     Test 44: Metadata License Info                          ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val command = PackageBundleCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageBundleCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/bundle/testpackage-1.0.0-bundle.zip")
-        ZipFile(packageFile).use { zip ->
-            val infoEntry = zip.getEntry("BUNDLE_INFO.txt")
-            val content = zip.getInputStream(infoEntry).bufferedReader().use { it.readText() }
+            val packageFile = context.file( "build/packages/bundle/testpackage-1.0.0-bundle.zip")
+            ZipFile(packageFile).use { zip ->
+                val infoEntry = zip.getEntry("BUNDLE_INFO.txt")
+                val content = zip.getInputStream(infoEntry).bufferedReader().use { it.readText() }
 
-            assertTrue(content.contains("MIT"), "Should include license info")
+                assertTrue(content.contains("MIT"), "Should include license info")
+            }
+
+            println("✓ License info included")
         }
-
-        println("✓ License info included")
     }
 
     // =================================================================
@@ -1065,23 +1140,25 @@ class PackageCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Delete optional files
-        File(testProjectDir, "README.md").delete()
-        File(testProjectDir, "CHANGELOG.md").delete()
+        context.file( "README.md").delete()
+        context.file( "CHANGELOG.md").delete()
 
-        val command = PackageModrinthCommand()
-        command.parse(emptyArray())
+        context.withProjectDir {
+            val command = PackageModrinthCommand()
+            command.parse(emptyArray())
 
-        val packageFile = File(testProjectDir, "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
-        assertTrue(packageFile.exists(), "Should create package without optional files")
+            val packageFile = context.file( "build/packages/modrinth/testpackage-1.0.0-modrinth.zip")
+            assertTrue(packageFile.exists(), "Should create package without optional files")
 
-        ZipFile(packageFile).use { zip ->
-            val readmeEntry = zip.getEntry("README.md")
-            val changelogEntry = zip.getEntry("CHANGELOG.md")
-            assertTrue(readmeEntry == null, "Should NOT include missing README")
-            assertTrue(changelogEntry == null, "Should NOT include missing CHANGELOG")
+            ZipFile(packageFile).use { zip ->
+                val readmeEntry = zip.getEntry("README.md")
+                val changelogEntry = zip.getEntry("CHANGELOG.md")
+                assertTrue(readmeEntry == null, "Should NOT include missing README")
+                assertTrue(changelogEntry == null, "Should NOT include missing CHANGELOG")
+            }
+
+            println("✓ Package created without optional files")
         }
-
-        println("✓ Package created without optional files")
     }
 
     // =================================================================
@@ -1094,7 +1171,7 @@ class PackageCommandE2ETest {
 
         versions.forEach { version ->
             loaders.forEach { loader ->
-                val buildDir = File(testProjectDir, "build/$version/$loader/libs")
+                val buildDir = context.file( "build/$version/$loader/libs")
                 buildDir.mkdirs()
                 val jarFile = File(buildDir, "testpackage-1.0.0-$loader.jar")
                 jarFile.writeText("fake jar content")
@@ -1108,7 +1185,7 @@ class PackageCommandE2ETest {
 
         versions.forEach { version ->
             loaders.forEach { loader ->
-                val buildDir = File(testProjectDir, "build/$version/$loader/libs")
+                val buildDir = context.file( "build/$version/$loader/libs")
                 buildDir.mkdirs()
                 val jarFile = File(buildDir, "testpackage-1.0.0-$loader-sources.jar")
                 jarFile.writeText("fake source jar content")
@@ -1122,7 +1199,7 @@ class PackageCommandE2ETest {
 
         versions.forEach { version ->
             loaders.forEach { loader ->
-                val buildDir = File(testProjectDir, "build/$version/$loader/libs")
+                val buildDir = context.file( "build/$version/$loader/libs")
                 buildDir.mkdirs()
                 val jarFile = File(buildDir, "testpackage-1.0.0-$loader-javadoc.jar")
                 jarFile.writeText("fake javadoc jar content")
@@ -1132,14 +1209,14 @@ class PackageCommandE2ETest {
 
     private fun createProjectFiles() {
         // Create README
-        File(testProjectDir, "README.md").writeText("""
+        context.file( "README.md").writeText("""
             # Test Package Mod
 
             A test mod for packaging.
         """.trimIndent())
 
         // Create CHANGELOG
-        File(testProjectDir, "CHANGELOG.md").writeText("""
+        context.file( "CHANGELOG.md").writeText("""
             # Changelog
 
             ## 1.0.0
@@ -1147,7 +1224,7 @@ class PackageCommandE2ETest {
         """.trimIndent())
 
         // Create LICENSE
-        File(testProjectDir, "LICENSE").writeText("""
+        context.file( "LICENSE").writeText("""
             MIT License
 
             Copyright (c) 2024 TestAuthor

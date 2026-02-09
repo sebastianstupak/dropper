@@ -1,9 +1,9 @@
 package dev.dropper.commands.export
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.commands.DropperCommand
 import dev.dropper.exporters.AssetExporter
 import dev.dropper.util.Logger
 import java.io.File
@@ -11,7 +11,7 @@ import java.io.File
 /**
  * Export specific asset pack
  */
-class ExportAssetsCommand : CliktCommand(
+class ExportAssetsCommand : DropperCommand(
     name = "assets",
     help = "Export specific asset pack"
 ) {
@@ -19,7 +19,6 @@ class ExportAssetsCommand : CliktCommand(
     private val output by option("--output", "-o", help = "Output directory").default("build/assets")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
         val configFile = File(projectDir, "config.yml")
 
         if (!configFile.exists()) {

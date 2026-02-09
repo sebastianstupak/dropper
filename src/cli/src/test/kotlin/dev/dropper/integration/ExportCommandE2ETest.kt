@@ -6,7 +6,7 @@ import dev.dropper.commands.export.ExportAssetsCommand
 import dev.dropper.commands.export.ExportDatapackCommand
 import dev.dropper.commands.export.ExportResourcepackCommand
 import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -19,13 +19,11 @@ import kotlin.test.assertTrue
  */
 class ExportCommandE2ETest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testProjectDir = File("build/test-export/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        context = TestProjectContext.create("test-mod")
 
         val config = ModConfig(
             id = "exportmod",
@@ -38,16 +36,12 @@ class ExportCommandE2ETest {
             loaders = listOf("fabric", "forge")
         )
 
-        ProjectGenerator().generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     // Datapack export tests (8 tests)
@@ -60,14 +54,16 @@ class ExportCommandE2ETest {
 
         // Create some data files first
         val recipeCommand = CreateRecipeCommand()
+        recipeCommand.projectDir = context.projectDir
         recipeCommand.parse(arrayOf("test_recipe", "--type", "crafting"))
 
         // Export datapack
         val command = ExportDatapackCommand()
+        command.projectDir = context.projectDir
         command.parse(arrayOf("1.20.1", "--output", "build/test-datapacks"))
 
         // Verify ZIP exists
-        val zipFile = File(testProjectDir, "build/test-datapacks/exportmod_datapack_1.20.1.zip")
+        val zipFile = context.file("build/test-datapacks/exportmod_datapack_1.20.1.zip")
         assertTrue(zipFile.exists(), "Datapack ZIP should exist")
         assertTrue(zipFile.length() > 0, "Datapack ZIP should not be empty")
 
@@ -81,9 +77,10 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         val command = ExportDatapackCommand()
+        command.projectDir = context.projectDir
         command.parse(arrayOf("1.20.1", "--output", "build/test-datapacks"))
 
-        val zipFile = File(testProjectDir, "build/test-datapacks/exportmod_datapack_1.20.1.zip")
+        val zipFile = context.file("build/test-datapacks/exportmod_datapack_1.20.1.zip")
         assertTrue(zipFile.exists(), "Datapack ZIP should exist")
 
         // Verify pack.mcmeta exists in ZIP
@@ -104,12 +101,13 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Create recipe
-        CreateRecipeCommand().parse(arrayOf("test_item", "--type", "crafting"))
+        CreateRecipeCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("test_item", "--type", "crafting"))
 
         val command = ExportDatapackCommand()
+        command.projectDir = context.projectDir
         command.parse(arrayOf("1.20.1", "--output", "build/test-datapacks"))
 
-        val zipFile = File(testProjectDir, "build/test-datapacks/exportmod_datapack_1.20.1.zip")
+        val zipFile = context.file("build/test-datapacks/exportmod_datapack_1.20.1.zip")
 
         ZipFile(zipFile).use { zip ->
             val entries = zip.entries().toList().map { it.name }
@@ -126,9 +124,10 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         val command = ExportDatapackCommand()
+        command.projectDir = context.projectDir
         command.parse(arrayOf("1.20.1", "--output", "build/test-datapacks", "--pack-format", "15"))
 
-        val zipFile = File(testProjectDir, "build/test-datapacks/exportmod_datapack_1.20.1.zip")
+        val zipFile = context.file("build/test-datapacks/exportmod_datapack_1.20.1.zip")
 
         ZipFile(zipFile).use { zip ->
             val packMcmeta = zip.getEntry("pack.mcmeta")
@@ -145,13 +144,13 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Export for 1.20.1
-        ExportDatapackCommand().parse(arrayOf("1.20.1", "--output", "build/test-datapacks"))
+        ExportDatapackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("1.20.1", "--output", "build/test-datapacks"))
 
         // Export for 1.21.1
-        ExportDatapackCommand().parse(arrayOf("1.21.1", "--output", "build/test-datapacks"))
+        ExportDatapackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("1.21.1", "--output", "build/test-datapacks"))
 
-        val zip1 = File(testProjectDir, "build/test-datapacks/exportmod_datapack_1.20.1.zip")
-        val zip2 = File(testProjectDir, "build/test-datapacks/exportmod_datapack_1.21.1.zip")
+        val zip1 = context.file( "build/test-datapacks/exportmod_datapack_1.20.1.zip")
+        val zip2 = context.file( "build/test-datapacks/exportmod_datapack_1.21.1.zip")
 
         assertTrue(zip1.exists(), "1.20.1 datapack should exist")
         assertTrue(zip2.exists(), "1.21.1 datapack should exist")
@@ -164,9 +163,9 @@ class ExportCommandE2ETest {
         println("║     E2E Test: Export Datapack - Format Validation           ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        ExportDatapackCommand().parse(arrayOf("1.20.1", "--output", "build/test-datapacks"))
+        ExportDatapackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("1.20.1", "--output", "build/test-datapacks"))
 
-        val zipFile = File(testProjectDir, "build/test-datapacks/exportmod_datapack_1.20.1.zip")
+        val zipFile = context.file("build/test-datapacks/exportmod_datapack_1.20.1.zip")
 
         ZipFile(zipFile).use { zip ->
             val entries = zip.entries().toList()
@@ -186,12 +185,12 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Create multiple recipes
-        CreateRecipeCommand().parse(arrayOf("recipe1", "--type", "crafting"))
-        CreateRecipeCommand().parse(arrayOf("recipe2", "--type", "smelting"))
+        CreateRecipeCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("recipe1", "--type", "crafting"))
+        CreateRecipeCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("recipe2", "--type", "smelting"))
 
-        ExportDatapackCommand().parse(arrayOf("1.20.1", "--output", "build/test-datapacks"))
+        ExportDatapackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("1.20.1", "--output", "build/test-datapacks"))
 
-        val zipFile = File(testProjectDir, "build/test-datapacks/exportmod_datapack_1.20.1.zip")
+        val zipFile = context.file("build/test-datapacks/exportmod_datapack_1.20.1.zip")
 
         ZipFile(zipFile).use { zip ->
             val recipeEntries = zip.entries().toList()
@@ -209,9 +208,9 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         val customDir = "build/custom-export"
-        ExportDatapackCommand().parse(arrayOf("1.20.1", "--output", customDir))
+        ExportDatapackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("1.20.1", "--output", customDir))
 
-        val zipFile = File(testProjectDir, "$customDir/exportmod_datapack_1.20.1.zip")
+        val zipFile = context.file("$customDir/exportmod_datapack_1.20.1.zip")
         assertTrue(zipFile.exists(), "Datapack should exist in custom directory")
         println("  ✓ Exported to custom directory")
     }
@@ -225,12 +224,13 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Create some assets first
-        CreateItemCommand().parse(arrayOf("test_item", "--type", "basic"))
+        CreateItemCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("test_item", "--type", "basic"))
 
         val command = ExportResourcepackCommand()
+        command.projectDir = context.projectDir
         command.parse(arrayOf("--output", "build/test-resourcepacks"))
 
-        val zipFile = File(testProjectDir, "build/test-resourcepacks/exportmod_resourcepack.zip")
+        val zipFile = context.file("build/test-resourcepacks/exportmod_resourcepack.zip")
         assertTrue(zipFile.exists(), "Resourcepack ZIP should exist")
         assertTrue(zipFile.length() > 0, "Resourcepack ZIP should not be empty")
 
@@ -243,9 +243,9 @@ class ExportCommandE2ETest {
         println("║     E2E Test: Export Resourcepack - pack.mcmeta             ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        ExportResourcepackCommand().parse(arrayOf("--output", "build/test-resourcepacks"))
+        ExportResourcepackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("--output", "build/test-resourcepacks"))
 
-        val zipFile = File(testProjectDir, "build/test-resourcepacks/exportmod_resourcepack.zip")
+        val zipFile = context.file("build/test-resourcepacks/exportmod_resourcepack.zip")
 
         ZipFile(zipFile).use { zip ->
             val packMcmeta = zip.getEntry("pack.mcmeta")
@@ -260,11 +260,11 @@ class ExportCommandE2ETest {
         println("║     E2E Test: Export Resourcepack - Textures                ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        CreateItemCommand().parse(arrayOf("textured_item", "--type", "basic"))
+        CreateItemCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("textured_item", "--type", "basic"))
 
-        ExportResourcepackCommand().parse(arrayOf("--output", "build/test-resourcepacks"))
+        ExportResourcepackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("--output", "build/test-resourcepacks"))
 
-        val zipFile = File(testProjectDir, "build/test-resourcepacks/exportmod_resourcepack.zip")
+        val zipFile = context.file("build/test-resourcepacks/exportmod_resourcepack.zip")
 
         ZipFile(zipFile).use { zip ->
             val entries = zip.entries().toList()
@@ -280,11 +280,11 @@ class ExportCommandE2ETest {
         println("║     E2E Test: Export Resourcepack - Models                  ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        CreateItemCommand().parse(arrayOf("modeled_item", "--type", "basic"))
+        CreateItemCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("modeled_item", "--type", "basic"))
 
-        ExportResourcepackCommand().parse(arrayOf("--output", "build/test-resourcepacks"))
+        ExportResourcepackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("--output", "build/test-resourcepacks"))
 
-        val zipFile = File(testProjectDir, "build/test-resourcepacks/exportmod_resourcepack.zip")
+        val zipFile = context.file("build/test-resourcepacks/exportmod_resourcepack.zip")
 
         ZipFile(zipFile).use { zip ->
             val entries = zip.entries().toList()
@@ -300,9 +300,9 @@ class ExportCommandE2ETest {
         println("║     E2E Test: Export Resourcepack - Format Validation       ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        ExportResourcepackCommand().parse(arrayOf("--output", "build/test-resourcepacks"))
+        ExportResourcepackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("--output", "build/test-resourcepacks"))
 
-        val zipFile = File(testProjectDir, "build/test-resourcepacks/exportmod_resourcepack.zip")
+        val zipFile = context.file("build/test-resourcepacks/exportmod_resourcepack.zip")
 
         ZipFile(zipFile).use { zip ->
             val entries = zip.entries().toList()
@@ -318,9 +318,9 @@ class ExportCommandE2ETest {
         println("║     E2E Test: Export Resourcepack - Custom Pack Format      ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        ExportResourcepackCommand().parse(arrayOf("--output", "build/test-resourcepacks", "--pack-format", "18"))
+        ExportResourcepackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("--output", "build/test-resourcepacks", "--pack-format", "18"))
 
-        val zipFile = File(testProjectDir, "build/test-resourcepacks/exportmod_resourcepack.zip")
+        val zipFile = context.file("build/test-resourcepacks/exportmod_resourcepack.zip")
 
         ZipFile(zipFile).use { zip ->
             val packMcmeta = zip.getEntry("pack.mcmeta")
@@ -336,12 +336,12 @@ class ExportCommandE2ETest {
         println("║     E2E Test: Export Resourcepack - Verify Contents         ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        CreateItemCommand().parse(arrayOf("item1", "--type", "basic"))
-        CreateItemCommand().parse(arrayOf("item2", "--type", "tool"))
+        CreateItemCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("item1", "--type", "basic"))
+        CreateItemCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("item2", "--type", "tool"))
 
-        ExportResourcepackCommand().parse(arrayOf("--output", "build/test-resourcepacks"))
+        ExportResourcepackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("--output", "build/test-resourcepacks"))
 
-        val zipFile = File(testProjectDir, "build/test-resourcepacks/exportmod_resourcepack.zip")
+        val zipFile = context.file("build/test-resourcepacks/exportmod_resourcepack.zip")
 
         ZipFile(zipFile).use { zip ->
             val modelFiles = zip.entries().toList()
@@ -359,9 +359,9 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         val customDir = "build/custom-resourcepacks"
-        ExportResourcepackCommand().parse(arrayOf("--output", customDir))
+        ExportResourcepackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("--output", customDir))
 
-        val zipFile = File(testProjectDir, "$customDir/exportmod_resourcepack.zip")
+        val zipFile = context.file("$customDir/exportmod_resourcepack.zip")
         assertTrue(zipFile.exists(), "Resourcepack should exist in custom directory")
         println("  ✓ Exported to custom directory")
     }
@@ -375,9 +375,10 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         val command = ExportAssetsCommand()
+        command.projectDir = context.projectDir
         command.parse(arrayOf("v1", "--output", "build/exported-assets"))
 
-        val exportDir = File(testProjectDir, "build/exported-assets/v1")
+        val exportDir = context.file("build/exported-assets/v1")
         assertTrue(exportDir.exists(), "Export directory should exist")
         println("  ✓ Assets exported to directory")
     }
@@ -388,9 +389,9 @@ class ExportCommandE2ETest {
         println("║     E2E Test: Export Assets - Directory Structure           ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        ExportAssetsCommand().parse(arrayOf("v1", "--output", "build/exported-assets"))
+        ExportAssetsCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("v1", "--output", "build/exported-assets"))
 
-        val exportDir = File(testProjectDir, "build/exported-assets/v1")
+        val exportDir = context.file("build/exported-assets/v1")
         val assetsDir = File(exportDir, "assets")
         val dataDir = File(exportDir, "data")
 
@@ -404,11 +405,11 @@ class ExportCommandE2ETest {
         println("║     E2E Test: Export Assets - Preserve Files                ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        CreateItemCommand().parse(arrayOf("preserved_item", "--type", "basic"))
+        CreateItemCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("preserved_item", "--type", "basic"))
 
-        ExportAssetsCommand().parse(arrayOf("v1", "--output", "build/exported-assets"))
+        ExportAssetsCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("v1", "--output", "build/exported-assets"))
 
-        val exportDir = File(testProjectDir, "build/exported-assets/v1")
+        val exportDir = context.file("build/exported-assets/v1")
         val filesExist = exportDir.walk().filter { it.isFile }.count() > 0
 
         assertTrue(filesExist, "Should preserve asset files")
@@ -421,9 +422,9 @@ class ExportCommandE2ETest {
         println("║     E2E Test: Export Assets - Config File                   ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        ExportAssetsCommand().parse(arrayOf("v1", "--output", "build/exported-assets"))
+        ExportAssetsCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("v1", "--output", "build/exported-assets"))
 
-        val configFile = File(testProjectDir, "build/exported-assets/v1/config.yml")
+        val configFile = context.file("build/exported-assets/v1/config.yml")
         // Config may or may not exist depending on asset pack setup
         println("  ✓ Export completed")
     }
@@ -435,9 +436,9 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         val customDir = "build/custom-assets-export"
-        ExportAssetsCommand().parse(arrayOf("v1", "--output", customDir))
+        ExportAssetsCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("v1", "--output", customDir))
 
-        val exportDir = File(testProjectDir, "$customDir/v1")
+        val exportDir = context.file("$customDir/v1")
         assertTrue(exportDir.exists(), "Should export to custom location")
         println("  ✓ Exported to custom location")
     }
@@ -451,15 +452,15 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Create content
-        CreateItemCommand().parse(arrayOf("exported_item", "--type", "basic"))
-        CreateRecipeCommand().parse(arrayOf("exported_recipe", "--type", "crafting"))
+        CreateItemCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("exported_item", "--type", "basic"))
+        CreateRecipeCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("exported_recipe", "--type", "crafting"))
 
         // Export both
-        ExportDatapackCommand().parse(arrayOf("1.20.1", "--output", "build/test-export"))
-        ExportResourcepackCommand().parse(arrayOf("--output", "build/test-export"))
+        ExportDatapackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("1.20.1", "--output", "build/test-export"))
+        ExportResourcepackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("--output", "build/test-export"))
 
-        val datapack = File(testProjectDir, "build/test-export/exportmod_datapack_1.20.1.zip")
-        val resourcepack = File(testProjectDir, "build/test-export/exportmod_resourcepack.zip")
+        val datapack = context.file( "build/test-export/exportmod_datapack_1.20.1.zip")
+        val resourcepack = context.file( "build/test-export/exportmod_resourcepack.zip")
 
         assertTrue(datapack.exists(), "Datapack should be exported")
         assertTrue(resourcepack.exists(), "Resourcepack should be exported")
@@ -475,11 +476,11 @@ class ExportCommandE2ETest {
         val versions = listOf("1.20.1", "1.21.1")
 
         versions.forEach { version ->
-            ExportDatapackCommand().parse(arrayOf(version, "--output", "build/test-versions"))
+            ExportDatapackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf(version, "--output", "build/test-versions"))
         }
 
         versions.forEach { version ->
-            val zip = File(testProjectDir, "build/test-versions/exportmod_datapack_$version.zip")
+            val zip = context.file( "build/test-versions/exportmod_datapack_$version.zip")
             assertTrue(zip.exists(), "Datapack for $version should exist")
         }
 
@@ -493,9 +494,9 @@ class ExportCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Should succeed in valid project
-        ExportResourcepackCommand().parse(arrayOf("--output", "build/test-validation"))
+        ExportResourcepackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("--output", "build/test-validation"))
 
-        val zip = File(testProjectDir, "build/test-validation/exportmod_resourcepack.zip")
+        val zip = context.file( "build/test-validation/exportmod_resourcepack.zip")
         assertTrue(zip.exists(), "Export should succeed in valid project")
         println("  ✓ Project validation passed")
     }
@@ -512,12 +513,12 @@ class ExportCommandE2ETest {
             "build/exports/assets"
         )
 
-        ExportDatapackCommand().parse(arrayOf("1.20.1", "--output", paths[0]))
-        ExportResourcepackCommand().parse(arrayOf("--output", paths[1]))
-        ExportAssetsCommand().parse(arrayOf("v1", "--output", paths[2]))
+        ExportDatapackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("1.20.1", "--output", paths[0]))
+        ExportResourcepackCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("--output", paths[1]))
+        ExportAssetsCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("v1", "--output", paths[2]))
 
         paths.forEach { path ->
-            val dir = File(testProjectDir, path)
+            val dir = context.file(path)
             assertTrue(dir.exists(), "Output directory should be created: $path")
         }
 

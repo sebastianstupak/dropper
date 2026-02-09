@@ -1,9 +1,9 @@
 package dev.dropper.commands.rename
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.commands.DropperCommand
 import dev.dropper.renamers.*
 import dev.dropper.util.Logger
 import java.io.File
@@ -11,7 +11,7 @@ import java.io.File
 /**
  * Command to rename a block and update all references
  */
-class RenameBlockCommand : CliktCommand(
+class RenameBlockCommand : DropperCommand(
     name = "block",
     help = "Rename a block and update all references"
 ) {
@@ -22,8 +22,7 @@ class RenameBlockCommand : CliktCommand(
     private val version by option("--version", "-v", help = "Rename in specific version only")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")

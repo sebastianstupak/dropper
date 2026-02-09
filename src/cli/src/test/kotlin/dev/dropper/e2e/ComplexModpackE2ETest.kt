@@ -2,6 +2,7 @@ package dev.dropper.e2e
 
 import dev.dropper.config.ModConfig
 import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -14,20 +15,16 @@ import kotlin.test.assertTrue
  */
 class ComplexModpackE2ETest {
 
-    private lateinit var testDir: File
-    private lateinit var projectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testDir = File("build/test-complex-modpacks/${System.currentTimeMillis()}")
-        testDir.mkdirs()
-        projectDir = File(testDir, "complex-mod")
+        context = TestProjectContext.create("complex-mod")
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
+        context.cleanup()
     }
 
     @Test
@@ -47,12 +44,12 @@ class ComplexModpackE2ETest {
             loaders = listOf("fabric", "forge", "neoforge")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // Verify all version directories exist
         val versionDirs = listOf("1_21_1", "1_20_1", "1_19_2", "1_18_2", "1_16_5")
         versionDirs.forEach { version ->
-            val versionDir = File(projectDir, "versions/$version")
+            val versionDir = context.file( "versions/$version")
             assertTrue(versionDir.exists(), "Version directory $version should exist")
             assertTrue(File(versionDir, "config.yml").exists(), "Config for $version should exist")
         }
@@ -60,7 +57,7 @@ class ComplexModpackE2ETest {
         // Verify loader-specific files
         val loaderDirs = listOf("fabric", "forge", "neoforge")
         loaderDirs.forEach { loader ->
-            val loaderDir = File(projectDir, "shared/$loader")
+            val loaderDir = context.file( "shared/$loader")
             assertTrue(loaderDir.exists(), "Loader directory $loader should exist")
         }
 
@@ -87,14 +84,14 @@ class ComplexModpackE2ETest {
             loaders = listOf("fabric", "forge")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // Create v1 asset pack (base - for 1.16.5)
-        val v1 = File(projectDir, "versions/shared/v1")
+        val v1 = context.file( "versions/shared/v1")
         assertTrue(v1.exists(), "v1 asset pack should exist")
 
         // Create v2 asset pack (inherits v1 - for 1.18.2, 1.19.2)
-        val v2 = File(projectDir, "versions/shared/v2")
+        val v2 = context.file( "versions/shared/v2")
         v2.mkdirs()
         File(v2, "config.yml").writeText("""
             asset_pack:
@@ -106,7 +103,7 @@ class ComplexModpackE2ETest {
         """.trimIndent())
 
         // Create v3 asset pack (inherits v2 - for 1.20.1, 1.21.1)
-        val v3 = File(projectDir, "versions/shared/v3")
+        val v3 = context.file( "versions/shared/v3")
         v3.mkdirs()
         File(v3, "config.yml").writeText("""
             asset_pack:
@@ -167,12 +164,12 @@ class ComplexModpackE2ETest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // Create version-specific implementations
-        val v1_18_2 = File(projectDir, "versions/1_18_2")
-        val v1_20_1 = File(projectDir, "versions/1_20_1")
-        val v1_21_1 = File(projectDir, "versions/1_21_1")
+        val v1_18_2 = context.file( "versions/1_18_2")
+        val v1_20_1 = context.file( "versions/1_20_1")
+        val v1_21_1 = context.file( "versions/1_21_1")
 
         // Add version-specific code for 1.18.2 (legacy)
         File(v1_18_2, "fabric").mkdirs()
@@ -240,10 +237,10 @@ class ComplexModpackE2ETest {
             loaders = listOf("fabric", "forge", "neoforge")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // 1.16.5: Fabric + Forge only (no NeoForge)
-        val v1_16_5_config = File(projectDir, "versions/1_16_5/config.yml")
+        val v1_16_5_config = context.file( "versions/1_16_5/config.yml")
         v1_16_5_config.writeText("""
             minecraft_version: "1.16.5"
             asset_pack: "v1"
@@ -254,7 +251,7 @@ class ComplexModpackE2ETest {
         """.trimIndent())
 
         // 1.19.2: Fabric + Forge only
-        val v1_19_2_config = File(projectDir, "versions/1_19_2/config.yml")
+        val v1_19_2_config = context.file( "versions/1_19_2/config.yml")
         v1_19_2_config.writeText("""
             minecraft_version: "1.19.2"
             asset_pack: "v1"
@@ -265,7 +262,7 @@ class ComplexModpackE2ETest {
         """.trimIndent())
 
         // 1.20.1: All three loaders
-        val v1_20_1_config = File(projectDir, "versions/1_20_1/config.yml")
+        val v1_20_1_config = context.file( "versions/1_20_1/config.yml")
         v1_20_1_config.writeText("""
             minecraft_version: "1.20.1"
             asset_pack: "v2"
@@ -277,7 +274,7 @@ class ComplexModpackE2ETest {
         """.trimIndent())
 
         // 1.21.1: Fabric + NeoForge only (Forge deprecated)
-        val v1_21_1_config = File(projectDir, "versions/1_21_1/config.yml")
+        val v1_21_1_config = context.file( "versions/1_21_1/config.yml")
         v1_21_1_config.writeText("""
             minecraft_version: "1.21.1"
             asset_pack: "v2"
@@ -315,7 +312,7 @@ class ComplexModpackE2ETest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         val items = listOf(
             "ruby_sword", "ruby_pickaxe", "ruby_axe", "ruby_shovel", "ruby_hoe",
@@ -326,7 +323,7 @@ class ComplexModpackE2ETest {
         )
 
         // Create all items
-        val itemsDir = File(projectDir, "shared/common/src/main/java/com/largemod/items")
+        val itemsDir = context.file( "shared/common/src/main/java/com/largemod/items")
         itemsDir.mkdirs()
 
         items.forEach { itemName ->
@@ -343,7 +340,7 @@ class ComplexModpackE2ETest {
             """.trimIndent())
 
             // Create model
-            val modelDir = File(projectDir, "versions/shared/v1/assets/largemod/models/item")
+            val modelDir = context.file( "versions/shared/v1/assets/largemod/models/item")
             modelDir.mkdirs()
             File(modelDir, "$itemName.json").writeText("""
                 {
@@ -386,42 +383,42 @@ class ComplexModpackE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // Create 5-level inheritance chain
         val packs = listOf("v1", "v2", "v3", "v4", "v5")
 
         // v1 (base)
-        val v1 = File(projectDir, "versions/shared/v1")
+        val v1 = context.file( "versions/shared/v1")
         assertTrue(v1.exists())
 
         // v2 inherits v1
-        File(projectDir, "versions/shared/v2").mkdirs()
-        File(projectDir, "versions/shared/v2/config.yml").writeText("""
+        context.file( "versions/shared/v2").mkdirs()
+        context.file( "versions/shared/v2/config.yml").writeText("""
             asset_pack:
               version: "v2"
               inherits: "v1"
         """.trimIndent())
 
         // v3 inherits v2
-        File(projectDir, "versions/shared/v3").mkdirs()
-        File(projectDir, "versions/shared/v3/config.yml").writeText("""
+        context.file( "versions/shared/v3").mkdirs()
+        context.file( "versions/shared/v3/config.yml").writeText("""
             asset_pack:
               version: "v3"
               inherits: "v2"
         """.trimIndent())
 
         // v4 inherits v3
-        File(projectDir, "versions/shared/v4").mkdirs()
-        File(projectDir, "versions/shared/v4/config.yml").writeText("""
+        context.file( "versions/shared/v4").mkdirs()
+        context.file( "versions/shared/v4/config.yml").writeText("""
             asset_pack:
               version: "v4"
               inherits: "v3"
         """.trimIndent())
 
         // v5 inherits v4
-        File(projectDir, "versions/shared/v5").mkdirs()
-        File(projectDir, "versions/shared/v5/config.yml").writeText("""
+        context.file( "versions/shared/v5").mkdirs()
+        context.file( "versions/shared/v5/config.yml").writeText("""
             asset_pack:
               version: "v5"
               inherits: "v4"
@@ -431,21 +428,21 @@ class ComplexModpackE2ETest {
         File(v1, "assets/inheritmod/textures/item").mkdirs()
         File(v1, "assets/inheritmod/textures/item/TEXTURE_v1.txt").writeText("Base texture v1")
 
-        File(projectDir, "versions/shared/v2/assets/inheritmod/textures/item").mkdirs()
-        File(projectDir, "versions/shared/v2/assets/inheritmod/textures/item/TEXTURE_v2.txt").writeText("Override v2")
+        context.file( "versions/shared/v2/assets/inheritmod/textures/item").mkdirs()
+        context.file( "versions/shared/v2/assets/inheritmod/textures/item/TEXTURE_v2.txt").writeText("Override v2")
 
-        File(projectDir, "versions/shared/v3/assets/inheritmod/textures/item").mkdirs()
-        File(projectDir, "versions/shared/v3/assets/inheritmod/textures/item/TEXTURE_v3.txt").writeText("Override v3")
+        context.file( "versions/shared/v3/assets/inheritmod/textures/item").mkdirs()
+        context.file( "versions/shared/v3/assets/inheritmod/textures/item/TEXTURE_v3.txt").writeText("Override v3")
 
-        File(projectDir, "versions/shared/v4/assets/inheritmod/textures/item").mkdirs()
-        File(projectDir, "versions/shared/v4/assets/inheritmod/textures/item/TEXTURE_v4.txt").writeText("Override v4")
+        context.file( "versions/shared/v4/assets/inheritmod/textures/item").mkdirs()
+        context.file( "versions/shared/v4/assets/inheritmod/textures/item/TEXTURE_v4.txt").writeText("Override v4")
 
-        File(projectDir, "versions/shared/v5/assets/inheritmod/textures/item").mkdirs()
-        File(projectDir, "versions/shared/v5/assets/inheritmod/textures/item/TEXTURE_v5.txt").writeText("Override v5")
+        context.file( "versions/shared/v5/assets/inheritmod/textures/item").mkdirs()
+        context.file( "versions/shared/v5/assets/inheritmod/textures/item/TEXTURE_v5.txt").writeText("Override v5")
 
         // Verify chain
         packs.forEach { pack ->
-            assertTrue(File(projectDir, "versions/shared/$pack").exists(), "$pack should exist")
+            assertTrue(context.file( "versions/shared/$pack").exists(), "$pack should exist")
         }
 
         println("  ✓ 5-level inheritance chain: v1 → v2 → v3 → v4 → v5")
@@ -471,7 +468,7 @@ class ComplexModpackE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // Create organized package structure
         val packages = listOf(
@@ -490,7 +487,7 @@ class ComplexModpackE2ETest {
         )
 
         packages.forEach { pkg ->
-            val dir = File(projectDir, "shared/common/src/main/java/com/teammod/$pkg")
+            val dir = context.file( "shared/common/src/main/java/com/teammod/$pkg")
             dir.mkdirs()
             assertTrue(dir.exists(), "Package $pkg should exist")
         }

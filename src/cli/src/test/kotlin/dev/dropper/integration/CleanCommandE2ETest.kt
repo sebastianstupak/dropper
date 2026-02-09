@@ -3,8 +3,7 @@ package dev.dropper.integration
 import dev.dropper.commands.CreateItemCommand
 import dev.dropper.commands.clean.*
 import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
-import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -18,13 +17,11 @@ import kotlin.test.assertTrue
  */
 class CleanCommandE2ETest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testProjectDir = File("build/test-clean/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        context = TestProjectContext.create("test-clean")
 
         val config = ModConfig(
             id = "cleantest",
@@ -37,8 +34,7 @@ class CleanCommandE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
 
         // Create some test content
         createTestContent()
@@ -46,18 +42,17 @@ class CleanCommandE2ETest {
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     private fun createTestContent() {
-        // Create some items
-        CreateItemCommand().parse(arrayOf("test_item"))
+        context.withProjectDir {
+            // Create some items
+            CreateItemCommand().parse(arrayOf("test_item"))
+        }
 
         // Create build artifacts
-        val buildDir = File(testProjectDir, "build")
+        val buildDir = context.file("build")
         buildDir.mkdirs()
         File(buildDir, "libs/mod.jar").apply {
             parentFile.mkdirs()
@@ -65,12 +60,12 @@ class CleanCommandE2ETest {
         }
 
         // Create cache files
-        val cacheDir = File(testProjectDir, ".gradle")
+        val cacheDir = context.file(".gradle")
         cacheDir.mkdirs()
         File(cacheDir, "cache.bin").createNewFile()
 
         // Create temporary files
-        File(testProjectDir, "temp.tmp").createNewFile()
+        context.file("temp.tmp").createNewFile()
     }
 
     // ========== Cleanup Safety Tests (10 tests) ==========
@@ -79,11 +74,13 @@ class CleanCommandE2ETest {
     fun `test 01 - dry run shows what would be deleted`() {
         println("\n[TEST 01] Clean safety - dry run")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--dry-run"))
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--dry-run"))
+        }
 
         // Build directory should still exist
-        val buildDir = File(testProjectDir, "build")
+        val buildDir = context.file("build")
         assertTrue(buildDir.exists(), "Dry run should not delete files")
     }
 
@@ -91,11 +88,13 @@ class CleanCommandE2ETest {
     fun `test 02 - dry run accuracy check`() {
         println("\n[TEST 02] Clean safety - dry run accuracy")
 
-        val buildDir = File(testProjectDir, "build")
+        val buildDir = context.file("build")
         val filesBefore = buildDir.walkTopDown().filter { it.isFile }.count()
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--dry-run"))
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--dry-run"))
+        }
 
         val filesAfter = buildDir.walkTopDown().filter { it.isFile }.count()
         assertTrue(filesBefore == filesAfter, "Dry run should not change file count")
@@ -106,9 +105,6 @@ class CleanCommandE2ETest {
         println("\n[TEST 03] Clean safety - confirmation prompt")
 
         // In real usage, this would show a prompt
-        val command = CleanAllCommand()
-        // command.parse(arrayOf("--interactive"))
-
         assertTrue(true, "Confirmation prompt should work")
     }
 
@@ -116,8 +112,10 @@ class CleanCommandE2ETest {
     fun `test 04 - force mode bypasses confirmation`() {
         println("\n[TEST 04] Clean safety - force mode")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--force"))
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--force"))
+        }
 
         assertTrue(true, "Force mode should work")
     }
@@ -126,13 +124,15 @@ class CleanCommandE2ETest {
     fun `test 05 - backup before clean`() {
         println("\n[TEST 05] Clean safety - backup")
 
-        val buildDir = File(testProjectDir, "build")
+        val buildDir = context.file("build")
         val fileCount = buildDir.walkTopDown().filter { it.isFile }.count()
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--backup"))
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--backup"))
+        }
 
-        val backupDir = File(testProjectDir, ".dropper/backups")
+        val backupDir = context.file(".dropper/backups")
         assertTrue(backupDir.exists() || true, "Backup should be created")
     }
 
@@ -140,8 +140,10 @@ class CleanCommandE2ETest {
     fun `test 06 - selective cleaning`() {
         println("\n[TEST 06] Clean safety - selective")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--only", "*.jar"))
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--only", "*.jar"))
+        }
 
         // Only JAR files should be deleted
         assertTrue(true, "Selective cleaning should work")
@@ -151,14 +153,15 @@ class CleanCommandE2ETest {
     fun `test 07 - preserve patterns`() {
         println("\n[TEST 07] Clean safety - preserve patterns")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--preserve", "*.log"))
-
-        val logFile = File(testProjectDir, "build/test.log")
+        val logFile = context.file("build/test.log")
         logFile.parentFile.mkdirs()
         logFile.createNewFile()
 
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--preserve", "*.log"))
+            command.parse(arrayOf())
+        }
 
         assertTrue(logFile.exists() || true, "Preserved files should remain")
     }
@@ -167,14 +170,15 @@ class CleanCommandE2ETest {
     fun `test 08 - exclude patterns`() {
         println("\n[TEST 08] Clean safety - exclude patterns")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--exclude", "important/*"))
-
-        val importantFile = File(testProjectDir, "build/important/data.txt")
+        val importantFile = context.file("build/important/data.txt")
         importantFile.parentFile.mkdirs()
         importantFile.createNewFile()
 
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--exclude", "important/*"))
+            command.parse(arrayOf())
+        }
 
         assertTrue(importantFile.exists() || true, "Excluded files should remain")
     }
@@ -183,8 +187,10 @@ class CleanCommandE2ETest {
     fun `test 09 - clean verification`() {
         println("\n[TEST 09] Clean safety - verification")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--verify"))
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--verify"))
+        }
 
         assertTrue(true, "Verification should work")
     }
@@ -193,10 +199,12 @@ class CleanCommandE2ETest {
     fun `test 10 - rollback capability`() {
         println("\n[TEST 10] Clean safety - rollback")
 
-        val buildDir = File(testProjectDir, "build")
+        val buildDir = context.file("build")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--backup"))
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--backup"))
+        }
 
         // Rollback
         assertTrue(true, "Rollback should work")
@@ -208,11 +216,13 @@ class CleanCommandE2ETest {
     fun `test 11 - fresh clone cleanup`() {
         println("\n[TEST 11] Clean scenarios - fresh clone")
 
-        val command = CleanAllCommand()
-        command.parse(arrayOf("--fresh-clone"))
+        context.withProjectDir {
+            val command = CleanAllCommand()
+            command.parse(arrayOf("--fresh-clone"))
+        }
 
         // Should remove all build artifacts but keep source
-        val srcDir = File(testProjectDir, "shared/common/src")
+        val srcDir = context.file("shared/common/src")
         assertTrue(srcDir.exists(), "Source should be preserved")
     }
 
@@ -220,10 +230,12 @@ class CleanCommandE2ETest {
     fun `test 12 - post build cleanup`() {
         println("\n[TEST 12] Clean scenarios - post build")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf())
+        }
 
-        val buildDir = File(testProjectDir, "build")
+        val buildDir = context.file("build")
         assertTrue(!buildDir.exists() || buildDir.listFiles()?.isEmpty() == true,
             "Build directory should be cleaned")
     }
@@ -232,10 +244,12 @@ class CleanCommandE2ETest {
     fun `test 13 - cache corruption cleanup`() {
         println("\n[TEST 13] Clean scenarios - cache corruption")
 
-        val command = CleanCacheCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanCacheCommand()
+            command.parse(arrayOf())
+        }
 
-        val cacheDir = File(testProjectDir, ".gradle")
+        val cacheDir = context.file(".gradle")
         assertTrue(!cacheDir.exists() || true, "Cache should be cleaned")
     }
 
@@ -243,12 +257,14 @@ class CleanCommandE2ETest {
     fun `test 14 - disk space recovery`() {
         println("\n[TEST 14] Clean scenarios - disk space recovery")
 
-        val sizeBefore = testProjectDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
+        val sizeBefore = context.projectDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
 
-        val command = CleanAllCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanAllCommand()
+            command.parse(arrayOf())
+        }
 
-        val sizeAfter = testProjectDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
+        val sizeAfter = context.projectDir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
 
         assertTrue(sizeAfter <= sizeBefore, "Disk space should be recovered")
     }
@@ -257,11 +273,13 @@ class CleanCommandE2ETest {
     fun `test 15 - temporary files cleanup`() {
         println("\n[TEST 15] Clean scenarios - temporary files")
 
-        val tempFile = File(testProjectDir, "temp.tmp")
+        val tempFile = context.file("temp.tmp")
         tempFile.createNewFile()
 
-        val command = CleanGeneratedCommand()
-        command.parse(arrayOf("--temp"))
+        context.withProjectDir {
+            val command = CleanGeneratedCommand()
+            command.parse(arrayOf("--temp"))
+        }
 
         assertFalse(tempFile.exists() || true, "Temp files should be removed")
     }
@@ -270,11 +288,13 @@ class CleanCommandE2ETest {
     fun `test 16 - log files cleanup`() {
         println("\n[TEST 16] Clean scenarios - log files")
 
-        val logFile = File(testProjectDir, "debug.log")
+        val logFile = context.file("debug.log")
         logFile.createNewFile()
 
-        val command = CleanGeneratedCommand()
-        command.parse(arrayOf("--logs"))
+        context.withProjectDir {
+            val command = CleanGeneratedCommand()
+            command.parse(arrayOf("--logs"))
+        }
 
         assertFalse(logFile.exists() || true, "Log files should be removed")
     }
@@ -283,11 +303,13 @@ class CleanCommandE2ETest {
     fun `test 17 - IDE metadata cleanup`() {
         println("\n[TEST 17] Clean scenarios - IDE metadata")
 
-        val ideaDir = File(testProjectDir, ".idea")
+        val ideaDir = context.file(".idea")
         ideaDir.mkdirs()
 
-        val command = CleanGeneratedCommand()
-        command.parse(arrayOf("--ide"))
+        context.withProjectDir {
+            val command = CleanGeneratedCommand()
+            command.parse(arrayOf("--ide"))
+        }
 
         assertFalse(ideaDir.exists() || true, "IDE metadata should be removed")
     }
@@ -297,14 +319,16 @@ class CleanCommandE2ETest {
         println("\n[TEST 18] Clean scenarios - OS specific")
 
         // Create OS-specific files
-        val dsStore = File(testProjectDir, ".DS_Store")
-        val thumbsDb = File(testProjectDir, "Thumbs.db")
+        val dsStore = context.file(".DS_Store")
+        val thumbsDb = context.file("Thumbs.db")
 
         dsStore.createNewFile()
         thumbsDb.createNewFile()
 
-        val command = CleanGeneratedCommand()
-        command.parse(arrayOf("--os-specific"))
+        context.withProjectDir {
+            val command = CleanGeneratedCommand()
+            command.parse(arrayOf("--os-specific"))
+        }
 
         assertTrue(!dsStore.exists() || !thumbsDb.exists() || true,
             "OS-specific files should be removed")
@@ -314,13 +338,15 @@ class CleanCommandE2ETest {
     fun `test 19 - large file cleanup`() {
         println("\n[TEST 19] Clean scenarios - large files")
 
-        val largeFile = File(testProjectDir, "build/large.bin")
+        val largeFile = context.file("build/large.bin")
         largeFile.parentFile.mkdirs()
         largeFile.createNewFile()
         largeFile.writeBytes(ByteArray(10 * 1024 * 1024)) // 10MB
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--min-size", "5M"))
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--min-size", "5M"))
+        }
 
         assertFalse(largeFile.exists() || true, "Large files should be removed")
     }
@@ -329,9 +355,11 @@ class CleanCommandE2ETest {
     fun `test 20 - zombie process cleanup`() {
         println("\n[TEST 20] Clean scenarios - zombie processes")
 
-        // In real usage, would check for and clean up zombie processes
-        val command = CleanCacheCommand()
-        command.parse(arrayOf("--kill-zombies"))
+        context.withProjectDir {
+            // In real usage, would check for and clean up zombie processes
+            val command = CleanCacheCommand()
+            command.parse(arrayOf("--kill-zombies"))
+        }
 
         assertTrue(true, "Zombie process cleanup should work")
     }
@@ -342,11 +370,13 @@ class CleanCommandE2ETest {
     fun `test 21 - clean build directory`() {
         println("\n[TEST 21] Clean - build directory")
 
-        val buildDir = File(testProjectDir, "build")
+        val buildDir = context.file("build")
         assertTrue(buildDir.exists(), "Build directory exists before clean")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf())
+        }
 
         assertTrue(!buildDir.exists() || buildDir.listFiles()?.isEmpty() == true,
             "Build directory should be cleaned")
@@ -356,11 +386,13 @@ class CleanCommandE2ETest {
     fun `test 22 - clean gradle cache`() {
         println("\n[TEST 22] Clean - gradle cache")
 
-        val gradleDir = File(testProjectDir, ".gradle")
+        val gradleDir = context.file(".gradle")
         assertTrue(gradleDir.exists(), "Gradle cache exists before clean")
 
-        val command = CleanCacheCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanCacheCommand()
+            command.parse(arrayOf())
+        }
 
         assertTrue(!gradleDir.exists() || true, "Gradle cache should be cleaned")
     }
@@ -369,8 +401,10 @@ class CleanCommandE2ETest {
     fun `test 23 - clean generated files`() {
         println("\n[TEST 23] Clean - generated files")
 
-        val command = CleanGeneratedCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanGeneratedCommand()
+            command.parse(arrayOf())
+        }
 
         assertTrue(true, "Generated files should be cleaned")
     }
@@ -379,11 +413,13 @@ class CleanCommandE2ETest {
     fun `test 24 - clean all`() {
         println("\n[TEST 24] Clean - all")
 
-        val command = CleanAllCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanAllCommand()
+            command.parse(arrayOf())
+        }
 
-        val buildDir = File(testProjectDir, "build")
-        val cacheDir = File(testProjectDir, ".gradle")
+        val buildDir = context.file("build")
+        val cacheDir = context.file(".gradle")
 
         assertTrue(!buildDir.exists() || !cacheDir.exists() || true,
             "All cleanable directories should be removed")
@@ -393,10 +429,12 @@ class CleanCommandE2ETest {
     fun `test 25 - clean with preserve source`() {
         println("\n[TEST 25] Clean - preserve source")
 
-        val command = CleanAllCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanAllCommand()
+            command.parse(arrayOf())
+        }
 
-        val srcDir = File(testProjectDir, "shared/common/src")
+        val srcDir = context.file("shared/common/src")
         assertTrue(srcDir.exists(), "Source code should be preserved")
     }
 
@@ -404,10 +442,12 @@ class CleanCommandE2ETest {
     fun `test 26 - clean with preserve config`() {
         println("\n[TEST 26] Clean - preserve config")
 
-        val command = CleanAllCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanAllCommand()
+            command.parse(arrayOf())
+        }
 
-        val configFile = File(testProjectDir, "config.yml")
+        val configFile = context.file("config.yml")
         assertTrue(configFile.exists(), "Config should be preserved")
     }
 
@@ -415,8 +455,10 @@ class CleanCommandE2ETest {
     fun `test 27 - clean specific version`() {
         println("\n[TEST 27] Clean - specific version")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--version", "1.20.1"))
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--version", "1.20.1"))
+        }
 
         assertTrue(true, "Version-specific clean should work")
     }
@@ -425,8 +467,10 @@ class CleanCommandE2ETest {
     fun `test 28 - clean specific loader`() {
         println("\n[TEST 28] Clean - specific loader")
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf("--loader", "fabric"))
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf("--loader", "fabric"))
+        }
 
         assertTrue(true, "Loader-specific clean should work")
     }
@@ -437,10 +481,12 @@ class CleanCommandE2ETest {
     fun `test 29 - clean then build`() {
         println("\n[TEST 29] Clean integration - then build")
 
-        val buildDir = File(testProjectDir, "build")
+        val buildDir = context.file("build")
 
-        // Clean
-        CleanBuildCommand().parse(arrayOf())
+        context.withProjectDir {
+            // Clean
+            CleanBuildCommand().parse(arrayOf())
+        }
 
         // Verify cleaned
         assertTrue(!buildDir.exists() || buildDir.listFiles()?.isEmpty() == true,
@@ -454,13 +500,15 @@ class CleanCommandE2ETest {
     fun `test 30 - concurrent clean safety`() {
         println("\n[TEST 30] Clean integration - concurrent safety")
 
-        // Multiple clean commands shouldn't conflict
-        val command1 = CleanBuildCommand()
-        val command2 = CleanCacheCommand()
+        context.withProjectDir {
+            // Multiple clean commands shouldn't conflict
+            val command1 = CleanBuildCommand()
+            val command2 = CleanCacheCommand()
 
-        // Run sequentially (in real usage could be concurrent)
-        command1.parse(arrayOf())
-        command2.parse(arrayOf())
+            // Run sequentially (in real usage could be concurrent)
+            command1.parse(arrayOf())
+            command2.parse(arrayOf())
+        }
 
         assertTrue(true, "Concurrent cleans should be safe")
     }
@@ -469,11 +517,13 @@ class CleanCommandE2ETest {
     fun `test 31 - clean empty directory`() {
         println("\n[TEST 31] Clean edge case - empty directory")
 
-        val emptyDir = File(testProjectDir, "empty")
+        val emptyDir = context.file("empty")
         emptyDir.mkdirs()
 
-        val command = CleanAllCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanAllCommand()
+            command.parse(arrayOf())
+        }
 
         assertTrue(true, "Empty directories should be handled")
     }
@@ -482,9 +532,11 @@ class CleanCommandE2ETest {
     fun `test 32 - clean with symlinks`() {
         println("\n[TEST 32] Clean edge case - symlinks")
 
-        // Symlinks should be handled carefully
-        val command = CleanAllCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            // Symlinks should be handled carefully
+            val command = CleanAllCommand()
+            command.parse(arrayOf())
+        }
 
         assertTrue(true, "Symlinks should be handled safely")
     }
@@ -493,13 +545,15 @@ class CleanCommandE2ETest {
     fun `test 33 - clean with read only files`() {
         println("\n[TEST 33] Clean edge case - read-only files")
 
-        val readOnlyFile = File(testProjectDir, "build/readonly.txt")
+        val readOnlyFile = context.file("build/readonly.txt")
         readOnlyFile.parentFile.mkdirs()
         readOnlyFile.createNewFile()
         readOnlyFile.setReadOnly()
 
-        val command = CleanBuildCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            val command = CleanBuildCommand()
+            command.parse(arrayOf())
+        }
 
         assertTrue(true, "Read-only files should be handled")
     }
@@ -508,9 +562,11 @@ class CleanCommandE2ETest {
     fun `test 34 - clean with locked files`() {
         println("\n[TEST 34] Clean edge case - locked files")
 
-        // Files in use should be skipped or handled
-        val command = CleanBuildCommand()
-        command.parse(arrayOf())
+        context.withProjectDir {
+            // Files in use should be skipped or handled
+            val command = CleanBuildCommand()
+            command.parse(arrayOf())
+        }
 
         assertTrue(true, "Locked files should be handled gracefully")
     }
@@ -519,18 +575,20 @@ class CleanCommandE2ETest {
     fun `test 35 - full clean workflow`() {
         println("\n[TEST 35] Clean integration - full workflow")
 
-        // 1. Check what would be cleaned
-        CleanAllCommand().parse(arrayOf("--dry-run"))
+        context.withProjectDir {
+            // 1. Check what would be cleaned
+            CleanAllCommand().parse(arrayOf("--dry-run"))
 
-        // 2. Create backup
-        CleanAllCommand().parse(arrayOf("--backup", "--dry-run"))
+            // 2. Create backup
+            CleanAllCommand().parse(arrayOf("--backup", "--dry-run"))
 
-        // 3. Actually clean
-        CleanAllCommand().parse(arrayOf())
+            // 3. Actually clean
+            CleanAllCommand().parse(arrayOf())
+        }
 
         // 4. Verify
-        val buildDir = File(testProjectDir, "build")
-        val cacheDir = File(testProjectDir, ".gradle")
+        val buildDir = context.file("build")
+        val cacheDir = context.file(".gradle")
 
         assertTrue(!buildDir.exists() || !cacheDir.exists() || true,
             "Full clean workflow should work")

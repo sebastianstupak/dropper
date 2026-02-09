@@ -50,10 +50,9 @@ class AddVersionCommandTest {
 
         // Add 1.21.1
         println("Adding Minecraft version 1.21.1...")
-        context.withProjectDir {
-            val command = AddVersionCommand()
-            command.parse(arrayOf("1.21.1"))
-        }
+        val command = AddVersionCommand()
+        command.projectDir = context.projectDir
+        command.parse(arrayOf("1.21.1"))
 
         // Verify version directory created
         val versionDir = context.file("versions/1_21_1")
@@ -91,10 +90,9 @@ class AddVersionCommandTest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Add 1.21.1 with v2 asset pack
-        context.withProjectDir {
-            val command = AddVersionCommand()
-            command.parse(arrayOf("1.21.1", "--asset-pack", "v2"))
-        }
+        val command = AddVersionCommand()
+        command.projectDir = context.projectDir
+        command.parse(arrayOf("1.21.1", "--asset-pack", "v2"))
 
         val versionConfig = context.file("versions/1_21_1/config.yml")
         val configContent = versionConfig.readText()
@@ -111,10 +109,9 @@ class AddVersionCommandTest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Add 1.21.1 with only fabric
-        context.withProjectDir {
-            val command = AddVersionCommand()
-            command.parse(arrayOf("1.21.1", "--loaders", "fabric"))
-        }
+        val command = AddVersionCommand()
+        command.projectDir = context.projectDir
+        command.parse(arrayOf("1.21.1", "--loaders", "fabric"))
 
         // Verify only fabric directory exists
         assertTrue(
@@ -138,11 +135,17 @@ class AddVersionCommandTest {
 
         // Add multiple versions
         println("Adding versions 1.20.4, 1.21.1, 1.21.4...")
-        context.withProjectDir {
-            AddVersionCommand().parse(arrayOf("1.20.4"))
-            AddVersionCommand().parse(arrayOf("1.21.1"))
-            AddVersionCommand().parse(arrayOf("1.21.4"))
-        }
+        val command1 = AddVersionCommand()
+        command1.projectDir = context.projectDir
+        command1.parse(arrayOf("1.20.4"))
+
+        val command2 = AddVersionCommand()
+        command2.projectDir = context.projectDir
+        command2.parse(arrayOf("1.21.1"))
+
+        val command3 = AddVersionCommand()
+        command3.projectDir = context.projectDir
+        command3.parse(arrayOf("1.21.4"))
 
         // Verify all exist
         val versions = listOf("1_20_1", "1_20_4", "1_21_1", "1_21_4")
@@ -165,9 +168,9 @@ class AddVersionCommandTest {
 
         // Create item in existing version
         println("Creating shared item...")
-        context.withProjectDir {
-            CreateItemCommand().parse(arrayOf("shared_gem"))
-        }
+        val itemCommand = CreateItemCommand()
+        itemCommand.projectDir = context.projectDir
+        itemCommand.parse(arrayOf("shared_gem"))
 
         // Verify item is in shared/common (version-agnostic)
         assertTrue(
@@ -178,9 +181,9 @@ class AddVersionCommandTest {
 
         // Add new version
         println("\nAdding new version 1.21.1...")
-        context.withProjectDir {
-            AddVersionCommand().parse(arrayOf("1.21.1"))
-        }
+        val versionCommand = AddVersionCommand()
+        versionCommand.projectDir = context.projectDir
+        versionCommand.parse(arrayOf("1.21.1"))
 
         // Verify the item model is in shared asset pack (available to all versions)
         assertTrue(
@@ -200,9 +203,9 @@ class AddVersionCommandTest {
         println("║     E2E Test: IntelliJ Compatibility for New Version         ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        context.withProjectDir {
-            AddVersionCommand().parse(arrayOf("1.21.1"))
-        }
+        val command = AddVersionCommand()
+        command.projectDir = context.projectDir
+        command.parse(arrayOf("1.21.1"))
 
         // Verify standard Maven/Gradle structure
         val checks = listOf(

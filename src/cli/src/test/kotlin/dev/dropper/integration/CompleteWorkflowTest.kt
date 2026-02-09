@@ -5,7 +5,7 @@ import dev.dropper.commands.CreateBlockCommand
 import dev.dropper.commands.CreateItemCommand
 import dev.dropper.commands.InitCommand
 import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -18,21 +18,16 @@ import kotlin.test.assertTrue
  */
 class CompleteWorkflowTest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testProjectDir = File("build/test-workflow/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        context = TestProjectContext.create("test-workflow")
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     @Test
@@ -54,14 +49,12 @@ class CompleteWorkflowTest {
             loaders = listOf("fabric", "forge", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
 
         println("  ✓ Project initialized")
 
         // Verify root config
-        val configFile = File(testProjectDir, "config.yml")
+        val configFile = context.file("config.yml")
         assertTrue(configFile.exists(), "config.yml should exist")
         println("  ✓ config.yml created")
 
@@ -71,14 +64,18 @@ class CompleteWorkflowTest {
 
         // Step 2: Create items
         println("\nStep 2: Creating items...")
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
-        CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+            CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
+        }
         println("  ✓ Items created")
 
         // Step 3: Create blocks
         println("\nStep 3: Creating blocks...")
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
-        CreateBlockCommand().parse(arrayOf("ruby_block", "--type", "basic"))
+        context.withProjectDir {
+            CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+            CreateBlockCommand().parse(arrayOf("ruby_block", "--type", "basic"))
+        }
         println("  ✓ Blocks created")
 
         // Step 4: Verify all files have proper structure
@@ -119,48 +116,47 @@ class CompleteWorkflowTest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
         // Verify shared/common structure
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/mymod").exists(),
+            context.file("shared/common/src/main/java/com/mymod").exists(),
             "shared/common should have src/main/java/com/mymod"
         )
         assertTrue(
-            File(testProjectDir, "shared/common/src/test/java/com/mymod").exists(),
+            context.file("shared/common/src/test/java/com/mymod").exists(),
             "shared/common should have src/test/java/com/mymod"
         )
 
         // Verify shared/fabric structure
         assertTrue(
-            File(testProjectDir, "shared/fabric/src/main/java/com/mymod/platform").exists(),
+            context.file("shared/fabric/src/main/java/com/mymod/platform").exists(),
             "shared/fabric should have src/main/java/com/mymod/platform"
         )
 
         // Verify shared/neoforge structure
         assertTrue(
-            File(testProjectDir, "shared/neoforge/src/main/java/com/mymod/platform").exists(),
+            context.file("shared/neoforge/src/main/java/com/mymod/platform").exists(),
             "shared/neoforge should have src/main/java/com/mymod/platform"
         )
 
         // Verify generated files exist
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/mymod/Services.java").exists(),
+            context.file("shared/common/src/main/java/com/mymod/Services.java").exists(),
             "Services.java should be generated"
         )
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/mymod/platform/PlatformHelper.java").exists(),
+            context.file("shared/common/src/main/java/com/mymod/platform/PlatformHelper.java").exists(),
             "PlatformHelper.java should be generated"
         )
 
         // Verify versions directory
         assertTrue(
-            File(testProjectDir, "versions/shared/v1/config.yml").exists(),
+            context.file("versions/shared/v1/config.yml").exists(),
             "Asset pack config should exist"
         )
         assertTrue(
-            File(testProjectDir, "versions/1_20_1/config.yml").exists(),
+            context.file("versions/1_20_1/config.yml").exists(),
             "Version config should exist"
         )
 
@@ -188,15 +184,15 @@ class CompleteWorkflowTest {
             loaders = listOf("fabric")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
 
         // Create item
-        CreateItemCommand().parse(arrayOf("test_item"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("test_item"))
+        }
 
         // Verify package declaration in generated files
-        val itemFile = File(testProjectDir, "shared/common/src/main/java/com/packagetest/items/TestItem.java")
+        val itemFile = context.file("shared/common/src/main/java/com/packagetest/items/TestItem.java")
         assertTrue(itemFile.exists(), "Item file should exist")
 
         val itemContent = itemFile.readText()
@@ -234,28 +230,28 @@ class CompleteWorkflowTest {
             loaders = listOf("fabric", "forge", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
 
-        CreateItemCommand().parse(arrayOf("shared_item"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("shared_item"))
+        }
 
         // Verify item is created in shared/common (not version-specific)
-        val itemFile = File(testProjectDir, "shared/common/src/main/java/com/multiversion/items/SharedItem.java")
+        val itemFile = context.file("shared/common/src/main/java/com/multiversion/items/SharedItem.java")
         assertTrue(itemFile.exists(), "Item should be in shared/common")
 
         // Verify loader registrations exist for all loaders
         val loaders = listOf("fabric", "forge", "neoforge")
         loaders.forEach { loader ->
             val regFile = File(
-                testProjectDir,
+                context.projectDir,
                 "shared/$loader/src/main/java/com/multiversion/platform/$loader/SharedItem${loader.capitalize()}.java"
             )
             assertTrue(regFile.exists(), "$loader registration should exist")
         }
 
         // Verify assets are in shared v1 (version-agnostic)
-        val modelFile = File(testProjectDir, "versions/shared/v1/assets/multiversion/models/item/shared_item.json")
+        val modelFile = context.file("versions/shared/v1/assets/multiversion/models/item/shared_item.json")
         assertTrue(modelFile.exists(), "Model should be in shared asset pack")
 
         println("  ✓ Item created in shared/common (version-agnostic)")
@@ -281,8 +277,7 @@ class CompleteWorkflowTest {
             loaders = listOf("fabric")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
         // Check for standard Maven/Gradle conventions
         val checks = listOf(
@@ -295,19 +290,19 @@ class CompleteWorkflowTest {
         )
 
         checks.forEach { (path, description) ->
-            val file = File(testProjectDir, path)
+            val file = context.file(path)
             assertTrue(file.exists(), "$description should exist at: $path")
             println("  ✓ $description")
         }
 
         // Verify NO flat file structure (old approach)
-        val commonDir = File(testProjectDir, "shared/common")
+        val commonDir = context.file("shared/common")
         val javaFiles = commonDir.walkTopDown()
             .filter { it.isFile && it.extension == "java" }
             .toList()
 
         javaFiles.forEach { javaFile ->
-            val relativePath = javaFile.relativeTo(testProjectDir).path
+            val relativePath = javaFile.relativeTo(context.projectDir).path
             assertTrue(
                 relativePath.contains("src${File.separator}main${File.separator}java") ||
                 relativePath.contains("src${File.separator}test${File.separator}java"),
@@ -330,7 +325,7 @@ class CompleteWorkflowTest {
         )
 
         requiredDirs.forEach { path ->
-            val dir = File(testProjectDir, path)
+            val dir = context.file(path)
             assertTrue(dir.exists(), "Directory should exist: $path")
         }
     }
@@ -338,7 +333,7 @@ class CompleteWorkflowTest {
     private fun verifyItemStructure(itemName: String, className: String) {
         // Common item
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/testmod/items/$className.java").exists(),
+            context.file("shared/common/src/main/java/com/testmod/items/$className.java").exists(),
             "$className should exist in shared/common"
         )
 
@@ -346,14 +341,14 @@ class CompleteWorkflowTest {
         listOf("fabric", "forge", "neoforge").forEach { loader ->
             val loaderClass = "${className}${loader.capitalize()}"
             assertTrue(
-                File(testProjectDir, "shared/$loader/src/main/java/com/testmod/platform/$loader/$loaderClass.java").exists(),
+                context.file("shared/$loader/src/main/java/com/testmod/platform/$loader/$loaderClass.java").exists(),
                 "$loaderClass should exist in shared/$loader"
             )
         }
 
         // Assets
         assertTrue(
-            File(testProjectDir, "versions/shared/v1/assets/testmod/models/item/$itemName.json").exists(),
+            context.file("versions/shared/v1/assets/testmod/models/item/$itemName.json").exists(),
             "Item model should exist"
         )
     }
@@ -361,7 +356,7 @@ class CompleteWorkflowTest {
     private fun verifyBlockStructure(blockName: String, className: String) {
         // Common block
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/testmod/blocks/$className.java").exists(),
+            context.file("shared/common/src/main/java/com/testmod/blocks/$className.java").exists(),
             "$className should exist in shared/common"
         )
 
@@ -369,22 +364,22 @@ class CompleteWorkflowTest {
         listOf("fabric", "forge", "neoforge").forEach { loader ->
             val loaderClass = "${className}${loader.capitalize()}"
             assertTrue(
-                File(testProjectDir, "shared/$loader/src/main/java/com/testmod/platform/$loader/$loaderClass.java").exists(),
+                context.file("shared/$loader/src/main/java/com/testmod/platform/$loader/$loaderClass.java").exists(),
                 "$loaderClass should exist in shared/$loader"
             )
         }
 
         // Assets
         assertTrue(
-            File(testProjectDir, "versions/shared/v1/assets/testmod/blockstates/$blockName.json").exists(),
+            context.file("versions/shared/v1/assets/testmod/blockstates/$blockName.json").exists(),
             "Blockstate should exist"
         )
         assertTrue(
-            File(testProjectDir, "versions/shared/v1/assets/testmod/models/block/$blockName.json").exists(),
+            context.file("versions/shared/v1/assets/testmod/models/block/$blockName.json").exists(),
             "Block model should exist"
         )
         assertTrue(
-            File(testProjectDir, "versions/shared/v1/assets/testmod/models/item/$blockName.json").exists(),
+            context.file("versions/shared/v1/assets/testmod/models/item/$blockName.json").exists(),
             "Item model should exist"
         )
     }
@@ -399,7 +394,7 @@ class CompleteWorkflowTest {
         )
 
         modules.forEach { module ->
-            val srcMainJava = File(testProjectDir, "$module/src/main/java")
+            val srcMainJava = context.file("$module/src/main/java")
             assertTrue(srcMainJava.exists(), "$module should have src/main/java")
 
             // Verify at least one .java file exists in proper structure

@@ -1,6 +1,5 @@
 package dev.dropper.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import dev.dropper.util.Logger
@@ -9,7 +8,7 @@ import java.io.File
 /**
  * Command to build the mod for all or specific versions/loaders
  */
-class BuildCommand : CliktCommand(
+class BuildCommand : DropperCommand(
     name = "build",
     help = "Build mod JARs for all versions and loaders"
 ) {
@@ -19,8 +18,7 @@ class BuildCommand : CliktCommand(
     private val clean by option("--clean", "-c", help = "Clean before building").flag(default = false)
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")

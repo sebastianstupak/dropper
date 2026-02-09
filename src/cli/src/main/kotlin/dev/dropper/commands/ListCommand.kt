@@ -1,6 +1,5 @@
 package dev.dropper.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import dev.dropper.commands.list.*
@@ -11,15 +10,14 @@ import java.io.File
 /**
  * Parent command for listing mod components
  */
-class ListCommand : CliktCommand(
+class ListCommand : DropperCommand(
     name = "list",
     help = "List mod components (items, blocks, entities, etc.)"
 ) {
     private val format by option("--format", "-f", help = "Output format (table, json, csv, tree)").default("table")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")

@@ -1,6 +1,5 @@
 package dev.dropper.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
@@ -13,7 +12,7 @@ import java.io.File
  * Command to create a new biome in the mod
  * Generates worldgen biome JSON with climate settings, effects, and spawns
  */
-class CreateBiomeCommand : CliktCommand(
+class CreateBiomeCommand : DropperCommand(
     name = "biome",
     help = "Create a new biome with worldgen JSON configuration"
 ) {
@@ -24,8 +23,7 @@ class CreateBiomeCommand : CliktCommand(
     private val precipitation by option("--precipitation", help = "Precipitation type: rain, snow, none").default("rain")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")

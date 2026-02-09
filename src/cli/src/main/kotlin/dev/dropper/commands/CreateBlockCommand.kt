@@ -1,6 +1,5 @@
 package dev.dropper.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
@@ -13,7 +12,7 @@ import java.io.File
  * Command to create a new block in the mod
  * Generates registration code, block states, models, and textures
  */
-class CreateBlockCommand : CliktCommand(
+class CreateBlockCommand : DropperCommand(
     name = "block",
     help = "Create a new block with registration code, blockstates, and assets"
 ) {
@@ -31,14 +30,13 @@ class CreateBlockCommand : CliktCommand(
         }
 
         // Validate we're in a Dropper project
-        val projectDir = File(System.getProperty("user.dir"))
         val projectValidation = ValidationUtil.validateDropperProject(projectDir)
         if (!projectValidation.isValid) {
             ValidationUtil.exitWithError(projectValidation)
             return
         }
 
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         val modId = extractModId(configFile)
         if (modId == null) {

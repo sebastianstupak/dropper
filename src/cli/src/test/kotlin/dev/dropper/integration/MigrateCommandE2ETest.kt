@@ -2,10 +2,9 @@ package dev.dropper.integration
 
 import dev.dropper.commands.CreateItemCommand
 import dev.dropper.commands.migrate.*
-import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
 import dev.dropper.migrators.*
 import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -20,38 +19,24 @@ import kotlin.test.assertTrue
  */
 class MigrateCommandE2ETest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testProjectDir = File("build/test-migrate/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        context = TestProjectContext.create("test-migrate")
 
         // Generate a minimal project
-        val config = ModConfig(
+        context.createDefaultProject(
             id = "testmigrate",
             name = "Test Migrate Mod",
-            version = "1.0.0",
-            description = "Test mod for migrate commands",
-            author = "Test",
-            license = "MIT",
             minecraftVersions = listOf("1.20.1"),
             loaders = listOf("fabric", "forge")
         )
-
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-
-        System.setProperty("user.dir", testProjectDir.absolutePath)
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     // ========================================================================
@@ -63,7 +48,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 01] Version migration - create new version structure")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -80,7 +65,7 @@ class MigrateCommandE2ETest {
         assertTrue(result.success, "Migration should succeed")
         assertTrue(result.operationsExecuted > 0, "Should execute operations")
 
-        val versionDir = File(testProjectDir, "versions/1_21_1")
+        val versionDir = File(context.projectDir, "versions/1_21_1")
         assertTrue(versionDir.exists(), "New version directory should exist")
     }
 
@@ -89,7 +74,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 02] Version migration - update config.yml")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -103,7 +88,7 @@ class MigrateCommandE2ETest {
         val plan = migrator.planMigration(context)
         migrator.executeMigration(plan, dryRun = false)
 
-        val versionConfig = File(testProjectDir, "versions/1_21_1/config.yml")
+        val versionConfig = File(context.projectDir, "versions/1_21_1/config.yml")
         assertTrue(versionConfig.exists(), "Version config should exist")
 
         val content = versionConfig.readText()
@@ -116,12 +101,12 @@ class MigrateCommandE2ETest {
         println("\n[TEST 03] Version migration - copy existing code")
 
         // Create some code in source version
-        val sourceFile = File(testProjectDir, "versions/1_20_1/common/src/main/java/Test.java")
+        val sourceFile = File(context.projectDir, "versions/1_20_1/common/src/main/java/Test.java")
         sourceFile.parentFile.mkdirs()
         FileUtil.writeText(sourceFile, "public class Test {}")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -134,7 +119,7 @@ class MigrateCommandE2ETest {
         val plan = migrator.planMigration(context)
         migrator.executeMigration(plan, dryRun = false)
 
-        val targetFile = File(testProjectDir, "versions/1_21_1/common/src/main/java/Test.java")
+        val targetFile = File(context.projectDir, "versions/1_21_1/common/src/main/java/Test.java")
         assertTrue(targetFile.exists(), "Should copy source files")
         assertEquals("public class Test {}", targetFile.readText(), "Should have same content")
     }
@@ -144,7 +129,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 04] Version migration - generate migration report")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -193,7 +178,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 07] Version migration - dry-run preview")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             dryRun = true,
@@ -210,7 +195,7 @@ class MigrateCommandE2ETest {
         assertEquals(0, result.operationsExecuted, "Dry run should not execute operations")
         assertTrue(result.success, "Dry run should succeed")
 
-        val versionDir = File(testProjectDir, "versions/1_21_1")
+        val versionDir = File(context.projectDir, "versions/1_21_1")
         assertFalse(versionDir.exists(), "Dry run should not create files")
     }
 
@@ -219,11 +204,11 @@ class MigrateCommandE2ETest {
         println("\n[TEST 08] Version migration - force overwrite existing version")
 
         // Create existing version
-        val existingDir = File(testProjectDir, "versions/1_21_1")
+        val existingDir = File(context.projectDir, "versions/1_21_1")
         existingDir.mkdirs()
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             force = true,
@@ -249,7 +234,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 09] Loader migration - add Fabric support")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -263,7 +248,7 @@ class MigrateCommandE2ETest {
 
         assertTrue(result.success, "Migration should succeed")
 
-        val loaderDir = File(testProjectDir, "versions/1_20_1/fabric")
+        val loaderDir = File(context.projectDir, "versions/1_20_1/fabric")
         assertTrue(loaderDir.exists(), "Fabric directory should be created")
     }
 
@@ -272,13 +257,13 @@ class MigrateCommandE2ETest {
         println("\n[TEST 10] Loader migration - add Forge support")
 
         // Remove forge first
-        val forgeDir = File(testProjectDir, "versions/1_20_1/forge")
+        val forgeDir = File(context.projectDir, "versions/1_20_1/forge")
         if (forgeDir.exists()) {
             forgeDir.deleteRecursively()
         }
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -292,7 +277,7 @@ class MigrateCommandE2ETest {
 
         assertTrue(result.success, "Migration should succeed")
 
-        val loaderDir = File(testProjectDir, "versions/1_20_1/forge")
+        val loaderDir = File(context.projectDir, "versions/1_20_1/forge")
         assertTrue(loaderDir.exists(), "Forge directory should be created")
     }
 
@@ -301,7 +286,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 11] Loader migration - add NeoForge support")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -315,7 +300,7 @@ class MigrateCommandE2ETest {
 
         assertTrue(result.success, "Migration should succeed")
 
-        val loaderDir = File(testProjectDir, "versions/1_20_1/neoforge")
+        val loaderDir = File(context.projectDir, "versions/1_20_1/neoforge")
         assertTrue(loaderDir.exists(), "NeoForge directory should be created")
     }
 
@@ -324,7 +309,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 12] Loader migration - generate loader registration code")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -336,7 +321,7 @@ class MigrateCommandE2ETest {
         val plan = migrator.planMigration(context)
         migrator.executeMigration(plan, dryRun = false)
 
-        val mainClass = File(testProjectDir, "versions/1_20_1/neoforge/src/main/java/com/testmigrate/TestmigrateNeoforge.java")
+        val mainClass = File(context.projectDir, "versions/1_20_1/neoforge/src/main/java/com/testmigrate/TestmigrateNeoforge.java")
         assertTrue(mainClass.exists(), "Main class should be generated")
 
         val content = mainClass.readText()
@@ -348,7 +333,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 13] Loader migration - update version config")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -360,7 +345,7 @@ class MigrateCommandE2ETest {
         val plan = migrator.planMigration(context)
         migrator.executeMigration(plan, dryRun = false)
 
-        val versionConfig = File(testProjectDir, "versions/1_20_1/config.yml")
+        val versionConfig = File(context.projectDir, "versions/1_20_1/config.yml")
         if (versionConfig.exists()) {
             val content = versionConfig.readText()
             // Check config was attempted to be updated
@@ -373,7 +358,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 14] Loader migration - verify directory structure")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -385,10 +370,10 @@ class MigrateCommandE2ETest {
         val plan = migrator.planMigration(context)
         migrator.executeMigration(plan, dryRun = false)
 
-        val srcMain = File(testProjectDir, "versions/1_20_1/fabric/src/main/java")
+        val srcMain = File(context.projectDir, "versions/1_20_1/fabric/src/main/java")
         assertTrue(srcMain.exists(), "src/main/java should exist")
 
-        val srcResources = File(testProjectDir, "versions/1_20_1/fabric/src/main/resources")
+        val srcResources = File(context.projectDir, "versions/1_20_1/fabric/src/main/resources")
         assertTrue(srcResources.exists(), "src/main/resources should exist")
     }
 
@@ -401,7 +386,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 15] Mappings migration - update mappings version")
 
         // Create a build file with mappings
-        val buildFile = File(testProjectDir, "build.gradle.kts")
+        val buildFile = File(context.projectDir, "build.gradle.kts")
         FileUtil.writeText(buildFile, """
             dependencies {
                 mappings("net.fabricmc:yarn:1.20.1+build.1")
@@ -409,7 +394,7 @@ class MigrateCommandE2ETest {
         """.trimIndent())
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -432,14 +417,14 @@ class MigrateCommandE2ETest {
         println("\n[TEST 16] Mappings migration - update all build files")
 
         // Create multiple build files
-        val buildFile1 = File(testProjectDir, "versions/1_20_1/build.gradle.kts")
+        val buildFile1 = File(context.projectDir, "versions/1_20_1/build.gradle.kts")
         buildFile1.parentFile.mkdirs()
         FileUtil.writeText(buildFile1, """
             mappings("net.fabricmc:yarn:1.20.1+build.1")
         """.trimIndent())
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -459,13 +444,13 @@ class MigrateCommandE2ETest {
     fun `test 17 - mappings migration generates report`() {
         println("\n[TEST 17] Mappings migration - generate report")
 
-        val buildFile = File(testProjectDir, "build.gradle.kts")
+        val buildFile = File(context.projectDir, "build.gradle.kts")
         FileUtil.writeText(buildFile, """
             mappings("net.fabricmc:yarn:1.20.1+build.1")
         """.trimIndent())
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -488,14 +473,14 @@ class MigrateCommandE2ETest {
     fun `test 18 - mappings migration dry-run preview`() {
         println("\n[TEST 18] Mappings migration - dry-run preview")
 
-        val buildFile = File(testProjectDir, "build.gradle.kts")
+        val buildFile = File(context.projectDir, "build.gradle.kts")
         val originalContent = """
             mappings("net.fabricmc:yarn:1.20.1+build.1")
         """.trimIndent()
         FileUtil.writeText(buildFile, originalContent)
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             dryRun = true,
@@ -521,7 +506,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 19] Refactor migration - update package declarations")
 
         // Create a Java file with old package
-        val javaFile = File(testProjectDir, "src/main/java/com/old/Test.java")
+        val javaFile = File(context.projectDir, "src/main/java/com/old/Test.java")
         javaFile.parentFile.mkdirs()
         FileUtil.writeText(javaFile, """
             package com.old;
@@ -530,7 +515,7 @@ class MigrateCommandE2ETest {
         """.trimIndent())
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.new",
             params = mapOf(
@@ -545,7 +530,7 @@ class MigrateCommandE2ETest {
 
         assertTrue(result.success, "Migration should succeed")
 
-        val newFile = File(testProjectDir, "src/main/java/com/new/Test.java")
+        val newFile = File(context.projectDir, "src/main/java/com/new/Test.java")
         assertTrue(newFile.exists(), "File should be moved to new package")
 
         val content = newFile.readText()
@@ -556,7 +541,7 @@ class MigrateCommandE2ETest {
     fun `test 20 - refactor package moves directories`() {
         println("\n[TEST 20] Refactor migration - move directories")
 
-        val javaFile = File(testProjectDir, "src/main/java/com/old/pkg/Test.java")
+        val javaFile = File(context.projectDir, "src/main/java/com/old/pkg/Test.java")
         javaFile.parentFile.mkdirs()
         FileUtil.writeText(javaFile, """
             package com.old.pkg;
@@ -565,7 +550,7 @@ class MigrateCommandE2ETest {
         """.trimIndent())
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.new.pkg",
             params = mapOf(
@@ -578,7 +563,7 @@ class MigrateCommandE2ETest {
         val plan = migrator.planMigration(context)
         migrator.executeMigration(plan, dryRun = false)
 
-        val newFile = File(testProjectDir, "src/main/java/com/new/pkg/Test.java")
+        val newFile = File(context.projectDir, "src/main/java/com/new/pkg/Test.java")
         assertTrue(newFile.exists(), "File should be in new directory structure")
 
         assertFalse(javaFile.exists(), "Old file should be removed")
@@ -588,7 +573,7 @@ class MigrateCommandE2ETest {
     fun `test 21 - refactor package updates imports`() {
         println("\n[TEST 21] Refactor migration - update imports")
 
-        val file1 = File(testProjectDir, "src/main/java/com/old/Test.java")
+        val file1 = File(context.projectDir, "src/main/java/com/old/Test.java")
         file1.parentFile.mkdirs()
         FileUtil.writeText(file1, """
             package com.old;
@@ -596,7 +581,7 @@ class MigrateCommandE2ETest {
             public class Test {}
         """.trimIndent())
 
-        val file2 = File(testProjectDir, "src/main/java/com/other/Other.java")
+        val file2 = File(context.projectDir, "src/main/java/com/other/Other.java")
         file2.parentFile.mkdirs()
         FileUtil.writeText(file2, """
             package com.other;
@@ -607,7 +592,7 @@ class MigrateCommandE2ETest {
         """.trimIndent())
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.new",
             params = mapOf(
@@ -628,14 +613,14 @@ class MigrateCommandE2ETest {
     fun `test 22 - refactor package updates config`() {
         println("\n[TEST 22] Refactor migration - update config.yml")
 
-        val configFile = File(testProjectDir, "config.yml")
+        val configFile = File(context.projectDir, "config.yml")
         FileUtil.writeText(configFile, """
             id: testmigrate
             package: "com.old"
         """.trimIndent())
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.new",
             params = mapOf(
@@ -657,7 +642,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 23] Refactor migration - provide compilation verification hint")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.new",
             params = mapOf(
@@ -793,7 +778,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 32] Integration - migrate then validate")
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -808,7 +793,7 @@ class MigrateCommandE2ETest {
 
         assertTrue(result.success, "Migration should succeed")
 
-        val versionDir = File(testProjectDir, "versions/1_21_1")
+        val versionDir = File(context.projectDir, "versions/1_21_1")
         assertTrue(versionDir.exists(), "New version should exist")
     }
 
@@ -817,10 +802,12 @@ class MigrateCommandE2ETest {
         println("\n[TEST 33] Integration - migrate with existing project")
 
         // Add some items to the project
-        CreateItemCommand().parse(arrayOf("test_item", "--type", "basic"))
+        val itemCommand = CreateItemCommand()
+        itemCommand.projectDir = context.projectDir
+        itemCommand.parse(arrayOf("test_item", "--type", "basic"))
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -842,7 +829,7 @@ class MigrateCommandE2ETest {
 
         // First migration
         val context1 = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -857,7 +844,7 @@ class MigrateCommandE2ETest {
 
         // Second migration
         val context2 = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -869,8 +856,8 @@ class MigrateCommandE2ETest {
         val result2 = migrator.executeMigration(migrator.planMigration(context2), dryRun = false)
         assertTrue(result2.success, "Second migration should succeed")
 
-        assertTrue(File(testProjectDir, "versions/1_20_4").exists(), "Intermediate version should exist")
-        assertTrue(File(testProjectDir, "versions/1_21_1").exists(), "Final version should exist")
+        assertTrue(File(context.projectDir, "versions/1_20_4").exists(), "Intermediate version should exist")
+        assertTrue(File(context.projectDir, "versions/1_21_1").exists(), "Final version should exist")
     }
 
     @Test
@@ -878,11 +865,11 @@ class MigrateCommandE2ETest {
         println("\n[TEST 35] Integration - detect migration conflicts")
 
         // Create existing version
-        val existingDir = File(testProjectDir, "versions/1_21_1")
+        val existingDir = File(context.projectDir, "versions/1_21_1")
         existingDir.mkdirs()
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             force = false,
@@ -903,7 +890,7 @@ class MigrateCommandE2ETest {
         println("\n[TEST 36] Integration - migration with auto-fix")
 
         // Create some code that needs fixing
-        val sourceFile = File(testProjectDir, "versions/1_20_1/common/src/main/java/Test.java")
+        val sourceFile = File(context.projectDir, "versions/1_20_1/common/src/main/java/Test.java")
         sourceFile.parentFile.mkdirs()
         FileUtil.writeText(sourceFile, """
             public class Test {
@@ -912,7 +899,7 @@ class MigrateCommandE2ETest {
         """.trimIndent())
 
         val context = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             autoFix = true,
@@ -934,11 +921,13 @@ class MigrateCommandE2ETest {
         println("\n[TEST 37] Integration - full migration workflow")
 
         // 1. Add item to project
-        CreateItemCommand().parse(arrayOf("diamond_sword", "--type", "tool"))
+        val itemCommand = CreateItemCommand()
+        itemCommand.projectDir = context.projectDir
+        itemCommand.parse(arrayOf("diamond_sword", "--type", "tool"))
 
         // 2. Migrate version
         val versionContext = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -956,7 +945,7 @@ class MigrateCommandE2ETest {
 
         // 3. Add loader support
         val loaderContext = MigrationContext(
-            projectDir = testProjectDir,
+            projectDir = context.projectDir,
             modId = "testmigrate",
             packageName = "com.testmigrate",
             params = mapOf(
@@ -973,7 +962,7 @@ class MigrateCommandE2ETest {
         assertTrue(loaderResult.success, "Loader migration should succeed")
 
         // 4. Verify final structure
-        assertTrue(File(testProjectDir, "versions/1_21_1").exists(), "New version should exist")
-        assertTrue(File(testProjectDir, "versions/1_21_1/neoforge").exists(), "New loader should exist")
+        assertTrue(File(context.projectDir, "versions/1_21_1").exists(), "New version should exist")
+        assertTrue(File(context.projectDir, "versions/1_21_1/neoforge").exists(), "New loader should exist")
     }
 }

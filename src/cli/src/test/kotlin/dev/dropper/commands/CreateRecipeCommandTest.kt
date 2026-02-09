@@ -1,23 +1,24 @@
 package dev.dropper.commands
 
 import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
 
 class CreateRecipeCommandTest {
 
-    @TempDir
-    lateinit var tempDir: File
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
+        context = TestProjectContext.create("recipe-test")
+
         // Create a minimal config.yml for testing
-        val configFile = File(tempDir, "config.yml")
+        val configFile = File(context.projectDir, "config.yml")
         configFile.writeText("""
             mod:
               id: testmod
@@ -31,7 +32,7 @@ class CreateRecipeCommandTest {
 
     @AfterEach
     fun cleanup() {
-        tempDir.deleteRecursively()
+        context.cleanup()
     }
 
     @Test
@@ -42,7 +43,7 @@ class CreateRecipeCommandTest {
         executeRecipeCommand(recipeName, "crafting", mapOf("--shaped" to "true"))
 
         // Verify file exists
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/iron_sword.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/iron_sword.json")
         assertTrue(recipeFile.exists(), "Recipe file should exist")
 
         // Verify content
@@ -64,7 +65,7 @@ class CreateRecipeCommandTest {
         executeRecipeCommand(recipeName, "crafting", mapOf("--shapeless" to ""))
 
         // Verify file exists
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/gold_nugget.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/gold_nugget.json")
         assertTrue(recipeFile.exists(), "Recipe file should exist")
 
         // Verify content
@@ -85,7 +86,7 @@ class CreateRecipeCommandTest {
         executeRecipeCommand(recipeName, "crafting")
 
         // Verify it's shaped by default
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/default_recipe.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/default_recipe.json")
         val content = FileUtil.readText(recipeFile)
         assertTrue(content.contains("\"type\": \"minecraft:crafting_shaped\""))
         assertTrue(content.contains("\"pattern\""))
@@ -102,7 +103,7 @@ class CreateRecipeCommandTest {
         ))
 
         // Verify file exists
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/iron_ingot.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/iron_ingot.json")
         assertTrue(recipeFile.exists(), "Recipe file should exist")
 
         // Verify content
@@ -123,7 +124,7 @@ class CreateRecipeCommandTest {
         executeRecipeCommand(recipeName, "smelting")
 
         // Verify default values
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/cooked_beef.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/cooked_beef.json")
         val content = FileUtil.readText(recipeFile)
         assertTrue(content.contains("\"experience\": 0.1"))
         assertTrue(content.contains("\"cookingtime\": 200"))
@@ -140,7 +141,7 @@ class CreateRecipeCommandTest {
         ))
 
         // Verify file exists
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/iron_ingot_fast.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/iron_ingot_fast.json")
         assertTrue(recipeFile.exists(), "Recipe file should exist")
 
         // Verify content
@@ -165,7 +166,7 @@ class CreateRecipeCommandTest {
         ))
 
         // Verify file exists
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/cooked_porkchop.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/cooked_porkchop.json")
         assertTrue(recipeFile.exists(), "Recipe file should exist")
 
         // Verify content
@@ -187,7 +188,7 @@ class CreateRecipeCommandTest {
         executeRecipeCommand(recipeName, "stonecutting")
 
         // Verify file exists
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/stone_slab.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/stone_slab.json")
         assertTrue(recipeFile.exists(), "Recipe file should exist")
 
         // Verify content
@@ -209,7 +210,7 @@ class CreateRecipeCommandTest {
         executeRecipeCommand(recipeName, "smithing")
 
         // Verify file exists
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/netherite_sword.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/netherite_sword.json")
         assertTrue(recipeFile.exists(), "Recipe file should exist")
 
         // Verify content
@@ -231,7 +232,7 @@ class CreateRecipeCommandTest {
 
         executeRecipeCommand(recipeName, "crafting")
 
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/my_custom_recipe_name.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/my_custom_recipe_name.json")
         assertTrue(recipeFile.exists())
 
         val content = FileUtil.readText(recipeFile)
@@ -243,7 +244,7 @@ class CreateRecipeCommandTest {
         val recipeName = "test_recipe"
 
         // Ensure recipe directory doesn't exist yet
-        val recipeDir = File(tempDir, "versions/shared/v1/data/testmod/recipe")
+        val recipeDir = File(context.projectDir, "versions/shared/v1/data/testmod/recipe")
         assertFalse(recipeDir.exists())
 
         executeRecipeCommand(recipeName, "crafting")
@@ -261,7 +262,7 @@ class CreateRecipeCommandTest {
             val recipeName = "${type}_recipe_$index"
             executeRecipeCommand(recipeName, type)
 
-            val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/$recipeName.json")
+            val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/$recipeName.json")
             assertTrue(recipeFile.exists(), "Recipe file for type $type should exist")
 
             val content = FileUtil.readText(recipeFile)
@@ -280,7 +281,7 @@ class CreateRecipeCommandTest {
         val recipeName = "test_shaped"
         executeRecipeCommand(recipeName, "crafting")
 
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/test_shaped.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/test_shaped.json")
         val content = FileUtil.readText(recipeFile)
 
         // Verify pattern is an array
@@ -296,7 +297,7 @@ class CreateRecipeCommandTest {
         val recipeName = "test_smelting"
         executeRecipeCommand(recipeName, "smelting")
 
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/test_smelting.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/test_smelting.json")
         val content = FileUtil.readText(recipeFile)
 
         // Verify ingredient is an object
@@ -315,7 +316,7 @@ class CreateRecipeCommandTest {
         val recipeName = "test_stonecutting"
         executeRecipeCommand(recipeName, "stonecutting")
 
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/test_stonecutting.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/test_stonecutting.json")
         val content = FileUtil.readText(recipeFile)
 
         // Verify result has count field
@@ -327,7 +328,7 @@ class CreateRecipeCommandTest {
         val recipeName = "test_smithing"
         executeRecipeCommand(recipeName, "smithing")
 
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/test_smithing.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/test_smithing.json")
         val content = FileUtil.readText(recipeFile)
 
         // Verify all three components exist
@@ -343,7 +344,7 @@ class CreateRecipeCommandTest {
         val recipeName = "test_exp"
         executeRecipeCommand(recipeName, "smelting", mapOf("--experience" to "1.5"))
 
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/test_exp.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/test_exp.json")
         val content = FileUtil.readText(recipeFile)
 
         assertTrue(content.contains("\"experience\": 1.5"))
@@ -354,7 +355,7 @@ class CreateRecipeCommandTest {
         val recipeName = "test_time"
         executeRecipeCommand(recipeName, "smelting", mapOf("--cooking-time" to "300"))
 
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/test_time.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/test_time.json")
         val content = FileUtil.readText(recipeFile)
 
         assertTrue(content.contains("\"cookingtime\": 300"))
@@ -365,7 +366,7 @@ class CreateRecipeCommandTest {
         val recipeName = "test_blast"
         executeRecipeCommand(recipeName, "blasting", mapOf("--cooking-time" to "400"))
 
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/test_blast.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/test_blast.json")
         val content = FileUtil.readText(recipeFile)
 
         // 400 / 2 = 200
@@ -377,7 +378,7 @@ class CreateRecipeCommandTest {
         val recipeName = "test_smoke"
         executeRecipeCommand(recipeName, "smoking", mapOf("--cooking-time" to "600"))
 
-        val recipeFile = File(tempDir, "versions/shared/v1/data/testmod/recipe/test_smoke.json")
+        val recipeFile = File(context.projectDir, "versions/shared/v1/data/testmod/recipe/test_smoke.json")
         val content = FileUtil.readText(recipeFile)
 
         // 600 / 2 = 300
@@ -402,10 +403,10 @@ class CreateRecipeCommandTest {
             }
         }
 
-        // Set working directory
-        System.setProperty("user.dir", tempDir.absolutePath)
+        // Set project directory before parsing
+        command.projectDir = context.projectDir
 
         // Execute command
-        command.main(args.toTypedArray())
+        command.parse(args.toTypedArray())
     }
 }

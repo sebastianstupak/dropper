@@ -1,6 +1,7 @@
 package dev.dropper.integration
 
 import dev.dropper.config.ModConfig
+import dev.dropper.util.TestProjectContext
 import dev.dropper.generator.ProjectGenerator
 import dev.dropper.updaters.*
 import dev.dropper.util.FileUtil

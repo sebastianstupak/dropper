@@ -1,6 +1,5 @@
 package dev.dropper.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
@@ -13,7 +12,7 @@ import java.io.File
  * Command to create a new enchantment in the mod
  * Generates registration code for all loaders and lang entries
  */
-class CreateEnchantmentCommand : CliktCommand(
+class CreateEnchantmentCommand : DropperCommand(
     name = "enchantment",
     help = "Create a new enchantment with registration code and lang entries"
 ) {
@@ -24,8 +23,7 @@ class CreateEnchantmentCommand : CliktCommand(
     private val treasure by option("--treasure", help = "Treasure-only enchantment (not available in enchanting table)").flag(default = false)
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")

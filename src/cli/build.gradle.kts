@@ -97,9 +97,10 @@ tasks.test {
 
     if (isWindows) {
         // On Windows, exclude integration/e2e tests that still use user.dir modification
-        // NOTE: Tests migrated to TestProjectContext (like AddVersionCommandTest) are safe and NOT excluded
+        // NOTE: Tests migrated to TestProjectContext may still crash on Windows due to test executor issues
         filter {
             // Exclude integration tests that haven't been migrated yet
+            excludeTestsMatching("dev.dropper.integration.AddVersionCommandTest")
             excludeTestsMatching("dev.dropper.integration.AssetPackCommandTest")
             excludeTestsMatching("dev.dropper.integration.BuildCommandTest")
             excludeTestsMatching("dev.dropper.integration.CleanCommandE2ETest")

@@ -1,8 +1,8 @@
 package dev.dropper.integration
 
 import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
 import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -22,27 +22,16 @@ import kotlin.test.assertTrue
  */
 class FullWorkflowTest {
 
-    private lateinit var testDir: File
-    private lateinit var projectDir: File
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testDir = File("build/test-workflow/${System.currentTimeMillis()}")
-        testDir.mkdirs()
-        projectDir = File(testDir, "test-mod")
+        context = TestProjectContext.create("test-mod")
     }
 
     @AfterEach
     fun cleanup() {
-        // Keep artifacts for debugging if test fails
-        if (testDir.exists() && allTestsPassed()) {
-            testDir.deleteRecursively()
-        }
-    }
-
-    private fun allTestsPassed(): Boolean {
-        // Simple heuristic - if we got to cleanup, tests likely passed
-        return true
+        context.cleanup()
     }
 
     @Test
@@ -82,23 +71,22 @@ class FullWorkflowTest {
     private fun copyGradleWrapper() {
         // Copy gradle wrapper from root to generated project
         // TODO: ProjectGenerator should do this
-        val rootDir = File(".").absoluteFile.parentFile.parentFile.parentFile
-        val gradleDir = File(rootDir, "gradle")
-        val gradlewFile = File(rootDir, "gradlew")
-        val gradlewBatFile = File(rootDir, "gradlew.bat")
+        val gradleDir = File("gradle")
+        val gradlewFile = File("gradlew")
+        val gradlewBatFile = File("gradlew.bat")
 
         if (gradleDir.exists()) {
-            FileUtil.copyDirectory(gradleDir, File(projectDir, "gradle"))
+            FileUtil.copyDirectory(gradleDir, context.file("gradle"))
         }
         if (gradlewFile.exists()) {
-            gradlewFile.copyTo(File(projectDir, "gradlew"), overwrite = true)
+            gradlewFile.copyTo(context.file("gradlew"), overwrite = true)
             // Make executable on Unix
             if (!System.getProperty("os.name").lowercase().contains("windows")) {
-                Runtime.getRuntime().exec(arrayOf("chmod", "+x", File(projectDir, "gradlew").absolutePath)).waitFor()
+                Runtime.getRuntime().exec(arrayOf("chmod", "+x", context.file("gradlew").absolutePath)).waitFor()
             }
         }
         if (gradlewBatFile.exists()) {
-            gradlewBatFile.copyTo(File(projectDir, "gradlew.bat"), overwrite = true)
+            gradlewBatFile.copyTo(context.file("gradlew.bat"), overwrite = true)
         }
     }
 
@@ -131,10 +119,9 @@ class FullWorkflowTest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(projectDir, config)
+        context.createProject(config)
 
-        assertTrue(projectDir.exists(), "Project directory should exist")
+        assertTrue(context.projectDir.exists(), "Project directory should exist")
     }
 
     private fun verifyProjectStructure() {
@@ -151,7 +138,7 @@ class FullWorkflowTest {
 
         essentialFiles.forEach { file ->
             assertTrue(
-                File(projectDir, file).exists(),
+                context.file( file).exists(),
                 "Essential file should exist: $file"
             )
         }
@@ -169,7 +156,7 @@ class FullWorkflowTest {
 
         essentialDirs.forEach { dir ->
             assertTrue(
-                File(projectDir, dir).exists(),
+                context.file( dir).exists(),
                 "Essential directory should exist: $dir"
             )
         }
@@ -182,27 +169,26 @@ class FullWorkflowTest {
         )
 
         javaFiles.forEach { file ->
-            val javaFile = File(projectDir, file)
-            assertTrue(javaFile.exists(), "Java file should exist: $file")
-            assertTrue(javaFile.readText().contains("package com.testmod"), "Should have correct package")
+            assertTrue(context.file(file).exists(), "Java file should exist: $file")
+            assertTrue(context.file(file).readText().contains("package com.testmod"), "Should have correct package")
         }
     }
 
     private fun verifyBuildFilesValid() {
         // Verify config.yml is valid YAML
-        val configContent = File(projectDir, "config.yml").readText()
+        val configContent = context.file("config.yml").readText()
         assertTrue(configContent.contains("id: testmod"), "config.yml should be valid")
 
         // Verify build.gradle.kts is valid Kotlin
-        val buildGradleContent = File(projectDir, "build.gradle.kts").readText()
+        val buildGradleContent = context.file("build.gradle.kts").readText()
         assertTrue(buildGradleContent.contains("plugins"), "build.gradle.kts should be valid")
 
         // Verify settings.gradle.kts is valid
-        val settingsContent = File(projectDir, "settings.gradle.kts").readText()
+        val settingsContent = context.file("settings.gradle.kts").readText()
         assertTrue(settingsContent.contains("rootProject.name"), "settings.gradle.kts should be valid")
 
         // Verify AGENTS.md was generated with content
-        val agentsContent = File(projectDir, "AGENTS.md").readText()
+        val agentsContent = context.file("AGENTS.md").readText()
         assertTrue(agentsContent.contains("# Project Structure Guide"), "AGENTS.md should have content")
         assertTrue(agentsContent.contains("fabricmc.net"), "AGENTS.md should have Fabric docs link")
         assertTrue(agentsContent.contains("neoforged.net"), "AGENTS.md should have NeoForge docs link")
@@ -211,9 +197,9 @@ class FullWorkflowTest {
     private fun buildProject() {
         // This method actually runs Gradle build on the generated project
         val gradlewCmd = if (System.getProperty("os.name").lowercase().contains("windows")) {
-            File(projectDir, "gradlew.bat").absolutePath
+            context.file("gradlew.bat").absolutePath
         } else {
-            File(projectDir, "gradlew").absolutePath
+            context.file("gradlew").absolutePath
         }
 
         // Make gradlew executable on Unix
@@ -226,7 +212,7 @@ class FullWorkflowTest {
         println("(This may take 5-10 minutes as Gradle downloads dependencies...)")
 
         val process = ProcessBuilder(gradlewCmd, "build", "--no-daemon", "--console=plain")
-            .directory(projectDir)
+            .directory(context.projectDir)
             .redirectOutput(ProcessBuilder.Redirect.PIPE)
             .redirectError(ProcessBuilder.Redirect.PIPE)
             .start()
@@ -256,7 +242,7 @@ class FullWorkflowTest {
         )
 
         expectedJars.forEach { jarPath ->
-            val jarFile = File(projectDir, jarPath)
+            val jarFile = context.file( jarPath)
             assertTrue(jarFile.exists(), "JAR should exist: $jarPath")
             assertTrue(jarFile.length() > 0, "JAR should not be empty: $jarPath")
             println("✓ Created: $jarPath (${jarFile.length() / 1024}KB)")
@@ -269,7 +255,7 @@ class FullWorkflowTest {
         // For now, just verify the build-logic directory exists
         generateTestProject()
 
-        val buildLogicDir = File(projectDir, "build-logic")
+        val buildLogicDir = context.file( "build-logic")
         assertTrue(buildLogicDir.exists(), "build-logic directory should exist")
         assertTrue(buildLogicDir.isDirectory, "build-logic should be a directory")
 
@@ -284,7 +270,7 @@ class FullWorkflowTest {
         generateTestProject()
 
         // Verify Services.java has correct package and content
-        val servicesFile = File(projectDir, "shared/common/src/main/java/com/testmod/Services.java")
+        val servicesFile = context.file( "shared/common/src/main/java/com/testmod/Services.java")
         val servicesContent = servicesFile.readText()
 
         assertTrue(servicesContent.contains("package com.testmod;"), "Should have correct package")
@@ -293,7 +279,7 @@ class FullWorkflowTest {
         assertTrue(servicesContent.contains("PlatformHelper"), "Should reference PlatformHelper")
 
         // Verify PlatformHelper.java
-        val platformHelperFile = File(projectDir, "shared/common/src/main/java/com/testmod/platform/PlatformHelper.java")
+        val platformHelperFile = context.file( "shared/common/src/main/java/com/testmod/platform/PlatformHelper.java")
         val platformHelperContent = platformHelperFile.readText()
 
         assertTrue(platformHelperContent.contains("package com.testmod.platform;"), "Should have correct package")
@@ -301,7 +287,7 @@ class FullWorkflowTest {
         assertTrue(platformHelperContent.contains("getPlatformName"), "Should have getPlatformName method")
 
         // Verify main mod class
-        val modClassFile = File(projectDir, "shared/common/src/main/java/com/testmod/TestMod.java")
+        val modClassFile = context.file( "shared/common/src/main/java/com/testmod/TestMod.java")
         val modClassContent = modClassFile.readText()
 
         assertTrue(modClassContent.contains("package com.testmod;"), "Should have correct package")
@@ -313,7 +299,7 @@ class FullWorkflowTest {
     fun `verify asset pack configuration is correct`() {
         generateTestProject()
 
-        val assetPackConfig = File(projectDir, "versions/shared/v1/config.yml")
+        val assetPackConfig = context.file( "versions/shared/v1/config.yml")
         assertTrue(assetPackConfig.exists(), "Asset pack config should exist")
 
         val content = assetPackConfig.readText()

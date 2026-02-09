@@ -3,9 +3,8 @@ package dev.dropper.integration
 import dev.dropper.commands.CreateBlockCommand
 import dev.dropper.commands.CreateItemCommand
 import dev.dropper.commands.list.*
-import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
 import dev.dropper.indexer.*
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -22,34 +21,22 @@ import kotlin.test.assertTrue
  */
 class ListCommandE2ETest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
     private val originalOut = System.out
     private lateinit var outputStream: ByteArrayOutputStream
 
     @BeforeEach
     fun setup() {
-        // Create a test project
-        testProjectDir = File("build/test-list/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        // Create a test project context
+        context = TestProjectContext.create("test-list")
 
         // Generate a minimal project
-        val config = ModConfig(
+        context.createDefaultProject(
             id = "testlist",
             name = "Test List Mod",
-            version = "1.0.0",
-            description = "Test mod for list commands",
-            author = "Test",
-            license = "MIT",
             minecraftVersions = listOf("1.20.1", "1.21.0"),
             loaders = listOf("fabric", "forge", "neoforge")
         )
-
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-
-        // Change working directory to test project
-        System.setProperty("user.dir", testProjectDir.absolutePath)
 
         // Capture output
         outputStream = ByteArrayOutputStream()
@@ -58,14 +45,11 @@ class ListCommandE2ETest {
 
     @AfterEach
     fun cleanup() {
-        // Restore original working directory and output
-        System.setProperty("user.dir", originalUserDir)
+        // Restore original output
         System.setOut(originalOut)
 
         // Clean up test project
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     // ===== BASIC LISTING TESTS =====
@@ -75,9 +59,9 @@ class ListCommandE2ETest {
         println("\n=== Test: List Items ===")
 
         // Create test items
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
-        CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
-        CreateItemCommand().parse(arrayOf("ruby_apple", "--type", "food"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_sword", "--type", "tool"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_apple", "--type", "food"))
 
         // Clear output
         outputStream.reset()
@@ -100,8 +84,8 @@ class ListCommandE2ETest {
         println("\n=== Test: List Blocks ===")
 
         // Create test blocks
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
-        CreateBlockCommand().parse(arrayOf("ruby_block", "--type", "basic"))
+        CreateBlockCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_ore", "--type", "ore"))
+        CreateBlockCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_block", "--type", "basic"))
 
         // Clear output
         outputStream.reset()
@@ -140,8 +124,8 @@ class ListCommandE2ETest {
         println("\n=== Test: List Recipes ===")
 
         // Create items with recipes
-        CreateItemCommand().parse(arrayOf("ruby", "--recipe", "true"))
-        CreateItemCommand().parse(arrayOf("sapphire", "--recipe", "true"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--recipe", "true"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("sapphire", "--recipe", "true"))
 
         // Clear output
         outputStream.reset()
@@ -161,8 +145,8 @@ class ListCommandE2ETest {
         println("\n=== Test: List All ===")
 
         // Create various components
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
+        CreateBlockCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_ore", "--type", "ore"))
 
         // Clear output
         outputStream.reset()
@@ -183,7 +167,7 @@ class ListCommandE2ETest {
     fun `list items with table format`() {
         println("\n=== Test: Table Format ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
 
         outputStream.reset()
         val command = ListItemsCommand()
@@ -199,7 +183,7 @@ class ListCommandE2ETest {
     fun `list items with json format`() {
         println("\n=== Test: JSON Format ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
 
         outputStream.reset()
         val command = ListItemsCommand()
@@ -216,8 +200,8 @@ class ListCommandE2ETest {
     fun `list items with csv format`() {
         println("\n=== Test: CSV Format ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
-        CreateItemCommand().parse(arrayOf("sapphire", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("sapphire", "--type", "basic"))
 
         outputStream.reset()
         val command = ListItemsCommand()
@@ -235,8 +219,8 @@ class ListCommandE2ETest {
     fun `list items with tree format`() {
         println("\n=== Test: Tree Format ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
-        CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_sword", "--type", "tool"))
 
         outputStream.reset()
         val command = ListItemsCommand()
@@ -255,9 +239,9 @@ class ListCommandE2ETest {
     fun `list items with search filter`() {
         println("\n=== Test: Search Filter ===")
 
-        CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
-        CreateItemCommand().parse(arrayOf("iron_sword", "--type", "tool"))
-        CreateItemCommand().parse(arrayOf("ruby_apple", "--type", "food"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_sword", "--type", "tool"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("iron_sword", "--type", "tool"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_apple", "--type", "food"))
 
         outputStream.reset()
         val command = ListItemsCommand()
@@ -275,7 +259,7 @@ class ListCommandE2ETest {
     fun `list items with loader filter`() {
         println("\n=== Test: Loader Filter ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
 
         outputStream.reset()
         val command = ListItemsCommand()
@@ -291,8 +275,8 @@ class ListCommandE2ETest {
     fun `list items with combined filters`() {
         println("\n=== Test: Combined Filters ===")
 
-        CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
-        CreateItemCommand().parse(arrayOf("iron_sword", "--type", "tool"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_sword", "--type", "tool"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("iron_sword", "--type", "tool"))
 
         outputStream.reset()
         val command = ListItemsCommand()
@@ -310,9 +294,9 @@ class ListCommandE2ETest {
     fun `export items to json file`() {
         println("\n=== Test: Export JSON ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
 
-        val exportFile = File(testProjectDir, "items.json")
+        val exportFile = File(context.projectDir, "items.json")
 
         outputStream.reset()
         val command = ListItemsCommand()
@@ -330,10 +314,10 @@ class ListCommandE2ETest {
     fun `export items to csv file`() {
         println("\n=== Test: Export CSV ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
-        CreateItemCommand().parse(arrayOf("sapphire", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("sapphire", "--type", "basic"))
 
-        val exportFile = File(testProjectDir, "items.csv")
+        val exportFile = File(context.projectDir, "items.csv")
 
         outputStream.reset()
         val command = ListItemsCommand()
@@ -352,10 +336,10 @@ class ListCommandE2ETest {
     fun `export all components to file`() {
         println("\n=== Test: Export All ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
+        CreateBlockCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_ore", "--type", "ore"))
 
-        val exportFile = File(testProjectDir, "inventory.txt")
+        val exportFile = File(context.projectDir, "inventory.txt")
 
         outputStream.reset()
         val command = ListAllCommand()
@@ -374,10 +358,10 @@ class ListCommandE2ETest {
     fun `item indexer detects all item properties`() {
         println("\n=== Test: Item Indexer Properties ===")
 
-        CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_sword", "--type", "tool"))
 
         val indexer = ItemIndexer()
-        val items = indexer.index(testProjectDir)
+        val items = indexer.index(context.projectDir)
 
         assertEquals(1, items.size, "Should find 1 item")
         val item = items[0]
@@ -394,10 +378,10 @@ class ListCommandE2ETest {
     fun `block indexer detects all block properties`() {
         println("\n=== Test: Block Indexer Properties ===")
 
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        CreateBlockCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_ore", "--type", "ore"))
 
         val indexer = BlockIndexer()
-        val blocks = indexer.index(testProjectDir)
+        val blocks = indexer.index(context.projectDir)
 
         assertEquals(1, blocks.size, "Should find 1 block")
         val block = blocks[0]
@@ -414,10 +398,10 @@ class ListCommandE2ETest {
     fun `recipe indexer detects recipe types`() {
         println("\n=== Test: Recipe Indexer ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--recipe", "true"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--recipe", "true"))
 
         val indexer = RecipeIndexer()
-        val recipes = indexer.index(testProjectDir)
+        val recipes = indexer.index(context.projectDir)
 
         assertEquals(1, recipes.size, "Should find 1 recipe")
         val recipe = recipes[0]
@@ -433,13 +417,13 @@ class ListCommandE2ETest {
     fun `cache is created after first index`() {
         println("\n=== Test: Cache Creation ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
 
         // First index should create cache
         val command = ListItemsCommand()
         command.parse(emptyArray())
 
-        val cacheFile = File(testProjectDir, ".dropper/cache/index.json")
+        val cacheFile = File(context.projectDir, ".dropper/cache/index.json")
         assertTrue(cacheFile.exists(), "Cache file should be created")
 
         println("PASS: Cache created")
@@ -449,19 +433,19 @@ class ListCommandE2ETest {
     fun `cache is reused on subsequent calls`() {
         println("\n=== Test: Cache Reuse ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
 
         // First call creates cache
-        ListItemsCommand().parse(emptyArray())
+        ListItemsCommand().apply { projectDir = context.projectDir }.parse(emptyArray())
 
-        val cacheFile = File(testProjectDir, ".dropper/cache/index.json")
+        val cacheFile = File(context.projectDir, ".dropper/cache/index.json")
         val firstModified = cacheFile.lastModified()
 
         // Wait a bit
         Thread.sleep(100)
 
         // Second call should reuse cache
-        ListItemsCommand().parse(emptyArray())
+        ListItemsCommand().apply { projectDir = context.projectDir }.parse(emptyArray())
 
         val secondModified = cacheFile.lastModified()
         assertEquals(firstModified, secondModified, "Cache should be reused")
@@ -473,20 +457,20 @@ class ListCommandE2ETest {
     fun `cache is invalidated on file changes`() {
         println("\n=== Test: Cache Invalidation ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
 
         // Create cache
-        ListItemsCommand().parse(emptyArray())
+        ListItemsCommand().apply { projectDir = context.projectDir }.parse(emptyArray())
 
-        val cacheFile = File(testProjectDir, ".dropper/cache/index.json")
+        val cacheFile = File(context.projectDir, ".dropper/cache/index.json")
         val firstModified = cacheFile.lastModified()
 
         // Wait and create new item
         Thread.sleep(100)
-        CreateItemCommand().parse(arrayOf("sapphire", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("sapphire", "--type", "basic"))
 
         // Next index should invalidate cache
-        ListItemsCommand().parse(emptyArray())
+        ListItemsCommand().apply { projectDir = context.projectDir }.parse(emptyArray())
 
         val secondModified = cacheFile.lastModified()
         assertTrue(secondModified > firstModified, "Cache should be invalidated and recreated")
@@ -498,16 +482,16 @@ class ListCommandE2ETest {
     fun `manual cache invalidation works`() {
         println("\n=== Test: Manual Cache Invalidation ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
 
         // Create cache
-        ListItemsCommand().parse(emptyArray())
+        ListItemsCommand().apply { projectDir = context.projectDir }.parse(emptyArray())
 
-        val cacheFile = File(testProjectDir, ".dropper/cache/index.json")
+        val cacheFile = File(context.projectDir, ".dropper/cache/index.json")
         assertTrue(cacheFile.exists(), "Cache should exist")
 
         // Invalidate cache
-        IndexCache.invalidate(testProjectDir)
+        IndexCache.invalidate(context.projectDir)
 
         assertFalse(cacheFile.exists(), "Cache should be deleted")
 
@@ -540,7 +524,7 @@ class ListCommandE2ETest {
 
         // Create many items
         for (i in 1..25) {
-            CreateItemCommand().parse(arrayOf("item_$i", "--type", "basic", "--recipe", "false"))
+            CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("item_$i", "--type", "basic", "--recipe", "false"))
         }
 
         outputStream.reset()
@@ -557,10 +541,10 @@ class ListCommandE2ETest {
     fun `list command handles missing files gracefully`() {
         println("\n=== Test: Missing Files ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
 
         // Delete texture file
-        val textureFile = File(testProjectDir, "versions/shared/v1/assets/testlist/textures/item/ruby.png")
+        val textureFile = File(context.projectDir, "versions/shared/v1/assets/testlist/textures/item/ruby.png")
         textureFile.delete()
 
         outputStream.reset()
@@ -580,17 +564,17 @@ class ListCommandE2ETest {
         println("\n=== Test: List After Create Item ===")
 
         // Initial list should be empty
-        var items = ItemIndexer().index(testProjectDir)
+        var items = ItemIndexer().index(context.projectDir)
         assertEquals(0, items.size, "Should start with no items")
 
         // Create item
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
 
         // Invalidate cache to force reindex
-        IndexCache.invalidate(testProjectDir)
+        IndexCache.invalidate(context.projectDir)
 
         // List should now show item
-        items = ItemIndexer().index(testProjectDir)
+        items = ItemIndexer().index(context.projectDir)
         assertEquals(1, items.size, "Should have 1 item after creation")
 
         println("PASS: List updates after create")
@@ -600,13 +584,13 @@ class ListCommandE2ETest {
     fun `list updates after create block command`() {
         println("\n=== Test: List After Create Block ===")
 
-        var blocks = BlockIndexer().index(testProjectDir)
+        var blocks = BlockIndexer().index(context.projectDir)
         assertEquals(0, blocks.size, "Should start with no blocks")
 
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        CreateBlockCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_ore", "--type", "ore"))
 
-        IndexCache.invalidate(testProjectDir)
-        blocks = BlockIndexer().index(testProjectDir)
+        IndexCache.invalidate(context.projectDir)
+        blocks = BlockIndexer().index(context.projectDir)
         assertEquals(1, blocks.size, "Should have 1 block after creation")
 
         println("PASS: List updates after create block")
@@ -616,12 +600,12 @@ class ListCommandE2ETest {
     fun `list all after multiple creates`() {
         println("\n=== Test: List All After Multiple Creates ===")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
-        CreateItemCommand().parse(arrayOf("sapphire", "--type", "basic"))
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
-        CreateBlockCommand().parse(arrayOf("sapphire_ore", "--type", "ore"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("sapphire", "--type", "basic"))
+        CreateBlockCommand().apply { projectDir = context.projectDir }.parse(arrayOf("ruby_ore", "--type", "ore"))
+        CreateBlockCommand().apply { projectDir = context.projectDir }.parse(arrayOf("sapphire_ore", "--type", "ore"))
 
-        IndexCache.invalidate(testProjectDir)
+        IndexCache.invalidate(context.projectDir)
 
         outputStream.reset()
         val command = ListAllCommand()
@@ -644,13 +628,13 @@ class ListCommandE2ETest {
 
         // Create 50 items
         for (i in 1..50) {
-            CreateItemCommand().parse(arrayOf("item_$i", "--type", "basic", "--recipe", "false"))
+            CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("item_$i", "--type", "basic", "--recipe", "false"))
         }
 
         val startTime = System.currentTimeMillis()
 
         val indexer = ItemIndexer()
-        val items = indexer.index(testProjectDir)
+        val items = indexer.index(context.projectDir)
 
         val duration = System.currentTimeMillis() - startTime
 
@@ -666,18 +650,18 @@ class ListCommandE2ETest {
 
         // Create items
         for (i in 1..20) {
-            CreateItemCommand().parse(arrayOf("item_$i", "--type", "basic", "--recipe", "false"))
+            CreateItemCommand().apply { projectDir = context.projectDir }.parse(arrayOf("item_$i", "--type", "basic", "--recipe", "false"))
         }
 
         // First call (no cache)
-        IndexCache.invalidate(testProjectDir)
+        IndexCache.invalidate(context.projectDir)
         val startTime1 = System.currentTimeMillis()
-        ListItemsCommand().parse(emptyArray())
+        ListItemsCommand().apply { projectDir = context.projectDir }.parse(emptyArray())
         val duration1 = System.currentTimeMillis() - startTime1
 
         // Second call (with cache)
         val startTime2 = System.currentTimeMillis()
-        ListItemsCommand().parse(emptyArray())
+        ListItemsCommand().apply { projectDir = context.projectDir }.parse(emptyArray())
         val duration2 = System.currentTimeMillis() - startTime2
 
         println("First call: ${duration1}ms, Second call: ${duration2}ms")

@@ -2,9 +2,8 @@ package dev.dropper.integration
 
 import dev.dropper.commands.CreateBlockCommand
 import dev.dropper.commands.CreateItemCommand
-import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
 import dev.dropper.indexer.*
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -18,43 +17,25 @@ import kotlin.test.assertTrue
  */
 class ListCommandBasicTest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        // Create a test project
-        testProjectDir = File("build/test-list-basic/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        // Create a test project context
+        context = TestProjectContext.create("test-list-basic")
 
         // Generate a minimal project
-        val config = ModConfig(
+        context.createDefaultProject(
             id = "testlist",
             name = "Test List Mod",
-            version = "1.0.0",
-            description = "Test mod for list indexing",
-            author = "Test",
-            license = "MIT",
             minecraftVersions = listOf("1.20.1"),
             loaders = listOf("fabric", "forge", "neoforge")
         )
-
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-
-        // Change working directory to test project
-        System.setProperty("user.dir", testProjectDir.absolutePath)
     }
 
     @AfterEach
     fun cleanup() {
-        // Restore original working directory
-        System.setProperty("user.dir", originalUserDir)
-
-        // Clean up test project
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     @Test
@@ -62,12 +43,17 @@ class ListCommandBasicTest {
         println("\n=== Test: Item Indexer ===")
 
         // Create test items
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
-        CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
+        val command1 = CreateItemCommand()
+        command1.projectDir = context.projectDir
+        command1.parse(arrayOf("ruby", "--type", "basic"))
+
+        val command2 = CreateItemCommand()
+        command2.projectDir = context.projectDir
+        command2.parse(arrayOf("ruby_sword", "--type", "tool"))
 
         // Index items
         val indexer = ItemIndexer()
-        val items = indexer.index(testProjectDir)
+        val items = indexer.index(context.projectDir)
 
         // Verify
         assertEquals(2, items.size, "Should find 2 items")
@@ -82,11 +68,13 @@ class ListCommandBasicTest {
         println("\n=== Test: Block Indexer ===")
 
         // Create test blocks
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        val command = CreateBlockCommand()
+        command.projectDir = context.projectDir
+        command.parse(arrayOf("ruby_ore", "--type", "ore"))
 
         // Index blocks
         val indexer = BlockIndexer()
-        val blocks = indexer.index(testProjectDir)
+        val blocks = indexer.index(context.projectDir)
 
         // Verify
         assertEquals(1, blocks.size, "Should find 1 block")
@@ -102,11 +90,13 @@ class ListCommandBasicTest {
         println("\n=== Test: Recipe Indexer ===")
 
         // Create item with recipe
-        CreateItemCommand().parse(arrayOf("ruby", "--recipe", "true"))
+        val command = CreateItemCommand()
+        command.projectDir = context.projectDir
+        command.parse(arrayOf("ruby", "--recipe", "true"))
 
         // Index recipes
         val indexer = RecipeIndexer()
-        val recipes = indexer.index(testProjectDir)
+        val recipes = indexer.index(context.projectDir)
 
         // Verify
         assertEquals(1, recipes.size, "Should find 1 recipe")
@@ -163,20 +153,22 @@ class ListCommandBasicTest {
         println("\n=== Test: Cache System ===")
 
         // Create test item
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        val command = CreateItemCommand()
+        command.projectDir = context.projectDir
+        command.parse(arrayOf("ruby", "--type", "basic"))
 
         // Index and cache
         val components = mapOf(
-            "items" to ItemIndexer().index(testProjectDir)
+            "items" to ItemIndexer().index(context.projectDir)
         )
 
-        IndexCache.save(testProjectDir, components)
+        IndexCache.save(context.projectDir, components)
 
-        val cacheFile = File(testProjectDir, ".dropper/cache/index.json")
+        val cacheFile = File(context.projectDir, ".dropper/cache/index.json")
         assertTrue(cacheFile.exists(), "Cache file should exist")
 
         // Load cache
-        val cached = IndexCache.get(testProjectDir)
+        val cached = IndexCache.get(context.projectDir)
         assertTrue(cached != null, "Should load cache")
         assertEquals(1, cached!!["items"]?.size, "Should have 1 cached item")
 
@@ -189,10 +181,10 @@ class ListCommandBasicTest {
 
         // Index empty project
         val itemIndexer = ItemIndexer()
-        val items = itemIndexer.index(testProjectDir)
+        val items = itemIndexer.index(context.projectDir)
 
         val blockIndexer = BlockIndexer()
-        val blocks = blockIndexer.index(testProjectDir)
+        val blocks = blockIndexer.index(context.projectDir)
 
         // Verify
         assertEquals(0, items.size, "Should find no items")
@@ -207,12 +199,14 @@ class ListCommandBasicTest {
 
         // Create many components
         for (i in 1..10) {
-            CreateItemCommand().parse(arrayOf("item_$i", "--type", "basic", "--recipe", "false"))
+            val command = CreateItemCommand()
+            command.projectDir = context.projectDir
+            command.parse(arrayOf("item_$i", "--type", "basic", "--recipe", "false"))
         }
 
         // Index
         val indexer = ItemIndexer()
-        val items = indexer.index(testProjectDir)
+        val items = indexer.index(context.projectDir)
 
         // Verify
         assertEquals(10, items.size, "Should find 10 items")
@@ -226,11 +220,13 @@ class ListCommandBasicTest {
         println("\n=== Test: Component Metadata ===")
 
         // Create item
-        CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
+        val command = CreateItemCommand()
+        command.projectDir = context.projectDir
+        command.parse(arrayOf("ruby_sword", "--type", "tool"))
 
         // Index
         val indexer = ItemIndexer()
-        val items = indexer.index(testProjectDir)
+        val items = indexer.index(context.projectDir)
 
         // Verify metadata
         val item = items[0]

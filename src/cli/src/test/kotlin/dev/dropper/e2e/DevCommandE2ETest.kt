@@ -5,6 +5,7 @@ import dev.dropper.commands.util.ConfigReader
 import dev.dropper.commands.util.GradleRunner
 import dev.dropper.config.ModConfig
 import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
@@ -34,8 +35,7 @@ import kotlin.test.assertTrue
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DevCommandE2ETest {
 
-    private lateinit var tempProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
     private lateinit var originalOut: PrintStream
     private lateinit var originalErr: PrintStream
 
@@ -48,34 +48,9 @@ class DevCommandE2ETest {
 
     @BeforeEach
     fun setup() {
-        // Create realistic test project structure
-        tempProjectDir = File("build/test-dev-e2e/${System.currentTimeMillis()}/test-mod")
-        tempProjectDir.mkdirs()
-        createTestProject()
-    }
+        context = TestProjectContext.create("test-mod")
 
-    @AfterEach
-    fun cleanup() {
-        // Restore original user directory
-        System.setProperty("user.dir", originalUserDir)
-
-        // Clean up test directory
-        if (tempProjectDir.exists()) {
-            tempProjectDir.deleteRecursively()
-        }
-    }
-
-    @AfterAll
-    fun cleanupAll() {
-        // Restore original streams
-        System.setOut(originalOut)
-        System.setErr(originalErr)
-    }
-
-    /**
-     * Create a realistic test project structure using ProjectGenerator
-     */
-    private fun createTestProject() {
+        // Create realistic test project structure using ProjectGenerator
         val config = ModConfig(
             id = "testmod",
             name = "Test Mod",
@@ -87,14 +62,26 @@ class DevCommandE2ETest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(tempProjectDir, config)
+        context.createProject(config)
 
         // Verify project was created
-        assertTrue(File(tempProjectDir, "config.yml").exists(), "Project config.yml should exist")
-        assertTrue(File(tempProjectDir, "versions/1_20_1").exists(), "Version 1.20.1 should exist")
-        assertTrue(File(tempProjectDir, "versions/1_21_1").exists(), "Version 1.21.1 should exist")
+        assertTrue(context.file("config.yml").exists(), "Project config.yml should exist")
+        assertTrue(context.file("versions/1_20_1").exists(), "Version 1.20.1 should exist")
+        assertTrue(context.file("versions/1_21_1").exists(), "Version 1.21.1 should exist")
     }
+
+    @AfterEach
+    fun cleanup() {
+        context.cleanup()
+    }
+
+    @AfterAll
+    fun cleanupAll() {
+        // Restore original streams
+        System.setOut(originalOut)
+        System.setErr(originalErr)
+    }
+
 
     /**
      * Capture console output for testing
@@ -125,7 +112,7 @@ class DevCommandE2ETest {
         println("║     Test: Auto-detect First Available Version                ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo, "Should detect project info")
@@ -149,7 +136,7 @@ class DevCommandE2ETest {
         println("║     Test: Auto-detect Default Loader (Fabric)                ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)
@@ -169,7 +156,7 @@ class DevCommandE2ETest {
         println("║     Test: Version Override with --version Flag               ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)
@@ -193,7 +180,7 @@ class DevCommandE2ETest {
         println("║     Test: Loader Override with --loader Flag                 ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)
@@ -217,7 +204,7 @@ class DevCommandE2ETest {
         println("║     Test: Detect Multiple Versions                           ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)
@@ -244,7 +231,7 @@ class DevCommandE2ETest {
         println("║     Test: Debug Flag Adds JVM Arguments                      ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val gradleRunner = GradleRunner(tempProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         val debugArgs = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005")
         val command = gradleRunner.buildGradleCommand(
@@ -270,7 +257,7 @@ class DevCommandE2ETest {
         println("║     Test: Custom Debug Port Flag                             ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val gradleRunner = GradleRunner(tempProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         val customPort = 9999
         val debugArgs = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:$customPort")
@@ -343,7 +330,7 @@ class DevCommandE2ETest {
         println("║     Test: Error When Invalid Version Specified               ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)
@@ -365,7 +352,7 @@ class DevCommandE2ETest {
         println("║     Test: Error When Invalid Loader Specified                ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)
@@ -411,7 +398,7 @@ class DevCommandE2ETest {
         println("║     Test: Error When Version-Loader Combo Does Not Exist     ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
 
         // Test non-existent combination
         val exists = configReader.versionLoaderExists("1.20.1", "forge")
@@ -433,7 +420,7 @@ class DevCommandE2ETest {
         println("║     Test: Correct Gradle Task Format                         ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val gradleRunner = GradleRunner(tempProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         val command = gradleRunner.buildGradleCommand(
             version = "1_20_1",
@@ -455,7 +442,7 @@ class DevCommandE2ETest {
         println("║     Test: JVM Args Included When Debug Enabled               ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val gradleRunner = GradleRunner(tempProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         val debugArgs = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005")
         val command = gradleRunner.buildGradleCommand(
@@ -479,7 +466,7 @@ class DevCommandE2ETest {
         println("║     Test: Windows vs Unix Wrapper Detection                  ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val gradleRunner = GradleRunner(tempProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
         val command = gradleRunner.buildGradleCommand(
             version = "1_20_1",
             loader = "fabric",
@@ -514,7 +501,7 @@ class DevCommandE2ETest {
         println("║     Test: Clean Arguments Passed When --clean Flag           ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val gradleRunner = GradleRunner(tempProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         val command = gradleRunner.buildGradleCommand(
             version = "1_20_1",
@@ -541,18 +528,18 @@ class DevCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Verify project structure
-        assertTrue(tempProjectDir.exists(), "Project directory should exist")
-        assertTrue(File(tempProjectDir, "config.yml").exists(), "config.yml should exist")
-        assertTrue(File(tempProjectDir, "versions").exists(), "versions directory should exist")
-        assertTrue(File(tempProjectDir, "shared").exists(), "shared directory should exist")
+        assertTrue(context.projectDir.exists(), "Project directory should exist")
+        assertTrue(File(context.projectDir, "config.yml").exists(), "config.yml should exist")
+        assertTrue(File(context.projectDir, "versions").exists(), "versions directory should exist")
+        assertTrue(File(context.projectDir, "shared").exists(), "shared directory should exist")
 
         // Verify version directories
-        assertTrue(File(tempProjectDir, "versions/1_20_1").exists(), "1.20.1 version should exist")
-        assertTrue(File(tempProjectDir, "versions/1_21_1").exists(), "1.21.1 version should exist")
+        assertTrue(File(context.projectDir, "versions/1_20_1").exists(), "1.20.1 version should exist")
+        assertTrue(File(context.projectDir, "versions/1_21_1").exists(), "1.21.1 version should exist")
 
         // Verify loader directories
-        assertTrue(File(tempProjectDir, "versions/1_20_1/fabric").exists(), "1.20.1 fabric should exist")
-        assertTrue(File(tempProjectDir, "versions/1_20_1/neoforge").exists(), "1.20.1 neoforge should exist")
+        assertTrue(File(context.projectDir, "versions/1_20_1/fabric").exists(), "1.20.1 fabric should exist")
+        assertTrue(File(context.projectDir, "versions/1_20_1/neoforge").exists(), "1.20.1 neoforge should exist")
 
         println("  ✓ Project structure is correct")
         println("  ✓ All required directories exist")
@@ -566,7 +553,7 @@ class DevCommandE2ETest {
         println("║     Test: Read Real config.yml                               ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configFile = File(tempProjectDir, "config.yml")
+        val configFile = File(context.projectDir, "config.yml")
         assertTrue(configFile.exists(), "config.yml should exist")
 
         val content = configFile.readText()
@@ -574,7 +561,7 @@ class DevCommandE2ETest {
         assertTrue(content.contains("name:"), "Should have mod name")
         assertTrue(content.contains("version:"), "Should have mod version")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)
@@ -593,7 +580,7 @@ class DevCommandE2ETest {
         println("║     Test: Scan Real versions/ Directory                      ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val versionsDir = File(tempProjectDir, "versions")
+        val versionsDir = File(context.projectDir, "versions")
         assertTrue(versionsDir.exists(), "versions directory should exist")
         assertTrue(versionsDir.isDirectory, "versions should be a directory")
 
@@ -604,7 +591,7 @@ class DevCommandE2ETest {
         assertNotNull(versionDirs)
         assertTrue(versionDirs.size >= 2, "Should have at least 2 version directories")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)
@@ -627,7 +614,7 @@ class DevCommandE2ETest {
         println("║     Test: Validate Version-Loader Combinations               ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
 
         // Test valid combinations
         val validCombinations = listOf(
@@ -669,7 +656,7 @@ class DevCommandE2ETest {
         println("║     Test: 'dropper dev run' Auto-detection Scenario          ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)
@@ -696,7 +683,7 @@ class DevCommandE2ETest {
         println("║     Test: 'dropper dev client -v 1.21.1 -l neoforge'         ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)
@@ -725,7 +712,7 @@ class DevCommandE2ETest {
         println("║     Test: 'dropper dev server --clean' Scenario              ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val gradleRunner = GradleRunner(tempProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         val command = gradleRunner.buildGradleCommand(
             version = "1_20_1",
@@ -750,7 +737,7 @@ class DevCommandE2ETest {
         println("║     Test: 'dropper dev test' Execution Scenario              ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val gradleRunner = GradleRunner(tempProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         val command = gradleRunner.buildGradleCommand(
             version = "1_20_1",
@@ -773,7 +760,7 @@ class DevCommandE2ETest {
         println("║     Test: 'dropper dev run --debug --port 9999' Scenario     ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        val gradleRunner = GradleRunner(tempProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         val customPort = 9999
         val debugArgs = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:$customPort")
@@ -807,7 +794,7 @@ class DevCommandE2ETest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         println("1️⃣  Detecting project...")
-        val configReader = ConfigReader(tempProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
         assertNotNull(projectInfo, "Project should be detected")
         println("    ✓ Project detected: ${projectInfo.modName}")
@@ -828,14 +815,14 @@ class DevCommandE2ETest {
         println("    ✓ Combination valid: $selectedVersion-$selectedLoader")
 
         println("\n5️⃣  Checking Gradle wrapper...")
-        val gradleRunner = GradleRunner(tempProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
         val hasWrapper = gradleRunner.hasGradleWrapper()
 
         // Create a mock wrapper for testing if it doesn't exist
         if (!hasWrapper) {
             val isWindows = System.getProperty("os.name").lowercase().contains("windows")
             val wrapperName = if (isWindows) "gradlew.bat" else "gradlew"
-            File(tempProjectDir, wrapperName).writeText("@echo off\necho Mock wrapper")
+            File(context.projectDir, wrapperName).writeText("@echo off\necho Mock wrapper")
         }
 
         // Verify wrapper exists now

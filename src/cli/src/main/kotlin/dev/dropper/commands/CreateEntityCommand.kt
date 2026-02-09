@@ -1,6 +1,5 @@
 package dev.dropper.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
@@ -12,7 +11,7 @@ import java.io.File
  * Command to create a new entity in the mod
  * Generates entity class, renderer, model, texture, spawn egg, and registration code
  */
-class CreateEntityCommand : CliktCommand(
+class CreateEntityCommand : DropperCommand(
     name = "entity",
     help = "Create a new entity with registration code, renderer, and assets"
 ) {
@@ -21,8 +20,7 @@ class CreateEntityCommand : CliktCommand(
     private val spawnEgg by option("--spawn-egg", "-s", help = "Generate spawn egg item").default("true")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")

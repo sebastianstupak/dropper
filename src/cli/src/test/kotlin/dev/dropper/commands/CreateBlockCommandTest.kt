@@ -1,23 +1,24 @@
 package dev.dropper.commands
 
 import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.assertEquals
 
 class CreateBlockCommandTest {
 
-    @TempDir
-    lateinit var tempDir: File
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
+        context = TestProjectContext.create("block-test")
+
         // Create a minimal config.yml for testing
-        val configFile = File(tempDir, "config.yml")
+        val configFile = File(context.projectDir, "config.yml")
         configFile.writeText("""
             mod:
               id: testmod
@@ -31,7 +32,7 @@ class CreateBlockCommandTest {
 
     @AfterEach
     fun cleanup() {
-        tempDir.deleteRecursively()
+        context.cleanup()
     }
 
     @Test
@@ -55,11 +56,11 @@ class CreateBlockCommandTest {
         ))
 
         // Verify blockstate content
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/test_block.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/test_block.json"))
         assertTrue(blockstate.contains("\"model\": \"testmod:block/test_block\""))
 
         // Verify model content
-        val model = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/test_block.json"))
+        val model = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/test_block.json"))
         assertTrue(model.contains("\"parent\": \"block/cube_all\""))
         assertTrue(model.contains("\"all\": \"testmod:block/test_block\""))
     }
@@ -77,7 +78,7 @@ class CreateBlockCommandTest {
         ))
 
         // Verify loot table has Fortune enchantment
-        val lootTable = FileUtil.readText(File(tempDir, "versions/shared/v1/data/testmod/loot_table/blocks/ruby_ore.json"))
+        val lootTable = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/loot_table/blocks/ruby_ore.json"))
         assertTrue(lootTable.contains("minecraft:apply_bonus"))
         assertTrue(lootTable.contains("minecraft:fortune"))
     }
@@ -96,13 +97,13 @@ class CreateBlockCommandTest {
         ))
 
         // Verify blockstate has axis variants
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/marble_pillar.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/marble_pillar.json"))
         assertTrue(blockstate.contains("\"axis=x\""))
         assertTrue(blockstate.contains("\"axis=y\""))
         assertTrue(blockstate.contains("\"axis=z\""))
 
         // Verify model uses cube_column
-        val model = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/marble_pillar.json"))
+        val model = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/marble_pillar.json"))
         assertTrue(model.contains("\"parent\": \"block/cube_column\""))
         assertTrue(model.contains("\"end\": \"testmod:block/marble_pillar_top\""))
         assertTrue(model.contains("\"side\": \"testmod:block/marble_pillar\""))
@@ -122,19 +123,19 @@ class CreateBlockCommandTest {
         ))
 
         // Verify blockstate has type variants
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/stone_slab.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/stone_slab.json"))
         assertTrue(blockstate.contains("\"type=bottom\""))
         assertTrue(blockstate.contains("\"type=top\""))
         assertTrue(blockstate.contains("\"type=double\""))
 
         // Verify models
-        val model = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/stone_slab.json"))
+        val model = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_slab.json"))
         assertTrue(model.contains("\"parent\": \"block/slab\""))
 
-        val topModel = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/stone_slab_top.json"))
+        val topModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_slab_top.json"))
         assertTrue(topModel.contains("\"parent\": \"block/slab_top\""))
 
-        val doubleModel = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/stone_slab_double.json"))
+        val doubleModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_slab_double.json"))
         assertTrue(doubleModel.contains("\"parent\": \"block/cube_all\""))
     }
 
@@ -150,13 +151,13 @@ class CreateBlockCommandTest {
         ))
 
         // Verify blockstate has facing and half variants
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/stone_stairs.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/stone_stairs.json"))
         assertTrue(blockstate.contains("facing="))
         assertTrue(blockstate.contains("half="))
         assertTrue(blockstate.contains("shape="))
 
         // Verify model
-        val model = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/stone_stairs.json"))
+        val model = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_stairs.json"))
         assertTrue(model.contains("\"parent\": \"block/stairs\""))
     }
 
@@ -173,16 +174,16 @@ class CreateBlockCommandTest {
         ))
 
         // Verify blockstate uses multipart
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/oak_fence.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/oak_fence.json"))
         assertTrue(blockstate.contains("\"multipart\""))
         assertTrue(blockstate.contains("oak_fence_post"))
         assertTrue(blockstate.contains("oak_fence_side"))
 
         // Verify models
-        val postModel = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/oak_fence_post.json"))
+        val postModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/oak_fence_post.json"))
         assertTrue(postModel.contains("\"parent\": \"block/fence_post\""))
 
-        val sideModel = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/oak_fence_side.json"))
+        val sideModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/oak_fence_side.json"))
         assertTrue(sideModel.contains("\"parent\": \"block/fence_side\""))
     }
 
@@ -199,13 +200,13 @@ class CreateBlockCommandTest {
         ))
 
         // Verify blockstate uses multipart
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/cobblestone_wall.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/cobblestone_wall.json"))
         assertTrue(blockstate.contains("\"multipart\""))
         assertTrue(blockstate.contains("cobblestone_wall_post"))
         assertTrue(blockstate.contains("cobblestone_wall_side"))
 
         // Verify models
-        val postModel = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/cobblestone_wall_post.json"))
+        val postModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/cobblestone_wall_post.json"))
         assertTrue(postModel.contains("\"parent\": \"block/template_wall_post\""))
     }
 
@@ -222,7 +223,7 @@ class CreateBlockCommandTest {
         ))
 
         // Verify blockstate has door variants
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/oak_door.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/oak_door.json"))
         assertTrue(blockstate.contains("half=lower"))
         assertTrue(blockstate.contains("half=upper"))
         assertTrue(blockstate.contains("hinge="))
@@ -243,15 +244,15 @@ class CreateBlockCommandTest {
         ))
 
         // Verify blockstate
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/oak_trapdoor.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/oak_trapdoor.json"))
         assertTrue(blockstate.contains("half="))
         assertTrue(blockstate.contains("open="))
 
         // Verify models
-        val bottomModel = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/oak_trapdoor_bottom.json"))
+        val bottomModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/oak_trapdoor_bottom.json"))
         assertTrue(bottomModel.contains("template_orientable_trapdoor_bottom"))
 
-        val openModel = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/oak_trapdoor_open.json"))
+        val openModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/oak_trapdoor_open.json"))
         assertTrue(openModel.contains("template_orientable_trapdoor_open"))
     }
 
@@ -268,15 +269,15 @@ class CreateBlockCommandTest {
         ))
 
         // Verify blockstate
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/stone_button.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/stone_button.json"))
         assertTrue(blockstate.contains("powered="))
         assertTrue(blockstate.contains("face="))
 
         // Verify models
-        val model = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/stone_button.json"))
+        val model = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_button.json"))
         assertTrue(model.contains("\"parent\": \"block/button\""))
 
-        val pressedModel = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/stone_button_pressed.json"))
+        val pressedModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_button_pressed.json"))
         assertTrue(pressedModel.contains("\"parent\": \"block/button_pressed\""))
     }
 
@@ -293,15 +294,15 @@ class CreateBlockCommandTest {
         ))
 
         // Verify blockstate
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/stone_pressure_plate.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/stone_pressure_plate.json"))
         assertTrue(blockstate.contains("powered=false"))
         assertTrue(blockstate.contains("powered=true"))
 
         // Verify models
-        val model = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/stone_pressure_plate.json"))
+        val model = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_pressure_plate.json"))
         assertTrue(model.contains("\"parent\": \"block/pressure_plate_up\""))
 
-        val downModel = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/stone_pressure_plate_down.json"))
+        val downModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_pressure_plate_down.json"))
         assertTrue(downModel.contains("\"parent\": \"block/pressure_plate_down\""))
     }
 
@@ -320,13 +321,13 @@ class CreateBlockCommandTest {
         }
 
         // Verify blockstate has all age variants
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/wheat.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/wheat.json"))
         for (age in 0..7) {
             assertTrue(blockstate.contains("\"age=$age\""))
         }
 
         // Verify model
-        val model = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/models/block/wheat_stage0.json"))
+        val model = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/wheat_stage0.json"))
         assertTrue(model.contains("\"parent\": \"block/crop\""))
         assertTrue(model.contains("\"crop\": \"testmod:block/wheat_stage0\""))
     }
@@ -339,14 +340,14 @@ class CreateBlockCommandTest {
 
         // Verify only stages 0-3 exist
         for (age in 0..3) {
-            assertTrue(File(tempDir, "versions/shared/v1/assets/testmod/models/block/custom_crop_stage$age.json").exists())
+            assertTrue(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/custom_crop_stage$age.json").exists())
         }
 
         // Verify stage 4 doesn't exist
-        assertTrue(!File(tempDir, "versions/shared/v1/assets/testmod/models/block/custom_crop_stage4.json").exists())
+        assertTrue(!File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/custom_crop_stage4.json").exists())
 
         // Verify blockstate
-        val blockstate = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/blockstates/custom_crop.json"))
+        val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/custom_crop.json"))
         assertTrue(blockstate.contains("\"age=0\""))
         assertTrue(blockstate.contains("\"age=3\""))
         assertTrue(!blockstate.contains("\"age=4\""))
@@ -360,7 +361,7 @@ class CreateBlockCommandTest {
 
         // Verify loot table doesn't exist
         val lootTablePath = "versions/shared/v1/data/testmod/loot_table/blocks/grass_block.json"
-        assertTrue(!File(tempDir, lootTablePath).exists())
+        assertTrue(!File(context.projectDir, lootTablePath).exists())
     }
 
     @Test
@@ -370,21 +371,21 @@ class CreateBlockCommandTest {
         executeBlockCommand(blockName, "basic")
 
         // Check Fabric registration
-        val fabricFile = File(tempDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/TestBlockFabric.java")
+        val fabricFile = File(context.projectDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/TestBlockFabric.java")
         assertTrue(fabricFile.exists())
         val fabricContent = FileUtil.readText(fabricFile)
         assertTrue(fabricContent.contains("Registry.register"))
         assertTrue(fabricContent.contains("Registries.BLOCK"))
 
         // Check Forge registration
-        val forgeFile = File(tempDir, "shared/forge/src/main/java/com/testmod/platform/forge/TestBlockForge.java")
+        val forgeFile = File(context.projectDir, "shared/forge/src/main/java/com/testmod/platform/forge/TestBlockForge.java")
         assertTrue(forgeFile.exists())
         val forgeContent = FileUtil.readText(forgeFile)
         assertTrue(forgeContent.contains("DeferredRegister"))
         assertTrue(forgeContent.contains("ForgeRegistries.BLOCKS"))
 
         // Check NeoForge registration
-        val neoforgeFile = File(tempDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestBlockNeoForge.java")
+        val neoforgeFile = File(context.projectDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestBlockNeoForge.java")
         assertTrue(neoforgeFile.exists())
         val neoforgeContent = FileUtil.readText(neoforgeFile)
         assertTrue(neoforgeContent.contains("DeferredRegister.Blocks"))
@@ -407,16 +408,16 @@ class CreateBlockCommandTest {
             args.add(value)
         }
 
-        // Set working directory
-        System.setProperty("user.dir", tempDir.absolutePath)
+        // Set project directory before parsing
+        command.projectDir = context.projectDir
 
         // Execute command
-        command.main(args.toTypedArray())
+        command.parse(args.toTypedArray())
     }
 
     private fun assertBlockFilesExist(blockName: String, expectedFiles: List<String>) {
         expectedFiles.forEach { filePath ->
-            val file = File(tempDir, filePath)
+            val file = File(context.projectDir, filePath)
             assertTrue(
                 file.exists(),
                 "Expected file to exist: $filePath (absolute: ${file.absolutePath})"

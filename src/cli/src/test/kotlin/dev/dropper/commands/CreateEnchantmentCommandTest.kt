@@ -1,10 +1,10 @@
 package dev.dropper.commands
 
 import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
@@ -12,13 +12,14 @@ import kotlin.test.assertEquals
 
 class CreateEnchantmentCommandTest {
 
-    @TempDir
-    lateinit var tempDir: File
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
+        context = TestProjectContext.create("enchantment-test")
+
         // Create a minimal config.yml for testing
-        val configFile = File(tempDir, "config.yml")
+        val configFile = File(context.projectDir, "config.yml")
         configFile.writeText("""
             mod:
               id: testmod
@@ -32,7 +33,7 @@ class CreateEnchantmentCommandTest {
 
     @AfterEach
     fun cleanup() {
-        tempDir.deleteRecursively()
+        context.cleanup()
     }
 
     @Test
@@ -52,7 +53,7 @@ class CreateEnchantmentCommandTest {
         ))
 
         // Verify enchantment class content
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchantment.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchantment.java"))
         assertTrue(enchantmentClass.contains("public class TestEnchantment"))
         assertTrue(enchantmentClass.contains("public static final String ID = \"test_enchantment\""))
         assertTrue(enchantmentClass.contains("public static final int MAX_LEVEL = 1"))
@@ -61,7 +62,7 @@ class CreateEnchantmentCommandTest {
         assertTrue(enchantmentClass.contains("public static final boolean IS_TREASURE = false"))
 
         // Verify lang entry
-        val langFile = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/lang/en_us.json"))
+        val langFile = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json"))
         assertTrue(langFile.contains("\"enchantment.testmod.test_enchantment\": \"Test Enchantment\""))
     }
 
@@ -71,7 +72,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName, mapOf("--max-level" to "5"))
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/PowerStrike.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/PowerStrike.java"))
         assertTrue(enchantmentClass.contains("public static final int MAX_LEVEL = 5"))
     }
 
@@ -83,7 +84,7 @@ class CreateEnchantmentCommandTest {
             val enchantmentName = "${rarity}_enchantment"
             executeEnchantmentCommand(enchantmentName, mapOf("--rarity" to rarity))
 
-            val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
+            val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
             assertTrue(enchantmentClass.contains("public static final Rarity RARITY = Rarity.${rarity.uppercase()}"))
         }
     }
@@ -94,7 +95,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName, mapOf("--category" to "weapon"))
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/Sharpness.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/Sharpness.java"))
         assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.WEAPON"))
     }
 
@@ -104,7 +105,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName, mapOf("--category" to "armor"))
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/Protection.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/Protection.java"))
         assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.ARMOR"))
     }
 
@@ -116,7 +117,7 @@ class CreateEnchantmentCommandTest {
             val enchantmentName = "${category.replace("_", "")}_enchant"
             executeEnchantmentCommand(enchantmentName, mapOf("--category" to category))
 
-            val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
+            val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
             assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.${category.uppercase()}"))
         }
     }
@@ -129,7 +130,7 @@ class CreateEnchantmentCommandTest {
             val enchantmentName = "${category.replace("_", "")}_enchant"
             executeEnchantmentCommand(enchantmentName, mapOf("--category" to category))
 
-            val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
+            val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
             assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.${category.uppercase()}"))
         }
     }
@@ -140,7 +141,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName, mapOf("--category" to "wearable"))
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/FrostWalker.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/FrostWalker.java"))
         assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.WEARABLE"))
     }
 
@@ -150,7 +151,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName, mapOf("--category" to "vanishable"))
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/VanishingCurse.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/VanishingCurse.java"))
         assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.VANISHABLE"))
     }
 
@@ -160,7 +161,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName, mapOf("--treasure" to ""))
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/SoulSpeed.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/SoulSpeed.java"))
         assertTrue(enchantmentClass.contains("public static final boolean IS_TREASURE = true"))
         assertTrue(enchantmentClass.contains("public static final boolean IS_TRADEABLE = false"))
         assertTrue(enchantmentClass.contains("public static final boolean IS_DISCOVERABLE = false"))
@@ -172,7 +173,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName)
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/Efficiency.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/Efficiency.java"))
         assertTrue(enchantmentClass.contains("public static final boolean IS_TREASURE = false"))
         assertTrue(enchantmentClass.contains("public static final boolean IS_TRADEABLE = true"))
         assertTrue(enchantmentClass.contains("public static final boolean IS_DISCOVERABLE = true"))
@@ -189,7 +190,7 @@ class CreateEnchantmentCommandTest {
             "--treasure" to ""
         ))
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/CustomStrike.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/CustomStrike.java"))
         assertTrue(enchantmentClass.contains("public static final int MAX_LEVEL = 10"))
         assertTrue(enchantmentClass.contains("public static final Rarity RARITY = Rarity.VERY_RARE"))
         assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.WEAPON"))
@@ -202,7 +203,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName)
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchant.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchant.java"))
 
         // Check Rarity enum
         assertTrue(enchantmentClass.contains("public enum Rarity {"))
@@ -225,7 +226,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName)
 
-        val fabricFile = File(tempDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/FireAspectFabric.java")
+        val fabricFile = File(context.projectDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/FireAspectFabric.java")
         assertTrue(fabricFile.exists())
 
         val fabricContent = FileUtil.readText(fabricFile)
@@ -243,7 +244,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName)
 
-        val forgeFile = File(tempDir, "shared/forge/src/main/java/com/testmod/platform/forge/SmiteForge.java")
+        val forgeFile = File(context.projectDir, "shared/forge/src/main/java/com/testmod/platform/forge/SmiteForge.java")
         assertTrue(forgeFile.exists())
 
         val forgeContent = FileUtil.readText(forgeFile)
@@ -260,7 +261,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName)
 
-        val neoforgeFile = File(tempDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/LootingNeoForge.java")
+        val neoforgeFile = File(context.projectDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/LootingNeoForge.java")
         assertTrue(neoforgeFile.exists())
 
         val neoforgeContent = FileUtil.readText(neoforgeFile)
@@ -278,7 +279,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName)
 
-        val langFile = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/lang/en_us.json"))
+        val langFile = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json"))
         assertTrue(langFile.contains("\"enchantment.testmod.custom_enchant\": \"Custom Enchant\""))
     }
 
@@ -290,7 +291,7 @@ class CreateEnchantmentCommandTest {
         // Create second enchantment
         executeEnchantmentCommand("second_enchant")
 
-        val langFile = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/lang/en_us.json"))
+        val langFile = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json"))
         assertTrue(langFile.contains("\"enchantment.testmod.first_enchant\": \"First Enchant\""))
         assertTrue(langFile.contains("\"enchantment.testmod.second_enchant\": \"Second Enchant\""))
     }
@@ -300,7 +301,7 @@ class CreateEnchantmentCommandTest {
         val enchantmentName = "new_enchant"
 
         // Ensure lang file doesn't exist
-        val langFile = File(tempDir, "versions/shared/v1/assets/testmod/lang/en_us.json")
+        val langFile = File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json")
         assertFalse(langFile.exists())
 
         executeEnchantmentCommand(enchantmentName)
@@ -323,11 +324,11 @@ class CreateEnchantmentCommandTest {
         testCases.forEach { (snakeName, expectedDisplay) ->
             executeEnchantmentCommand(snakeName)
 
-            val langFile = FileUtil.readText(File(tempDir, "versions/shared/v1/assets/testmod/lang/en_us.json"))
+            val langFile = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json"))
             assertTrue(langFile.contains("\"enchantment.testmod.$snakeName\": \"$expectedDisplay\""))
 
             // Clean up for next test
-            File(tempDir, "versions/shared/v1/assets/testmod/lang/en_us.json").delete()
+            File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json").delete()
         }
     }
 
@@ -343,7 +344,7 @@ class CreateEnchantmentCommandTest {
         testCases.forEach { (snakeName, expectedClass) ->
             executeEnchantmentCommand(snakeName)
 
-            val classFile = File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/$expectedClass.java")
+            val classFile = File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/$expectedClass.java")
             assertTrue(classFile.exists(), "Expected class file: $expectedClass.java")
 
             val content = FileUtil.readText(classFile)
@@ -358,15 +359,15 @@ class CreateEnchantmentCommandTest {
         executeEnchantmentCommand(enchantmentName)
 
         // Check Fabric
-        val fabricContent = FileUtil.readText(File(tempDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/TestEnchantFabric.java"))
+        val fabricContent = FileUtil.readText(File(context.projectDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/TestEnchantFabric.java"))
         assertTrue(fabricContent.startsWith("package com.testmod.platform.fabric;"))
 
         // Check Forge
-        val forgeContent = FileUtil.readText(File(tempDir, "shared/forge/src/main/java/com/testmod/platform/forge/TestEnchantForge.java"))
+        val forgeContent = FileUtil.readText(File(context.projectDir, "shared/forge/src/main/java/com/testmod/platform/forge/TestEnchantForge.java"))
         assertTrue(forgeContent.startsWith("package com.testmod.platform.forge;"))
 
         // Check NeoForge
-        val neoforgeContent = FileUtil.readText(File(tempDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestEnchantNeoForge.java"))
+        val neoforgeContent = FileUtil.readText(File(context.projectDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestEnchantNeoForge.java"))
         assertTrue(neoforgeContent.startsWith("package com.testmod.platform.neoforge;"))
     }
 
@@ -382,7 +383,7 @@ class CreateEnchantmentCommandTest {
             val enchantmentName = "test_${category.replace("_", "")}"
             executeEnchantmentCommand(enchantmentName, mapOf("--category" to category))
 
-            val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
+            val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
             assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.${category.uppercase()}"))
         }
     }
@@ -393,7 +394,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName)
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchant.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchant.java"))
 
         // Check for documentation
         assertTrue(enchantmentClass.contains("/**"))
@@ -409,7 +410,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName)
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/Mending.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/Mending.java"))
         assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.BREAKABLE"))
     }
 
@@ -419,7 +420,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName, mapOf("--max-level" to "255"))
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/UltraPower.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/UltraPower.java"))
         assertTrue(enchantmentClass.contains("public static final int MAX_LEVEL = 255"))
     }
 
@@ -429,7 +430,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName)
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/CustomEnchantment.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/CustomEnchantment.java"))
         assertTrue(enchantmentClass.contains("public static final String ID = \"custom_enchantment\""))
     }
 
@@ -439,7 +440,7 @@ class CreateEnchantmentCommandTest {
 
         executeEnchantmentCommand(enchantmentName)
 
-        val enchantmentClass = FileUtil.readText(File(tempDir, "shared/common/src/main/java/com/testmod/enchantments/TestCurse.java"))
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestCurse.java"))
         assertTrue(enchantmentClass.contains("public static final boolean IS_CURSE = false"))
     }
 
@@ -460,16 +461,16 @@ class CreateEnchantmentCommandTest {
             }
         }
 
-        // Set working directory
-        System.setProperty("user.dir", tempDir.absolutePath)
+        // Set project directory before parsing
+        command.projectDir = context.projectDir
 
         // Execute command
-        command.main(args.toTypedArray())
+        command.parse(args.toTypedArray())
     }
 
     private fun assertEnchantmentFilesExist(enchantmentName: String, expectedFiles: List<String>) {
         expectedFiles.forEach { filePath ->
-            val file = File(tempDir, filePath)
+            val file = File(context.projectDir, filePath)
             assertTrue(
                 file.exists(),
                 "Expected file to exist: $filePath (absolute: ${file.absolutePath})"

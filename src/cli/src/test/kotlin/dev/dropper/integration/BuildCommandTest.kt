@@ -2,8 +2,7 @@ package dev.dropper.integration
 
 import dev.dropper.commands.CreateItemCommand
 import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
-import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -16,21 +15,16 @@ import kotlin.test.assertTrue
  */
 class BuildCommandTest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testProjectDir = File("build/test-build/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        context = TestProjectContext.create("test-build")
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     @Test
@@ -50,24 +44,24 @@ class BuildCommandTest {
             loaders = listOf("fabric")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
 
-        // Create an item to have some content
-        CreateItemCommand().parse(arrayOf("test_item"))
+        context.withProjectDir {
+            // Create an item to have some content
+            CreateItemCommand().parse(arrayOf("test_item"))
+        }
 
         // Verify Gradle files
-        assertTrue(File(testProjectDir, "build.gradle.kts").exists(), "Root build.gradle.kts should exist")
-        assertTrue(File(testProjectDir, "settings.gradle.kts").exists(), "settings.gradle.kts should exist")
-        assertTrue(File(testProjectDir, "gradle.properties").exists(), "gradle.properties should exist")
-        assertTrue(File(testProjectDir, "build-logic").exists(), "build-logic should exist")
+        assertTrue(context.file("build.gradle.kts").exists(), "Root build.gradle.kts should exist")
+        assertTrue(context.file("settings.gradle.kts").exists(), "settings.gradle.kts should exist")
+        assertTrue(context.file("gradle.properties").exists(), "gradle.properties should exist")
+        assertTrue(context.file("build-logic").exists(), "build-logic should exist")
 
         println("  ✓ Gradle files present")
         println("  ✓ Build-logic directory exists")
 
         // Verify settings.gradle.kts includes version-loader modules
-        val settingsContent = File(testProjectDir, "settings.gradle.kts").readText()
+        val settingsContent = context.file("settings.gradle.kts").readText()
         assertTrue(
             settingsContent.contains("includeBuild(\"build-logic\")"),
             "settings.gradle.kts should include build-logic"
@@ -94,22 +88,22 @@ class BuildCommandTest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
 
-        // Create items and blocks
-        CreateItemCommand().parse(arrayOf("diamond_sword_mk2"))
+        context.withProjectDir {
+            // Create items and blocks
+            CreateItemCommand().parse(arrayOf("diamond_sword_mk2"))
+        }
 
         // Verify all source files are in proper src/main/java structure
-        val allJavaFiles = testProjectDir.walkTopDown()
+        val allJavaFiles = context.projectDir.walkTopDown()
             .filter { it.isFile && it.extension == "java" }
             .toList()
 
         assertTrue(allJavaFiles.isNotEmpty(), "Should have generated Java files")
 
         allJavaFiles.forEach { javaFile ->
-            val relativePath = javaFile.relativeTo(testProjectDir).path
+            val relativePath = javaFile.relativeTo(context.projectDir).path
 
             // Every Java file should be under src/main/java or src/test/java
             val isInProperStructure = relativePath.contains("src${File.separator}main${File.separator}java") ||
@@ -144,14 +138,14 @@ class BuildCommandTest {
             loaders = listOf("fabric")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
 
-        CreateItemCommand().parse(arrayOf("ruby_gem"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby_gem"))
+        }
 
         // Find all Java files and verify package declarations
-        val javaFiles = testProjectDir.walkTopDown()
+        val javaFiles = context.projectDir.walkTopDown()
             .filter { it.isFile && it.extension == "java" }
             .toList()
 
@@ -168,7 +162,7 @@ class BuildCommandTest {
                 .trim()
 
             // Extract package from file path
-            val relativePath = javaFile.relativeTo(testProjectDir).path
+            val relativePath = javaFile.relativeTo(context.projectDir).path
             val srcMainJavaIndex = relativePath.indexOf("src${File.separator}main${File.separator}java${File.separator}")
             val srcTestJavaIndex = relativePath.indexOf("src${File.separator}test${File.separator}java${File.separator}")
 
@@ -214,11 +208,11 @@ class BuildCommandTest {
             loaders = listOf("fabric", "forge", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
 
-        CreateItemCommand().parse(arrayOf("test_item"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("test_item"))
+        }
 
         // Verify each loader has its own structure
         val loaders = listOf("fabric", "forge", "neoforge")
@@ -226,12 +220,12 @@ class BuildCommandTest {
             println("\nVerifying $loader structure...")
 
             // Check shared loader directory
-            val sharedLoaderDir = File(testProjectDir, "shared/$loader/src/main/java/com/multiloader/platform/$loader")
+            val sharedLoaderDir = context.file("shared/$loader/src/main/java/com/multiloader/platform/$loader")
             assertTrue(sharedLoaderDir.exists(), "$loader should have shared platform directory")
             println("  ✓ shared/$loader structure")
 
             // Check version loader directory exists
-            val versionLoaderDir = File(testProjectDir, "versions/1_20_1/$loader")
+            val versionLoaderDir = context.file("versions/1_20_1/$loader")
             assertTrue(versionLoaderDir.exists(), "versions/1_20_1/$loader should exist")
             println("  ✓ versions/1_20_1/$loader structure")
 
@@ -262,31 +256,31 @@ class BuildCommandTest {
             loaders = listOf("fabric")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
 
-        CreateItemCommand().parse(arrayOf("emerald_sword"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("emerald_sword"))
+        }
 
         // Verify asset pack v1 exists
         assertTrue(
-            File(testProjectDir, "versions/shared/v1/config.yml").exists(),
+            context.file("versions/shared/v1/config.yml").exists(),
             "Asset pack v1 config should exist"
         )
 
         // Verify assets are in shared v1 (not version-specific)
         assertTrue(
-            File(testProjectDir, "versions/shared/v1/assets/assettest/models/item/emerald_sword.json").exists(),
+            context.file("versions/shared/v1/assets/assettest/models/item/emerald_sword.json").exists(),
             "Item model should be in shared asset pack"
         )
 
         assertTrue(
-            File(testProjectDir, "versions/shared/v1/assets/assettest/textures/item/emerald_sword.png").exists(),
+            context.file("versions/shared/v1/assets/assettest/textures/item/emerald_sword.png").exists(),
             "Texture placeholder should be in shared asset pack"
         )
 
         // Verify version configs reference the asset pack
-        val version1Config = File(testProjectDir, "versions/1_20_1/config.yml").readText()
+        val version1Config = context.file("versions/1_20_1/config.yml").readText()
         assertTrue(
             version1Config.contains("asset_pack: \"v1\""),
             "Version config should reference asset pack v1"

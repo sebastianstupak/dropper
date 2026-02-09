@@ -1,10 +1,10 @@
 package dev.dropper.commands
 
 import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
@@ -12,13 +12,14 @@ import kotlin.test.assertEquals
 
 class CreateTagCommandTest {
 
-    @TempDir
-    lateinit var tempDir: File
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
+        context = TestProjectContext.create("tag-test")
+
         // Create a minimal config.yml for testing
-        val configFile = File(tempDir, "config.yml")
+        val configFile = File(context.projectDir, "config.yml")
         configFile.writeText("""
             mod:
               id: testmod
@@ -32,7 +33,7 @@ class CreateTagCommandTest {
 
     @AfterEach
     fun cleanup() {
-        tempDir.deleteRecursively()
+        context.cleanup()
     }
 
     @Test
@@ -43,7 +44,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "block", values)
 
         // Verify file exists
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/block/custom_blocks.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/block/custom_blocks.json")
         assertTrue(tagFile.exists(), "Tag file should exist")
 
         // Verify content
@@ -62,7 +63,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "item", values)
 
         // Verify file exists
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/item/custom_items.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/custom_items.json")
         assertTrue(tagFile.exists(), "Tag file should exist")
 
         // Verify content
@@ -80,7 +81,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "entity_type", values)
 
         // Verify file exists
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/entity_type/custom_entities.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/entity_type/custom_entities.json")
         assertTrue(tagFile.exists(), "Tag file should exist")
 
         // Verify content
@@ -97,7 +98,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "fluid", values)
 
         // Verify file exists
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/fluid/custom_fluids.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/fluid/custom_fluids.json")
         assertTrue(tagFile.exists(), "Tag file should exist")
 
         // Verify content
@@ -114,7 +115,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "block", values, replace = true)
 
         // Verify content
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/block/replaceable_blocks.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/block/replaceable_blocks.json")
         val content = FileUtil.readText(tagFile)
         assertTrue(content.contains("\"replace\": true"), "Should have replace flag")
     }
@@ -126,7 +127,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "block", null)
 
         // Verify file exists
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/block/empty_tag.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/block/empty_tag.json")
         assertTrue(tagFile.exists(), "Tag file should exist")
 
         // Verify content has placeholder comments
@@ -144,7 +145,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "block", values)
 
         // Verify content
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/block/all_ores.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/block/all_ores.json")
         val content = FileUtil.readText(tagFile)
         assertTrue(content.contains("\"#forge:ores/iron\""))
         assertTrue(content.contains("\"#forge:ores/gold\""))
@@ -159,7 +160,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "block", values)
 
         // Verify file is created in minecraft namespace
-        val tagFile = File(tempDir, "versions/shared/v1/data/minecraft/tags/block/mineable/pickaxe.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/minecraft/tags/block/mineable/pickaxe.json")
         assertTrue(tagFile.exists(), "Tag file should exist in minecraft namespace")
 
         // Verify content
@@ -176,7 +177,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "block", values)
 
         // Verify file is created in forge namespace
-        val tagFile = File(tempDir, "versions/shared/v1/data/forge/tags/block/ores/ruby.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/forge/tags/block/ores/ruby.json")
         assertTrue(tagFile.exists(), "Tag file should exist in forge namespace")
 
         // Verify content
@@ -193,7 +194,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "block", values)
 
         // Verify file is created in minecraft namespace
-        val tagFile = File(tempDir, "versions/shared/v1/data/minecraft/tags/block/mineable/axe.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/minecraft/tags/block/mineable/axe.json")
         assertTrue(tagFile.exists(), "Mineable tag should default to minecraft namespace")
 
         val content = FileUtil.readText(tagFile)
@@ -208,7 +209,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "block", values)
 
         // Verify file is created in forge namespace
-        val tagFile = File(tempDir, "versions/shared/v1/data/forge/tags/block/ores/silver.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/forge/tags/block/ores/silver.json")
         assertTrue(tagFile.exists(), "Ores tag should default to forge namespace")
 
         val content = FileUtil.readText(tagFile)
@@ -223,7 +224,7 @@ class CreateTagCommandTest {
         executeTagCommand(tagName, "item", values)
 
         // Verify file is created with nested path
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/item/categories/magical/items.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/categories/magical/items.json")
         assertTrue(tagFile.exists(), "Tag file should exist with nested path")
 
         val content = FileUtil.readText(tagFile)
@@ -238,7 +239,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "item", values)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/item/validation_test.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/validation_test.json")
         val content = FileUtil.readText(tagFile)
 
         // Verify JSON structure
@@ -262,7 +263,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "item", values)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/item/single_value.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/single_value.json")
         val content = FileUtil.readText(tagFile)
 
         assertTrue(content.contains("\"testmod:only_item\""))
@@ -278,7 +279,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "item", values)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/item/whitespace_test.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/whitespace_test.json")
         val content = FileUtil.readText(tagFile)
 
         // Verify whitespace is trimmed
@@ -301,7 +302,7 @@ class CreateTagCommandTest {
         vanillaTags.forEach { (tagName, expectedNamespace) ->
             executeTagCommand(tagName, "block", "testmod:test_block")
 
-            val tagFile = File(tempDir, "versions/shared/v1/data/$expectedNamespace/tags/block/${tagName}.json")
+            val tagFile = File(context.projectDir, "versions/shared/v1/data/$expectedNamespace/tags/block/${tagName}.json")
             assertTrue(
                 tagFile.exists(),
                 "Vanilla tag $tagName should be created in $expectedNamespace namespace"
@@ -320,7 +321,7 @@ class CreateTagCommandTest {
         forgeTags.forEach { (tagName, expectedNamespace) ->
             executeTagCommand(tagName, "item", "testmod:test_item")
 
-            val tagFile = File(tempDir, "versions/shared/v1/data/$expectedNamespace/tags/item/${tagName}.json")
+            val tagFile = File(context.projectDir, "versions/shared/v1/data/$expectedNamespace/tags/item/${tagName}.json")
             assertTrue(
                 tagFile.exists(),
                 "Forge tag $tagName should be created in $expectedNamespace namespace"
@@ -335,7 +336,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "block", values)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/block/mixed_blocks.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/block/mixed_blocks.json")
         val content = FileUtil.readText(tagFile)
 
         // Verify all types of entries
@@ -351,7 +352,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "item", null)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/item/empty_item_tag.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/empty_item_tag.json")
         val content = FileUtil.readText(tagFile)
 
         assertTrue(content.contains("\"minecraft:diamond\""))
@@ -365,7 +366,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "block", null)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/block/empty_block_tag.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/block/empty_block_tag.json")
         val content = FileUtil.readText(tagFile)
 
         assertTrue(content.contains("\"minecraft:stone\""))
@@ -379,7 +380,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "entity_type", null)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/entity_type/empty_entity_tag.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/entity_type/empty_entity_tag.json")
         val content = FileUtil.readText(tagFile)
 
         assertTrue(content.contains("\"minecraft:zombie\""))
@@ -392,7 +393,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "fluid", null)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/fluid/empty_fluid_tag.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/fluid/empty_fluid_tag.json")
         val content = FileUtil.readText(tagFile)
 
         assertTrue(content.contains("\"minecraft:water\""))
@@ -406,7 +407,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "item", values, replace = true)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/item/replaced_tag.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/replaced_tag.json")
         val content = FileUtil.readText(tagFile)
 
         assertTrue(content.contains("\"replace\": true"))
@@ -426,7 +427,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "item", values)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/item/deep/nested/path/tag.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/deep/nested/path/tag.json")
         assertTrue(tagFile.exists(), "Deep nested directory structure should be created")
         assertTrue(tagFile.parentFile.exists(), "Parent directories should exist")
         assertTrue(tagFile.parentFile.isDirectory, "Parent should be a directory")
@@ -446,7 +447,7 @@ class CreateTagCommandTest {
 
         // Verify all files exist
         tags.forEach { (tagName, _) ->
-            val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/item/$tagName.json")
+            val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/$tagName.json")
             assertTrue(tagFile.exists(), "Tag $tagName should exist")
         }
     }
@@ -458,7 +459,7 @@ class CreateTagCommandTest {
 
         executeTagCommand(tagName, "item", values)
 
-        val tagFile = File(tempDir, "versions/shared/v1/data/testmod/tags/item/filtered_tag.json")
+        val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/filtered_tag.json")
         val content = FileUtil.readText(tagFile)
 
         // Should only contain non-empty values
@@ -491,8 +492,8 @@ class CreateTagCommandTest {
             args.add("--replace")
         }
 
-        // Set working directory
-        System.setProperty("user.dir", tempDir.absolutePath)
+        // Set project directory before parsing
+        command.projectDir = context.projectDir
 
         // Execute command
         command.parse(args.toTypedArray())

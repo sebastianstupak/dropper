@@ -1,6 +1,5 @@
 package dev.dropper.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
@@ -14,7 +13,7 @@ import java.io.File
  * Command to create a new tag in the mod
  * Generates tag JSON files for blocks, items, entity_types, or fluids
  */
-class CreateTagCommand : CliktCommand(
+class CreateTagCommand : DropperCommand(
     name = "tag",
     help = "Create a new tag with JSON definition"
 ) {
@@ -24,8 +23,7 @@ class CreateTagCommand : CliktCommand(
     private val replace by option("--replace", "-r", help = "Replace existing tags (default: false)").flag(default = false)
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")

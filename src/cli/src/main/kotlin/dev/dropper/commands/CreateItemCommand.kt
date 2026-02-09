@@ -1,6 +1,5 @@
 package dev.dropper.commands
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
@@ -13,7 +12,7 @@ import java.io.File
  * Command to create a new item in the mod
  * Generates registration code, assets (model, texture), and optional recipe
  */
-class CreateItemCommand : CliktCommand(
+class CreateItemCommand : DropperCommand(
     name = "item",
     help = "Create a new item with registration code and assets"
 ) {
@@ -30,14 +29,13 @@ class CreateItemCommand : CliktCommand(
         }
 
         // Validate we're in a Dropper project
-        val projectDir = File(System.getProperty("user.dir"))
         val projectValidation = ValidationUtil.validateDropperProject(projectDir)
         if (!projectValidation.isValid) {
             ValidationUtil.exitWithError(projectValidation)
             return
         }
 
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         // Read mod ID from config
         val modId = extractModId(configFile)

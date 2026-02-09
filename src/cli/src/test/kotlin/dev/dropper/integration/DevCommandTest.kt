@@ -3,7 +3,7 @@ package dev.dropper.integration
 import dev.dropper.commands.util.ConfigReader
 import dev.dropper.commands.util.GradleRunner
 import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -15,21 +15,16 @@ import kotlin.test.*
  */
 class DevCommandTest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testProjectDir = File("build/test-dev/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        context = TestProjectContext.create("test-mod")
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     @Test
@@ -49,10 +44,9 @@ class DevCommandTest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
-        val configReader = ConfigReader(testProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo, "Should read project info")
@@ -89,10 +83,9 @@ class DevCommandTest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
-        val configReader = ConfigReader(testProjectDir)
+        val configReader = ConfigReader(context.projectDir)
 
         // Test valid combinations
         assertTrue(
@@ -136,10 +129,9 @@ class DevCommandTest {
             loaders = listOf("fabric")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
-        val configReader = ConfigReader(testProjectDir)
+        val configReader = ConfigReader(context.projectDir)
 
         assertEquals("1_20_1", configReader.versionToGradleFormat("1.20.1"))
         assertEquals("1_21_1", configReader.versionToGradleFormat("1.21.1"))
@@ -168,10 +160,9 @@ class DevCommandTest {
             loaders = listOf("fabric")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
-        val gradleRunner = GradleRunner(testProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         // Test basic command
         val basicCommand = gradleRunner.buildGradleCommand(
@@ -229,10 +220,9 @@ class DevCommandTest {
             loaders = listOf("fabric")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
-        val gradleRunner = GradleRunner(testProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         // The ProjectGenerator creates Gradle wrapper files in real usage,
         // but in test environment they may not be fully created.
@@ -290,10 +280,9 @@ class DevCommandTest {
             loaders = listOf("fabric")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
-        val configReader = ConfigReader(testProjectDir)
+        val configReader = ConfigReader(context.projectDir)
 
         // Test non-existent versions
         assertFalse(
@@ -328,10 +317,9 @@ class DevCommandTest {
             loaders = listOf("fabric")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
-        val gradleRunner = GradleRunner(testProjectDir)
+        val gradleRunner = GradleRunner(context.projectDir)
 
         // Test standard debug port (5005)
         val debugArgs5005 = listOf("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005")
@@ -382,10 +370,9 @@ class DevCommandTest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
-        val configReader = ConfigReader(testProjectDir)
+        val configReader = ConfigReader(context.projectDir)
         val projectInfo = configReader.readProjectInfo()
 
         assertNotNull(projectInfo)

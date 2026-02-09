@@ -2,7 +2,7 @@ package dev.dropper.integration
 
 import dev.dropper.commands.*
 import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -19,47 +19,19 @@ import kotlin.test.assertTrue
  */
 class FullCLIBuildTest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        // Find project root (look for .git directory or examples/ruby-sword)
-        var projectRoot = File(originalUserDir)
-        while (projectRoot.parentFile != null) {
-            // Check if this looks like the project root
-            if (File(projectRoot, "examples/ruby-sword").exists() ||
-                File(projectRoot, ".git").exists()) {
-                break
-            }
-            projectRoot = projectRoot.parentFile
-        }
-
-        // Use examples/simple-mod as test location (absolute path)
-        val examplesDir = File(projectRoot, "examples")
-        examplesDir.mkdirs() // Ensure examples directory exists
-
-        testProjectDir = File(examplesDir, "simple-mod").absoluteFile
-
-        println("Project root: ${projectRoot.absolutePath}")
-        println("Test project directory: ${testProjectDir.absolutePath}")
-
-        // Clean if exists
-        if (testProjectDir.exists()) {
-            println("Cleaning existing examples/simple-mod...")
-            testProjectDir.deleteRecursively()
-        }
-
-        // Create the directory
-        val created = testProjectDir.mkdirs()
-        println("Created directory: $created - ${testProjectDir.absolutePath}")
+        context = TestProjectContext.create("simple-mod")
+        println("Test project directory: ${context.projectDir.absolutePath}")
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
         // Keep the build artifacts for inspection
-        println("Test project kept at: ${testProjectDir.absolutePath}")
+        println("Test project kept at: ${context.projectDir.absolutePath}")
+        context.cleanup()
     }
 
     @Test
@@ -86,14 +58,12 @@ class FullCLIBuildTest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
 
         // Verify project structure
-        assertTrue(File(testProjectDir, "config.yml").exists(), "config.yml should exist")
-        assertTrue(File(testProjectDir, "build.gradle.kts").exists(), "build.gradle.kts should exist")
-        assertTrue(File(testProjectDir, "shared/common/src/main/java").exists(), "shared/common should exist")
+        assertTrue(context.file("config.yml").exists(), "config.yml should exist")
+        assertTrue(context.file("build.gradle.kts").exists(), "build.gradle.kts should exist")
+        assertTrue(context.file("shared/common/src/main/java").exists(), "shared/common should exist")
 
         println("✅ Project initialized successfully")
         println("   ├── config.yml")
@@ -109,13 +79,13 @@ class FullCLIBuildTest {
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
         // Add MC 1.20.4
-        AddVersionCommand().parse(arrayOf("1.20.4", "--loaders", "fabric,neoforge"))
-        assertTrue(File(testProjectDir, "versions/1_20_4").exists(), "1.20.4 should exist")
+        AddVersionCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("1.20.4", "--loaders", "fabric,neoforge"))
+        assertTrue(context.file("versions/1_20_4").exists(), "1.20.4 should exist")
         println("✅ Added MC 1.20.4")
 
         // Add MC 1.21.1 (will need v2 asset pack)
-        AddVersionCommand().parse(arrayOf("1.21.1", "--loaders", "fabric,neoforge"))
-        assertTrue(File(testProjectDir, "versions/1_21_1").exists(), "1.21.1 should exist")
+        AddVersionCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("1.21.1", "--loaders", "fabric,neoforge"))
+        assertTrue(context.file("versions/1_21_1").exists(), "1.21.1 should exist")
         println("✅ Added MC 1.21.1")
 
         println("\nActive Minecraft versions:")
@@ -130,23 +100,23 @@ class FullCLIBuildTest {
         println("STEP 3: Creating items...")
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        CreateItemCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("ruby", "--type", "basic"))
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/simplemod/items/Ruby.java").exists(),
+            context.file( "shared/common/src/main/java/com/simplemod/items/Ruby.java").exists(),
             "Ruby item should exist"
         )
         println("✅ Created item: ruby (basic)")
 
-        CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
+        CreateItemCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("ruby_sword", "--type", "tool"))
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/simplemod/items/RubySword.java").exists(),
+            context.file( "shared/common/src/main/java/com/simplemod/items/RubySword.java").exists(),
             "RubySword item should exist"
         )
         println("✅ Created item: ruby_sword (tool)")
 
-        CreateItemCommand().parse(arrayOf("ruby_apple", "--type", "food"))
+        CreateItemCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("ruby_apple", "--type", "food"))
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/simplemod/items/RubyApple.java").exists(),
+            context.file( "shared/common/src/main/java/com/simplemod/items/RubyApple.java").exists(),
             "RubyApple item should exist"
         )
         println("✅ Created item: ruby_apple (food)")
@@ -163,16 +133,16 @@ class FullCLIBuildTest {
         println("STEP 4: Creating blocks...")
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        CreateBlockCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("ruby_ore", "--type", "ore"))
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/simplemod/blocks/RubyOre.java").exists(),
+            context.file( "shared/common/src/main/java/com/simplemod/blocks/RubyOre.java").exists(),
             "RubyOre block should exist"
         )
         println("✅ Created block: ruby_ore (ore)")
 
-        CreateBlockCommand().parse(arrayOf("ruby_block", "--type", "basic"))
+        CreateBlockCommand().also { it.projectDir = context.projectDir }.parse(arrayOf("ruby_block", "--type", "basic"))
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/simplemod/blocks/RubyBlock.java").exists(),
+            context.file( "shared/common/src/main/java/com/simplemod/blocks/RubyBlock.java").exists(),
             "RubyBlock block should exist"
         )
         println("✅ Created block: ruby_block (basic)")
@@ -189,11 +159,11 @@ class FullCLIBuildTest {
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
         // Count generated files
-        val javaFiles = testProjectDir.walkTopDown()
+        val javaFiles = context.projectDir.walkTopDown()
             .filter { it.isFile && it.extension == "java" }
             .toList()
 
-        val assetFiles = File(testProjectDir, "versions/shared/v1/assets").walkTopDown()
+        val assetFiles = context.file("versions/shared/v1/assets").walkTopDown()
             .filter { it.isFile }
             .toList()
 
@@ -210,35 +180,25 @@ class FullCLIBuildTest {
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
         // Copy Gradle wrapper from root project
-        // Find the actual project root
-        var projectRoot = File(originalUserDir)
-        while (projectRoot.parentFile != null) {
-            if (File(projectRoot, "examples/ruby-sword").exists() ||
-                File(projectRoot, ".git").exists()) {
-                break
-            }
-            projectRoot = projectRoot.parentFile
-        }
-
-        val rootGradleWrapper = File(projectRoot, "gradle")
-        val rootGradlewBat = File(projectRoot, "gradlew.bat")
-        val rootGradlew = File(projectRoot, "gradlew")
+        val rootGradleWrapper = File("gradle")
+        val rootGradlewBat = File("gradlew.bat")
+        val rootGradlew = File("gradlew")
 
         var wrapperCopied = false
         if (rootGradleWrapper.exists()) {
-            rootGradleWrapper.copyRecursively(File(testProjectDir, "gradle"), overwrite = true)
+            rootGradleWrapper.copyRecursively(context.file("gradle"), overwrite = true)
             println("  ✓ Copied gradle/ directory")
             wrapperCopied = true
         }
         if (rootGradlewBat.exists()) {
-            rootGradlewBat.copyTo(File(testProjectDir, "gradlew.bat"), overwrite = true)
+            rootGradlewBat.copyTo(context.file("gradlew.bat"), overwrite = true)
             println("  ✓ Copied gradlew.bat")
             wrapperCopied = true
         }
         if (rootGradlew.exists()) {
-            rootGradlew.copyTo(File(testProjectDir, "gradlew"), overwrite = true)
+            rootGradlew.copyTo(context.file("gradlew"), overwrite = true)
             // Make gradlew executable on Unix
-            File(testProjectDir, "gradlew").setExecutable(true)
+            context.file("gradlew").setExecutable(true)
             println("  ✓ Copied gradlew")
             wrapperCopied = true
         }
@@ -258,8 +218,8 @@ class FullCLIBuildTest {
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
         // Only run build if Gradle wrapper exists
-        val gradlewBat = File(testProjectDir, "gradlew.bat")
-        val gradlew = File(testProjectDir, "gradlew")
+        val gradlewBat = context.file("gradlew.bat")
+        val gradlew = context.file("gradlew")
 
         if (gradlewBat.exists() || gradlew.exists()) {
             println("✅ Gradle wrapper verified")
@@ -270,6 +230,7 @@ class FullCLIBuildTest {
 
             try {
                 val buildCommand = BuildCommand()
+                buildCommand.projectDir = context.projectDir
                 buildCommand.parse(arrayOf("--loader", "fabric"))
                 println("\n✅ Build command executed successfully!")
             } catch (e: Exception) {
@@ -293,7 +254,7 @@ class FullCLIBuildTest {
         println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
         // Check for build directory
-        val buildDir = File(testProjectDir, "build")
+        val buildDir = context.file("build")
         if (buildDir.exists()) {
             println("✅ Build directory exists")
 
@@ -305,7 +266,7 @@ class FullCLIBuildTest {
             if (jarFiles.isNotEmpty()) {
                 println("✅ Found ${jarFiles.size} JAR file(s):")
                 jarFiles.forEach { jar ->
-                    val relativePath = jar.relativeTo(testProjectDir).path
+                    val relativePath = jar.relativeTo(context.projectDir).path
                     val sizeKB = jar.length() / 1024
                     println("   📦 $relativePath (${sizeKB}KB)")
                 }
@@ -340,10 +301,10 @@ class FullCLIBuildTest {
         println("✅ IntelliJ IDEA compatible")
         println("✅ AGENTS.md updated with dropper commands")
 
-        println("\n📁 Project location: ${testProjectDir.absolutePath}")
+        println("\n📁 Project location: ${context.projectDir.absolutePath}")
 
         // Check if any JARs were built
-        val finalBuildDir = File(testProjectDir, "build")
+        val finalBuildDir = context.file("build")
         if (finalBuildDir.exists()) {
             val jarCount = finalBuildDir.walkTopDown().filter { it.extension == "jar" }.count()
             if (jarCount > 0) {
@@ -353,19 +314,19 @@ class FullCLIBuildTest {
 
         // List created files
         println("\n📂 Project contents:")
-        testProjectDir.listFiles()?.forEach { file ->
+        context.projectDir.listFiles()?.forEach { file ->
             println("   ${if (file.isDirectory) "📁" else "📄"} ${file.name}")
         }
 
         println("\n🎉 COMPLETE E2E TEST PASSED!\n")
-        println("🔍 You can inspect the project at: ${testProjectDir.absolutePath}\n")
+        println("🔍 You can inspect the project at: ${context.projectDir.absolutePath}\n")
 
         // At least verify project structure is valid even if builds didn't complete
         assertTrue(javaFiles.isNotEmpty(), "Should have generated Java files")
         assertTrue(assetFiles.isNotEmpty(), "Should have generated asset files")
-        assertTrue(File(testProjectDir, "config.yml").exists(), "Should have config.yml")
+        assertTrue(context.file("config.yml").exists(), "Should have config.yml")
 
         // Verify the project directory still exists after test
-        assertTrue(testProjectDir.exists(), "Project directory should still exist at: ${testProjectDir.absolutePath}")
+        assertTrue(context.projectDir.exists(), "Project directory should still exist at: ${context.projectDir.absolutePath}")
     }
 }

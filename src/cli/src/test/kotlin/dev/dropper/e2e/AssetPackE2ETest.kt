@@ -3,6 +3,7 @@ package dev.dropper.e2e
 import dev.dropper.config.ModConfig
 import dev.dropper.generator.ProjectGenerator
 import dev.dropper.util.FileUtil
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -22,20 +23,16 @@ import kotlin.test.assertFalse
  */
 class AssetPackE2ETest {
 
-    private lateinit var testDir: File
-    private lateinit var projectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testDir = File("build/test-asset-packs/${System.currentTimeMillis()}")
-        testDir.mkdirs()
-        projectDir = File(testDir, "asset-pack-test")
+        context = TestProjectContext.create("asset-pack-test")
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
+        context.cleanup()
     }
 
     @Test
@@ -55,10 +52,10 @@ class AssetPackE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // Verify default v1 asset pack exists
-        val v1Pack = File(projectDir, "versions/shared/v1")
+        val v1Pack = context.file("versions/shared/v1")
         assertTrue(v1Pack.exists(), "Default v1 asset pack should exist")
         assertTrue(File(v1Pack, "config.yml").exists(), "v1 config should exist")
         assertTrue(File(v1Pack, "assets").exists(), "v1 assets directory should exist")
@@ -88,10 +85,10 @@ class AssetPackE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // Create v2 asset pack
-        val v2Pack = File(projectDir, "versions/shared/v2")
+        val v2Pack = context.file( "versions/shared/v2")
         v2Pack.mkdirs()
         File(v2Pack, "assets").mkdirs()
         File(v2Pack, "data").mkdirs()
@@ -108,7 +105,7 @@ class AssetPackE2ETest {
         FileUtil.writeText(File(v2Pack, "config.yml"), v2Config)
 
         // Update 1.21.1 to use v2
-        val version121Config = File(projectDir, "versions/1_21_1/config.yml")
+        val version121Config = context.file( "versions/1_21_1/config.yml")
         val currentConfig = version121Config.readText()
         val updatedConfig = currentConfig.replace("asset_pack: \"v1\"", "asset_pack: \"v2\"")
         FileUtil.writeText(version121Config, updatedConfig)
@@ -142,16 +139,15 @@ class AssetPackE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(projectDir, config)
-        System.setProperty("user.dir", projectDir.absolutePath)
+        context.createProject(config)
 
         // Create asset in v1
-        val v1Asset = File(projectDir, "versions/shared/v1/assets/resolutiontest/textures/item/base_item.png")
+        val v1Asset = context.file( "versions/shared/v1/assets/resolutiontest/textures/item/base_item.png")
         v1Asset.parentFile.mkdirs()
         v1Asset.createNewFile()
 
         // Create v2 that inherits v1
-        val v2Pack = File(projectDir, "versions/shared/v2")
+        val v2Pack = context.file( "versions/shared/v2")
         v2Pack.mkdirs()
         File(v2Pack, "assets/resolutiontest/textures/item").mkdirs()
         File(v2Pack, "data").mkdirs()
@@ -199,12 +195,12 @@ class AssetPackE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // Verify all versions use v1 by default
         val versions = listOf("1_20_1", "1_19_2", "1_18_2")
         versions.forEach { version ->
-            val versionConfig = File(projectDir, "versions/$version/config.yml")
+            val versionConfig = context.file( "versions/$version/config.yml")
             assertTrue(versionConfig.exists(), "$version config should exist")
 
             val content = versionConfig.readText()
@@ -216,7 +212,7 @@ class AssetPackE2ETest {
         }
 
         // Add asset to shared v1
-        val sharedAsset = File(projectDir, "versions/shared/v1/assets/sharetest/models/item/shared_item.json")
+        val sharedAsset = context.file( "versions/shared/v1/assets/sharetest/models/item/shared_item.json")
         sharedAsset.parentFile.mkdirs()
         FileUtil.writeText(sharedAsset, """{"parent": "minecraft:item/generated"}""")
 
@@ -242,10 +238,10 @@ class AssetPackE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // Create v2 inheriting v1
-        val v2Pack = File(projectDir, "versions/shared/v2")
+        val v2Pack = context.file( "versions/shared/v2")
         v2Pack.mkdirs()
         File(v2Pack, "assets").mkdirs()
         File(v2Pack, "data").mkdirs()
@@ -258,7 +254,7 @@ class AssetPackE2ETest {
         FileUtil.writeText(File(v2Pack, "config.yml"), v2Config)
 
         // Create v3 inheriting v2
-        val v3Pack = File(projectDir, "versions/shared/v3")
+        val v3Pack = context.file( "versions/shared/v3")
         v3Pack.mkdirs()
         File(v3Pack, "assets").mkdirs()
         File(v3Pack, "data").mkdirs()
@@ -303,9 +299,9 @@ class AssetPackE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
-        val v1Pack = File(projectDir, "versions/shared/v1")
+        val v1Pack = context.file( "versions/shared/v1")
 
         // Verify required directories
         val requiredDirs = listOf(
@@ -347,10 +343,10 @@ class AssetPackE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
         // Create empty v2 pack
-        val v2Pack = File(projectDir, "versions/shared/v2")
+        val v2Pack = context.file( "versions/shared/v2")
         v2Pack.mkdirs()
 
         val emptyConfig = """
@@ -388,9 +384,9 @@ class AssetPackE2ETest {
             loaders = listOf("fabric")
         )
 
-        ProjectGenerator().generate(projectDir, config)
+        context.createProject(config)
 
-        val v1Pack = File(projectDir, "versions/shared/v1")
+        val v1Pack = context.file( "versions/shared/v1")
 
         // Create assets in mod namespace
         val modAssets = File(v1Pack, "assets/namespacetest")

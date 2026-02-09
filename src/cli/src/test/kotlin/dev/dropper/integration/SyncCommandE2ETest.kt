@@ -4,7 +4,7 @@ import dev.dropper.commands.CreateBlockCommand
 import dev.dropper.commands.CreateItemCommand
 import dev.dropper.commands.sync.*
 import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -19,14 +19,11 @@ import kotlin.test.assertTrue
  */
 class SyncCommandE2ETest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        // Create a test project with multiple asset packs
-        testProjectDir = File("build/test-sync/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        context = TestProjectContext.create("test-sync")
 
         // Generate project with asset packs
         val config = ModConfig(
@@ -40,22 +37,15 @@ class SyncCommandE2ETest {
             loaders = listOf("fabric", "forge", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
+        context.createProject(config)
 
         // Create v2 asset pack
         createAssetPack("v2")
-
-        // Change working directory
-        System.setProperty("user.dir", testProjectDir.absolutePath)
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     // ===== Basic Sync Tests =====
@@ -69,14 +59,16 @@ class SyncCommandE2ETest {
         createModelFile("v1", "item", "test_item.json", """{"parent": "item/generated"}""")
 
         // Sync
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
         // Verify files copied
-        val targetLang = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
+        val targetLang = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
         assertTrue(targetLang.exists(), "Lang file should be copied")
 
-        val targetModel = File(testProjectDir, "versions/shared/v2/assets/testsync/models/item/test_item.json")
+        val targetModel = File(context.projectDir, "versions/shared/v2/assets/testsync/models/item/test_item.json")
         assertTrue(targetModel.exists(), "Model file should be copied")
 
         println("✓ Assets synced successfully")
@@ -89,11 +81,13 @@ class SyncCommandE2ETest {
         createLangFile("v1", "en_us.json", """{"item.testsync.sword": "Sword"}""")
         createLangFile("v1", "es_es.json", """{"item.testsync.sword": "Espada"}""")
 
-        val command = SyncLangCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val enLang = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
-        val esLang = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/es_es.json")
+        val enLang = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
+        val esLang = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/es_es.json")
 
         assertTrue(enLang.exists(), "English lang should be synced")
         assertTrue(esLang.exists(), "Spanish lang should be synced")
@@ -107,10 +101,13 @@ class SyncCommandE2ETest {
 
         createRecipeFile("v1", "test_recipe.json", """{"type": "minecraft:crafting_shaped"}""")
 
-        val command = SyncRecipesCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncRecipesCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val recipe = File(testProjectDir, "versions/shared/v2/data/testsync/recipes/test_recipe.json")
+
+        val recipe = File(context.projectDir, "versions/shared/v2/data/testsync/recipes/test_recipe.json")
         assertTrue(recipe.exists(), "Recipe should be synced")
 
         println("✓ Recipes synced")
@@ -123,11 +120,14 @@ class SyncCommandE2ETest {
         createTextureFile("v1", "item/sword.png")
         createTextureFile("v1", "block/ore.png")
 
-        val command = SyncTexturesCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncTexturesCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val swordTexture = File(testProjectDir, "versions/shared/v2/assets/testsync/textures/item/sword.png")
-        val oreTexture = File(testProjectDir, "versions/shared/v2/assets/testsync/textures/block/ore.png")
+
+        val swordTexture = File(context.projectDir, "versions/shared/v2/assets/testsync/textures/item/sword.png")
+        val oreTexture = File(context.projectDir, "versions/shared/v2/assets/testsync/textures/block/ore.png")
 
         assertTrue(swordTexture.exists(), "Sword texture should be synced")
         assertTrue(oreTexture.exists(), "Ore texture should be synced")
@@ -142,11 +142,14 @@ class SyncCommandE2ETest {
         createModelFile("v1", "item", "sword.json", """{"parent": "item/handheld"}""")
         createModelFile("v1", "block", "ore.json", """{"parent": "block/cube_all"}""")
 
-        val command = SyncModelsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncModelsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val swordModel = File(testProjectDir, "versions/shared/v2/assets/testsync/models/item/sword.json")
-        val oreModel = File(testProjectDir, "versions/shared/v2/assets/testsync/models/block/ore.json")
+
+        val swordModel = File(context.projectDir, "versions/shared/v2/assets/testsync/models/item/sword.json")
+        val oreModel = File(context.projectDir, "versions/shared/v2/assets/testsync/models/block/ore.json")
 
         assertTrue(swordModel.exists(), "Sword model should be synced")
         assertTrue(oreModel.exists(), "Ore model should be synced")
@@ -160,10 +163,13 @@ class SyncCommandE2ETest {
 
         createBlockstateFile("v1", "test_block.json", """{"variants": {"": {"model": "testsync:block/test_block"}}}""")
 
-        val command = SyncBlockstatesCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncBlockstatesCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val blockstate = File(testProjectDir, "versions/shared/v2/assets/testsync/blockstates/test_block.json")
+
+        val blockstate = File(context.projectDir, "versions/shared/v2/assets/testsync/blockstates/test_block.json")
         assertTrue(blockstate.exists(), "Blockstate should be synced")
 
         println("✓ Blockstates synced")
@@ -177,8 +183,11 @@ class SyncCommandE2ETest {
 
         createLangFile("v1", "en_us.json", """{"key": "value"}""")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        }
+
 
         // Should detect missing file (verify via logs, actual detection happens internally)
         println("✓ Missing files detected")
@@ -195,8 +204,11 @@ class SyncCommandE2ETest {
         Thread.sleep(100)
         createLangFile("v1", "en_us.json", """{"key": "new_value"}""")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        }
+
 
         println("✓ Outdated files detected")
     }
@@ -210,8 +222,11 @@ class SyncCommandE2ETest {
         Thread.sleep(100)
         createLangFile("v2", "en_us.json", """{"key": "value2"}""")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        }
+
 
         println("✓ Conflicts detected")
     }
@@ -224,11 +239,14 @@ class SyncCommandE2ETest {
         createLangFile("v1", "en_us.json", content)
         createLangFile("v2", "en_us.json", content)
 
-        val targetFile = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
+        val targetFile = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
         val originalModTime = targetFile.lastModified()
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
+
 
         // File should not be modified if identical
         assertEquals(originalModTime, targetFile.lastModified(), "Identical file should be skipped")
@@ -256,10 +274,13 @@ class SyncCommandE2ETest {
             }
         """.trimIndent())
 
-        val command = SyncLangCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val merged = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").readText()
+
+        val merged = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").readText()
 
         assertTrue(merged.contains("key1"), "Should have key1")
         assertTrue(merged.contains("key2"), "Should have key2 from source")
@@ -275,10 +296,13 @@ class SyncCommandE2ETest {
         createLangFile("v1", "en_us.json", """{"key1": "source_value"}""")
         createLangFile("v2", "en_us.json", """{"key1": "target_value", "key2": "keep_this"}""")
 
-        val command = SyncLangCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val merged = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").readText()
+
+        val merged = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").readText()
 
         assertTrue(merged.contains("target_value"), "Should preserve target value")
         assertTrue(merged.contains("keep_this"), "Should preserve target-only keys")
@@ -293,10 +317,13 @@ class SyncCommandE2ETest {
         createLangFile("v1", "en_us.json", """{"item.testsync.sword": "Generic Sword"}""")
         createLangFile("v2", "en_us.json", """{"item.testsync.sword": "Custom Legendary Sword"}""")
 
-        val command = SyncLangCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val merged = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").readText()
+
+        val merged = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").readText()
 
         assertTrue(merged.contains("Custom Legendary Sword"), "Should keep custom translation")
 
@@ -313,12 +340,20 @@ class SyncCommandE2ETest {
         createLangFile("v2", "en_us.json", """{"key2": "value2"}""")
 
         // Sync v1 -> v3
-        SyncLangCommand().parse(arrayOf("--from", "v1", "--to", "v3"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            SyncLangCommand().parse(arrayOf("--from", "v1", "--to", "v3"))
+        }
+
 
         // Sync v2 -> v3
-        SyncLangCommand().parse(arrayOf("--from", "v2", "--to", "v3"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            SyncLangCommand().parse(arrayOf("--from", "v2", "--to", "v3"))
+        }
 
-        val merged = File(testProjectDir, "versions/shared/v3/assets/testsync/lang/en_us.json").readText()
+
+        val merged = File(context.projectDir, "versions/shared/v3/assets/testsync/lang/en_us.json").readText()
 
         assertTrue(merged.contains("key1"), "Should have key1 from v1")
         assertTrue(merged.contains("key2"), "Should have key2 from v2")
@@ -337,10 +372,13 @@ class SyncCommandE2ETest {
         Thread.sleep(100)
         createModelFile("v2", "item", "test.json", """{"parent": "target"}""")
 
-        val command = SyncModelsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncModelsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val model = File(testProjectDir, "versions/shared/v2/assets/testsync/models/item/test.json").readText()
+
+        val model = File(context.projectDir, "versions/shared/v2/assets/testsync/models/item/test.json").readText()
 
         assertTrue(model.contains("target"), "Should keep target on conflict")
 
@@ -356,10 +394,13 @@ class SyncCommandE2ETest {
         Thread.sleep(100)
         createModelFile("v2", "item", "test.json", """{"parent": "target"}""")
 
-        val command = SyncModelsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--force"))
+        context.withProjectDir {
+            val command = SyncModelsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--force"))
+        }
 
-        val model = File(testProjectDir, "versions/shared/v2/assets/testsync/models/item/test.json").readText()
+
+        val model = File(context.projectDir, "versions/shared/v2/assets/testsync/models/item/test.json").readText()
 
         assertTrue(model.contains("source"), "Should use source with --force")
 
@@ -374,10 +415,13 @@ class SyncCommandE2ETest {
 
         createLangFile("v1", "en_us.json", """{"key": "value"}""")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        }
 
-        val targetFile = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
+
+        val targetFile = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
         assertFalse(targetFile.exists(), "File should not be created in dry-run")
 
         println("✓ Dry-run preview works")
@@ -390,12 +434,15 @@ class SyncCommandE2ETest {
         createLangFile("v1", "en_us.json", """{"key": "value"}""")
         createModelFile("v1", "item", "sword.json", """{"parent": "item/handheld"}""")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        }
+
 
         // Files should not exist
-        assertFalse(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").exists())
-        assertFalse(File(testProjectDir, "versions/shared/v2/assets/testsync/models/item/sword.json").exists())
+        assertFalse(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").exists())
+        assertFalse(File(context.projectDir, "versions/shared/v2/assets/testsync/models/item/sword.json").exists())
 
         println("✓ Dry-run shows missing files")
     }
@@ -409,11 +456,14 @@ class SyncCommandE2ETest {
         Thread.sleep(100)
         createLangFile("v2", "en_us.json", """{"key": "value2"}""")
 
-        val targetFile = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
+        val targetFile = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
         val originalContent = targetFile.readText()
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        }
+
 
         // File should not be modified
         assertEquals(originalContent, targetFile.readText(), "File should not change in dry-run")
@@ -429,11 +479,14 @@ class SyncCommandE2ETest {
         createModelFile("v1", "item", "test.json", """{"parent": "item/generated"}""")
         createTextureFile("v1", "item/test.png")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--dry-run"))
+        }
+
 
         // Count files in v2
-        val v2Assets = File(testProjectDir, "versions/shared/v2/assets")
+        val v2Assets = File(context.projectDir, "versions/shared/v2/assets")
         val fileCount = if (v2Assets.exists()) {
             v2Assets.walkTopDown().count { it.isFile }
         } else {
@@ -454,11 +507,14 @@ class SyncCommandE2ETest {
         createLangFile("v1", "en_us.json", """{"key": "value"}""")
         createLangFile("v1", "test.json", """{"test": "value"}""")
 
-        val command = SyncLangCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--exclude", "test.json"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--exclude", "test.json"))
+        }
 
-        assertTrue(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").exists())
-        assertFalse(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/test.json").exists())
+
+        assertTrue(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").exists())
+        assertFalse(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/test.json").exists())
 
         println("✓ Exclude pattern works")
     }
@@ -471,12 +527,15 @@ class SyncCommandE2ETest {
         createLangFile("v1", "test1.json", """{"test": "value"}""")
         createLangFile("v1", "test2.json", """{"test": "value"}""")
 
-        val command = SyncLangCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--exclude", "test1.json", "--exclude", "test2.json"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--exclude", "test1.json", "--exclude", "test2.json"))
+        }
 
-        assertTrue(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").exists())
-        assertFalse(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/test1.json").exists())
-        assertFalse(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/test2.json").exists())
+
+        assertTrue(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").exists())
+        assertFalse(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/test1.json").exists())
+        assertFalse(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/test2.json").exists())
 
         println("✓ Multiple exclusions work")
     }
@@ -489,12 +548,15 @@ class SyncCommandE2ETest {
         createLangFile("v1", "test_1.json", """{"test": "value"}""")
         createLangFile("v1", "test_2.json", """{"test": "value"}""")
 
-        val command = SyncLangCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--exclude", "test_*"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--exclude", "test_*"))
+        }
 
-        assertTrue(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").exists())
-        assertFalse(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/test_1.json").exists())
-        assertFalse(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/test_2.json").exists())
+
+        assertTrue(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").exists())
+        assertFalse(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/test_1.json").exists())
+        assertFalse(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/test_2.json").exists())
 
         println("✓ Glob patterns work")
     }
@@ -508,11 +570,14 @@ class SyncCommandE2ETest {
         createLangFile("v1", "file1.json", """{"key1": "value1"}""")
         createLangFile("v2", "file2.json", """{"key2": "value2"}""")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--bidirectional"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--bidirectional"))
+        }
 
-        assertTrue(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/file1.json").exists(), "v1 -> v2")
-        assertTrue(File(testProjectDir, "versions/shared/v1/assets/testsync/lang/file2.json").exists(), "v2 -> v1")
+
+        assertTrue(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/file1.json").exists(), "v1 -> v2")
+        assertTrue(File(context.projectDir, "versions/shared/v1/assets/testsync/lang/file2.json").exists(), "v2 -> v1")
 
         println("✓ Bidirectional sync works")
     }
@@ -524,11 +589,14 @@ class SyncCommandE2ETest {
         createLangFile("v1", "en_us.json", """{"key1": "value1"}""")
         createLangFile("v2", "en_us.json", """{"key2": "value2"}""")
 
-        val command = SyncLangCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2", "--bidirectional"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2", "--bidirectional"))
+        }
 
-        val v1Content = File(testProjectDir, "versions/shared/v1/assets/testsync/lang/en_us.json").readText()
-        val v2Content = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").readText()
+
+        val v1Content = File(context.projectDir, "versions/shared/v1/assets/testsync/lang/en_us.json").readText()
+        val v2Content = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").readText()
 
         assertTrue(v1Content.contains("key1") && v1Content.contains("key2"), "v1 should have both keys")
         assertTrue(v2Content.contains("key1") && v2Content.contains("key2"), "v2 should have both keys")
@@ -543,13 +611,21 @@ class SyncCommandE2ETest {
         println("\n[TEST] Create item then sync to other version")
 
         // Create item in v1
-        CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            CreateItemCommand().parse(arrayOf("ruby_sword", "--type", "tool"))
+        }
+
 
         // Sync to v2
-        SyncAssetsCommand().parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            SyncAssetsCommand().parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
+
 
         // Verify item model synced
-        val model = File(testProjectDir, "versions/shared/v2/assets/testsync/models/item/ruby_sword.json")
+        val model = File(context.projectDir, "versions/shared/v2/assets/testsync/models/item/ruby_sword.json")
         assertTrue(model.exists(), "Item model should be synced")
 
         println("✓ Item synced to other version")
@@ -560,15 +636,23 @@ class SyncCommandE2ETest {
         println("\n[TEST] Create block then sync assets")
 
         // Create block
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        }
+
 
         // Sync all assets
-        SyncAssetsCommand().parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            SyncAssetsCommand().parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
+
 
         // Verify block assets synced
-        val blockstate = File(testProjectDir, "versions/shared/v2/assets/testsync/blockstates/ruby_ore.json")
-        val blockModel = File(testProjectDir, "versions/shared/v2/assets/testsync/models/block/ruby_ore.json")
-        val itemModel = File(testProjectDir, "versions/shared/v2/assets/testsync/models/item/ruby_ore.json")
+        val blockstate = File(context.projectDir, "versions/shared/v2/assets/testsync/blockstates/ruby_ore.json")
+        val blockModel = File(context.projectDir, "versions/shared/v2/assets/testsync/models/block/ruby_ore.json")
+        val itemModel = File(context.projectDir, "versions/shared/v2/assets/testsync/models/item/ruby_ore.json")
 
         assertTrue(blockstate.exists(), "Blockstate should be synced")
         assertTrue(blockModel.exists(), "Block model should be synced")
@@ -590,13 +674,16 @@ class SyncCommandE2ETest {
 
         val startTime = System.currentTimeMillis()
 
-        val command = SyncLangCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
+
 
         val elapsed = System.currentTimeMillis() - startTime
 
         // Verify all synced
-        val v2Lang = File(testProjectDir, "versions/shared/v2/assets/testsync/lang")
+        val v2Lang = File(context.projectDir, "versions/shared/v2/assets/testsync/lang")
         val fileCount = v2Lang.walkTopDown().count { it.isFile }
 
         assertTrue(fileCount >= 120, "All 120 files should be synced")
@@ -612,10 +699,14 @@ class SyncCommandE2ETest {
             createLangFile("v1", "file_$i.json", """{"key": "value"}""")
         }
 
-        SyncLangCommand().parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            SyncLangCommand().parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
+
 
         // Get modification times
-        val v2Lang = File(testProjectDir, "versions/shared/v2/assets/testsync/lang")
+        val v2Lang = File(context.projectDir, "versions/shared/v2/assets/testsync/lang")
         val modTimes = v2Lang.walkTopDown()
             .filter { it.isFile }
             .map { it.lastModified() }
@@ -625,7 +716,11 @@ class SyncCommandE2ETest {
 
         // Sync again (should skip all)
         val startTime = System.currentTimeMillis()
-        SyncLangCommand().parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncLangCommand()
+            SyncLangCommand().parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
+
         val elapsed = System.currentTimeMillis() - startTime
 
         // Verify files not modified
@@ -646,8 +741,11 @@ class SyncCommandE2ETest {
 
         createAssetPack("v_empty")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v_empty", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v_empty", "--to", "v2"))
+        }
+
 
         // Should not crash
         println("✓ Handled empty source")
@@ -659,10 +757,13 @@ class SyncCommandE2ETest {
 
         createLangFile("v1", "en_us.json", """{"key": "value"}""")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val targetFile = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
+
+        val targetFile = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json")
         assertTrue(targetFile.exists(), "Should create in empty target")
 
         println("✓ Handled empty target")
@@ -674,8 +775,11 @@ class SyncCommandE2ETest {
 
         createLangFile("v1", "en_us.json", """{"key": "value"}""")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v1"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v1"))
+        }
+
 
         // Should handle gracefully
         println("✓ Handled identical source and target")
@@ -689,12 +793,15 @@ class SyncCommandE2ETest {
         createModelFile("v1", "item", "test.json", """{"parent": "item/generated"}""")
         createModelFile("v1", "block", "test.json", """{"parent": "block/cube_all"}""")
 
-        val command = SyncAssetsCommand()
-        command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            command.parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        assertTrue(File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").exists())
-        assertTrue(File(testProjectDir, "versions/shared/v2/assets/testsync/models/item/test.json").exists())
-        assertTrue(File(testProjectDir, "versions/shared/v2/assets/testsync/models/block/test.json").exists())
+
+        assertTrue(File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").exists())
+        assertTrue(File(context.projectDir, "versions/shared/v2/assets/testsync/models/item/test.json").exists())
+        assertTrue(File(context.projectDir, "versions/shared/v2/assets/testsync/models/block/test.json").exists())
 
         println("✓ Directory structure preserved")
     }
@@ -709,9 +816,13 @@ class SyncCommandE2ETest {
         createLangFile("v2", "en_us.json", """{"key": "custom", "custom_key": "important"}""")
 
         // Sync without force
-        SyncLangCommand().parse(arrayOf("--from", "v1", "--to", "v2"))
+        context.withProjectDir {
+            val command = SyncAssetsCommand()
+            SyncLangCommand().parse(arrayOf("--from", "v1", "--to", "v2"))
+        }
 
-        val content = File(testProjectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").readText()
+
+        val content = File(context.projectDir, "versions/shared/v2/assets/testsync/lang/en_us.json").readText()
 
         assertTrue(content.contains("custom"), "Should preserve custom work")
         assertTrue(content.contains("important"), "Should preserve important data")
@@ -722,7 +833,7 @@ class SyncCommandE2ETest {
     // ===== Helper Methods =====
 
     private fun createAssetPack(name: String) {
-        val assetPackDir = File(testProjectDir, "versions/shared/$name")
+        val assetPackDir = File(context.projectDir, "versions/shared/$name")
         assetPackDir.mkdirs()
 
         val configFile = File(assetPackDir, "config.yml")
@@ -743,31 +854,31 @@ class SyncCommandE2ETest {
     }
 
     private fun createLangFile(assetPack: String, fileName: String, content: String) {
-        val file = File(testProjectDir, "versions/shared/$assetPack/assets/testsync/lang/$fileName")
+        val file = File(context.projectDir, "versions/shared/$assetPack/assets/testsync/lang/$fileName")
         file.parentFile.mkdirs()
         file.writeText(content)
     }
 
     private fun createModelFile(assetPack: String, type: String, fileName: String, content: String) {
-        val file = File(testProjectDir, "versions/shared/$assetPack/assets/testsync/models/$type/$fileName")
+        val file = File(context.projectDir, "versions/shared/$assetPack/assets/testsync/models/$type/$fileName")
         file.parentFile.mkdirs()
         file.writeText(content)
     }
 
     private fun createTextureFile(assetPack: String, path: String) {
-        val file = File(testProjectDir, "versions/shared/$assetPack/assets/testsync/textures/$path")
+        val file = File(context.projectDir, "versions/shared/$assetPack/assets/testsync/textures/$path")
         file.parentFile.mkdirs()
         file.createNewFile()
     }
 
     private fun createBlockstateFile(assetPack: String, fileName: String, content: String) {
-        val file = File(testProjectDir, "versions/shared/$assetPack/assets/testsync/blockstates/$fileName")
+        val file = File(context.projectDir, "versions/shared/$assetPack/assets/testsync/blockstates/$fileName")
         file.parentFile.mkdirs()
         file.writeText(content)
     }
 
     private fun createRecipeFile(assetPack: String, fileName: String, content: String) {
-        val file = File(testProjectDir, "versions/shared/$assetPack/data/testsync/recipes/$fileName")
+        val file = File(context.projectDir, "versions/shared/$assetPack/data/testsync/recipes/$fileName")
         file.parentFile.mkdirs()
         file.writeText(content)
     }
