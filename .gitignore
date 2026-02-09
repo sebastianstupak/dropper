@@ -75,3 +75,4 @@ yarn.lock
 *.zip
 *.tar.gz
 *.tgz
+nul
