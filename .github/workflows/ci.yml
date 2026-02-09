@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false'
+  GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx2g -XX:MaxMetaspaceSize=256m" -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false'
 
 jobs:
   # Job 1: Unit Tests Only - Fast feedback across all platforms
@@ -148,8 +148,8 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Run full test suite (all tests enabled on Linux)
-        run: ./gradlew :src:cli:test --no-daemon
+      - name: Run all tests in batches (with delays)
+        run: ./gradlew :src:cli:allTests --no-daemon
         env:
           DROPPER_TEST_ENV: linux
 
@@ -193,9 +193,9 @@ jobs:
         shell: wsl-bash {0}
         run: chmod +x gradlew
 
-      - name: Run full test suite in WSL
+      - name: Run all tests in batches (with delays)
         shell: wsl-bash {0}
-        run: ./gradlew :src:cli:test --no-daemon
+        run: ./gradlew :src:cli:allTests --no-daemon
         env:
           DROPPER_TEST_ENV: wsl
 

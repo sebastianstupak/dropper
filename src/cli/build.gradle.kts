@@ -70,84 +70,25 @@ graalvmNative {
     }
 }
 
-tasks.test {
+// Common test configuration
+fun Test.configureTestTask() {
     useJUnitPlatform()
 
-    // Fork for each test class to isolate system property changes
-    forkEvery = 1
-    maxParallelForks = 1
+    // Conservative settings to prevent executor crashes
+    forkEvery = 1  // Fork for each test class
+    maxParallelForks = 1  // No parallel execution
 
-    // Increase memory for test processes
-    maxHeapSize = "4g"
-    minHeapSize = "1g"
+    // Reduce heap size to prevent OOM
+    maxHeapSize = "2g"
+    minHeapSize = "512m"
 
     // JVM args for stability
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
-        "-XX:MaxMetaspaceSize=512m",
+        "-XX:MaxMetaspaceSize=256m",
         "-Dfile.encoding=UTF-8",
         "-Djava.io.tmpdir=${layout.buildDirectory.get().asFile}/tmp"
     )
-
-    // Exclude tests based on system property and environment
-    // On Windows (native), exclude problematic tests due to Gradle test executor crashes
-    // On Linux/Mac/WSL/Docker, run all tests
-    // Tests using TestProjectContext are safe on all platforms
-    val isWindows = System.getProperty("os.name").lowercase().contains("windows")
-    val isWSL = System.getenv("WSL_DISTRO_NAME") != null ||
-                System.getenv("DROPPER_TEST_ENV") == "wsl"
-    val isContainer = System.getenv("DROPPER_TEST_ENV") == "docker" ||
-                      System.getenv("DROPPER_TEST_ENV") == "container"
-
-    // Only exclude on native Windows (not WSL or containers)
-    val shouldExcludeTests = isWindows && !isWSL && !isContainer
-
-    if (shouldExcludeTests) {
-        // On Windows, exclude integration/e2e tests that still use user.dir modification
-        // NOTE: Tests migrated to TestProjectContext and refactored commands are being re-enabled progressively
-        filter {
-            // Exclude integration tests that haven't been migrated yet
-            excludeTestsMatching("dev.dropper.integration.AddVersionCommandTest") // Windows test executor crashes with file I/O
-            excludeTestsMatching("dev.dropper.integration.AssetPackCommandTest")
-            excludeTestsMatching("dev.dropper.integration.BuildCommandTest")
-            excludeTestsMatching("dev.dropper.integration.CleanCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.CompleteWorkflowTest")
-            excludeTestsMatching("dev.dropper.integration.CreateCommandTest")
-            excludeTestsMatching("dev.dropper.integration.DevCommandTest")
-            excludeTestsMatching("dev.dropper.integration.E2ETest")
-            excludeTestsMatching("dev.dropper.integration.ExportCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.FullCLIBuildTest")
-            excludeTestsMatching("dev.dropper.integration.FullWorkflowTest")
-            excludeTestsMatching("dev.dropper.integration.ImportCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.ListCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.ListCommandBasicTest")
-            excludeTestsMatching("dev.dropper.integration.MigrateCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.MigrateCommandAdvancedE2ETest")
-            excludeTestsMatching("dev.dropper.integration.PackageCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.PackageCommandAdvancedE2ETest")
-            excludeTestsMatching("dev.dropper.integration.RemoveCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.RenameCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.SearchCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.SyncCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.TemplateCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.UpdateCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.ValidateCommandE2ETest")
-            excludeTestsMatching("dev.dropper.integration.CLIWorkflowTest")
-
-            // Exclude command tests
-            excludeTestsMatching("dev.dropper.commands.*")
-
-            // Exclude e2e tests
-            excludeTestsMatching("dev.dropper.e2e.AssetPackE2ETest")
-            excludeTestsMatching("dev.dropper.e2e.ComplexModpackE2ETest")
-            excludeTestsMatching("dev.dropper.e2e.DevCommandE2ETest")
-            excludeTestsMatching("dev.dropper.e2e.FullCLIBuildTest")
-            excludeTestsMatching("dev.dropper.e2e.MinecraftVersionsE2ETest")
-            excludeTestsMatching("dev.dropper.e2e.PackageNameGenerationE2ETest")
-            excludeTestsMatching("dev.dropper.e2e.SimpleModVersionsTest")
-            excludeTestsMatching("dev.dropper.e2e.TemplateValidationE2ETest")
-        }
-    }
 
     // Proper test output
     testLogging {
@@ -157,6 +98,120 @@ tasks.test {
         showExceptions = true
         showCauses = true
     }
+}
+
+// Environment detection
+val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+val isWSL = System.getenv("WSL_DISTRO_NAME") != null ||
+            System.getenv("DROPPER_TEST_ENV") == "wsl"
+val isContainer = System.getenv("DROPPER_TEST_ENV") == "docker" ||
+                  System.getenv("DROPPER_TEST_ENV") == "container"
+val shouldExcludeTests = isWindows && !isWSL && !isContainer
+
+// Main test task - runs only unit tests (fast)
+tasks.test {
+    configureTestTask()
+
+    filter {
+        // Only include util tests (unit tests)
+        includeTestsMatching("dev.dropper.util.*")
+    }
+}
+
+// Integration tests batch 1 - Command tests
+val integrationTests1 by tasks.registering(Test::class) {
+    configureTestTask()
+
+    filter {
+        includeTestsMatching("dev.dropper.commands.*")
+    }
+
+    // Only run on non-Windows or in WSL/Docker
+    enabled = !shouldExcludeTests
+}
+
+// Integration tests batch 2 - Integration tests A-M
+val integrationTests2 by tasks.registering(Test::class) {
+    configureTestTask()
+
+    filter {
+        includeTestsMatching("dev.dropper.integration.AddVersionCommandTest")
+        includeTestsMatching("dev.dropper.integration.AssetPackCommandTest")
+        includeTestsMatching("dev.dropper.integration.BuildCommandTest")
+        includeTestsMatching("dev.dropper.integration.CleanCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.CompleteWorkflowTest")
+        includeTestsMatching("dev.dropper.integration.CreateCommandTest")
+        includeTestsMatching("dev.dropper.integration.DevCommandTest")
+        includeTestsMatching("dev.dropper.integration.E2ETest")
+        includeTestsMatching("dev.dropper.integration.ExportCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.FullCLIBuildTest")
+        includeTestsMatching("dev.dropper.integration.FullWorkflowTest")
+        includeTestsMatching("dev.dropper.integration.ImportCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.ListCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.ListCommandBasicTest")
+        includeTestsMatching("dev.dropper.integration.MigrateCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.MigrateCommandAdvancedE2ETest")
+    }
+
+    enabled = !shouldExcludeTests
+
+    // Add delay after previous batch
+    mustRunAfter(integrationTests1)
+    doFirst {
+        println("Waiting 5 seconds before starting integration tests batch 2...")
+        Thread.sleep(5000)
+    }
+}
+
+// Integration tests batch 3 - Integration tests N-Z
+val integrationTests3 by tasks.registering(Test::class) {
+    configureTestTask()
+
+    filter {
+        includeTestsMatching("dev.dropper.integration.PackageCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.PackageCommandAdvancedE2ETest")
+        includeTestsMatching("dev.dropper.integration.RemoveCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.RenameCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.SearchCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.SyncCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.TemplateCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.UpdateCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.ValidateCommandE2ETest")
+        includeTestsMatching("dev.dropper.integration.CLIWorkflowTest")
+    }
+
+    enabled = !shouldExcludeTests
+
+    mustRunAfter(integrationTests2)
+    doFirst {
+        println("Waiting 5 seconds before starting integration tests batch 3...")
+        Thread.sleep(5000)
+    }
+}
+
+// E2E tests - Small focused tests
+val e2eTests by tasks.registering(Test::class) {
+    configureTestTask()
+
+    filter {
+        includeTestsMatching("dev.dropper.e2e.*")
+    }
+
+    enabled = !shouldExcludeTests
+
+    mustRunAfter(integrationTests3)
+    doFirst {
+        println("Waiting 5 seconds before starting E2E tests...")
+        Thread.sleep(5000)
+    }
+}
+
+// Aggregate task to run all tests sequentially with delays
+val allTests by tasks.registering {
+    description = "Run all tests in batches with delays"
+    group = "verification"
+
+    dependsOn(tasks.test, integrationTests1, integrationTests2, integrationTests3, e2eTests)
 }
 
 kotlin {

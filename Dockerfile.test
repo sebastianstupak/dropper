@@ -27,5 +27,5 @@ RUN chmod +x gradlew
 RUN ./gradlew --version && \
     ./gradlew :src:cli:dependencies --no-daemon || true
 
-# Default command runs all tests
-CMD ["./gradlew", "clean", ":src:cli:test", "--no-daemon", "--info"]
+# Default command runs all tests in batches
+CMD ["./gradlew", "clean", ":src:cli:allTests", "--no-daemon", "--info"]
