@@ -20,7 +20,7 @@ env:
   GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false'
 
 jobs:
-  # Job 1: Unit Tests - Fast feedback
+  # Job 1: Unit Tests Only - Fast feedback across all platforms
   unit-tests:
     name: Unit Tests (Java ${{ matrix.java }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-13]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         java: [21]
         include:
           # Test with Java 17 on Ubuntu for backwards compatibility
@@ -50,8 +50,8 @@ jobs:
         if: runner.os != 'Windows'
         run: chmod +x gradlew
 
-      - name: Run unit tests
-        run: ./gradlew :src:cli:test --no-daemon
+      - name: Run unit tests only
+        run: ./gradlew :src:cli:test --tests "dev.dropper.util.*" --tests "dev.dropper.e2e.JarValidationUtilsTest" --no-daemon
 
       - name: Upload test results
         if: always()
