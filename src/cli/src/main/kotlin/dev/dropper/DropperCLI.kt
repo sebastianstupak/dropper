@@ -15,7 +15,9 @@ import dev.dropper.commands.CreateTagCommand
 import dev.dropper.commands.DevCommand
 import dev.dropper.commands.DocsCommand
 import dev.dropper.commands.InitCommand
+import dev.dropper.commands.ListCommand
 import dev.dropper.commands.dev.*
+import dev.dropper.commands.list.*
 
 /**
  * Main CLI class for Dropper - Multi-loader Minecraft mod development tool
@@ -51,6 +53,16 @@ fun main(args: Array<String>) = DropperCLI()
             CreateTagCommand(),
             AddVersionCommand(),
             AddAssetPackCommand()
+        ),
+        ListCommand().subcommands(
+            ListItemsCommand(),
+            ListBlocksCommand(),
+            ListEntitiesCommand(),
+            ListRecipesCommand(),
+            ListEnchantmentsCommand(),
+            ListBiomesCommand(),
+            ListTagsCommand(),
+            ListAllCommand()
         ),
         BuildCommand(),
         DevCommand().subcommands(

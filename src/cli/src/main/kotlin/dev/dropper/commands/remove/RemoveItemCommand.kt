@@ -1,0 +1,90 @@
+package dev.dropper.commands.remove
+
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.removers.ItemRemover
+import dev.dropper.removers.RemovalOptions
+import dev.dropper.util.Logger
+import java.io.File
+
+/**
+ * Command to remove an item from the mod
+ */
+class RemoveItemCommand : CliktCommand(
+    name = "item",
+    help = "Remove an item and all associated files"
+) {
+    private val name by argument(help = "Item name in snake_case (e.g., ruby_sword)")
+    private val dryRun by option("--dry-run", help = "Preview what would be deleted").flag()
+    private val force by option("--force", "-f", help = "Skip confirmation and ignore dependencies").flag()
+    private val keepAssets by option("--keep-assets", help = "Remove code but keep textures/models").flag()
+    private val version by option("--version", help = "Remove from specific version only")
+
+    override fun run() {
+        val projectDir = File(System.getProperty("user.dir"))
+        val configFile = File(projectDir, "config.yml")
+
+        if (!configFile.exists()) {
+            Logger.error("No config.yml found. Are you in a Dropper project directory?")
+            return
+        }
+
+        val modId = extractModId(configFile)
+        if (modId == null) {
+            Logger.error("Could not read mod ID from config.yml")
+            return
+        }
+
+        Logger.info("Removing item: $name")
+
+        val options = RemovalOptions(
+            dryRun = dryRun,
+            force = force,
+            keepAssets = keepAssets,
+            version = version,
+            createBackup = true,
+            interactive = !force
+        )
+
+        // Show confirmation if not forced
+        if (!force && !dryRun) {
+            Logger.warn("This will remove item '$name' and all associated files")
+            print("Continue? (y/n): ")
+            val response = readlnOrNull()?.lowercase()
+            if (response != "y" && response != "yes") {
+                Logger.info("Cancelled")
+                return
+            }
+        }
+
+        val remover = ItemRemover()
+        val result = remover.remove(projectDir, name, modId, options)
+
+        if (result.success) {
+            if (dryRun) {
+                Logger.success("DRY RUN: Would remove ${result.filesRemoved.size} file(s)")
+            } else {
+                Logger.success("Successfully removed item '$name'")
+                Logger.info("Files removed: ${result.filesRemoved.size}")
+                if (result.directoriesRemoved.isNotEmpty()) {
+                    Logger.info("Empty directories cleaned: ${result.directoriesRemoved.size}")
+                }
+            }
+        } else {
+            result.errors.forEach { error ->
+                Logger.error(error)
+            }
+        }
+
+        result.warnings.forEach { warning ->
+            Logger.warn(warning)
+        }
+    }
+
+    private fun extractModId(configFile: File): String? {
+        val content = configFile.readText()
+        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
+    }
+}
