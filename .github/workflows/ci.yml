@@ -277,7 +277,7 @@ jobs:
 
       - name: Generate test project with sanitized package names
         run: |
-          ./gradlew :src:cli:run --args="init test-mod --name 'Test Mod' --id test-mod --author TestAuthor --description 'Integration test project' --versions 1.20.1 --loaders fabric" --no-daemon
+          ../../gradlew :src:cli:run --args="init test-mod --name 'Test Mod' --id test-mod --author TestAuthor --description 'Integration test project' --versions 1.20.1 --loaders fabric" --no-daemon
         working-directory: build/integration-test
 
       - name: Verify generated project structure
