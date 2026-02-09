@@ -149,7 +149,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run all tests in batches (with delays)
-        run: ./gradlew :src:cli:allTests --no-daemon
+        run: ./gradlew :src:cli:allTests --no-daemon --stacktrace --info
         env:
           DROPPER_TEST_ENV: linux
 
@@ -195,7 +195,7 @@ jobs:
 
       - name: Run all tests in batches (with delays)
         shell: wsl-bash {0}
-        run: ./gradlew :src:cli:allTests --no-daemon
+        run: ./gradlew :src:cli:allTests --no-daemon --stacktrace --info
         env:
           DROPPER_TEST_ENV: wsl
 
