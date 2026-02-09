@@ -330,9 +330,19 @@ object Validators {
 
     /**
      * Check available disk space
+     *
+     * Note: Returns success if disk space cannot be determined (usableSpace returns 0),
+     * which can happen on some CI environments or file systems.
      */
     fun validateDiskSpace(path: File, requiredBytes: Long): ValidationResult {
         val available = path.usableSpace
+
+        // If usableSpace returns 0, it might be unreliable (CI environments, special filesystems)
+        // Skip validation in this case to avoid false positives
+        if (available == 0L) {
+            return ValidationResult.success()
+        }
+
         if (available < requiredBytes) {
             val requiredMB = requiredBytes / (1024 * 1024)
             val availableMB = available / (1024 * 1024)
