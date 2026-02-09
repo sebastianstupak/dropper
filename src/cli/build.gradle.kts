@@ -89,18 +89,25 @@ tasks.test {
         "-Djava.io.tmpdir=${layout.buildDirectory.get().asFile}/tmp"
     )
 
-    // Exclude tests based on system property
-    // On Windows, exclude problematic tests that haven't been migrated yet.
-    // On Linux/Mac, run all tests.
-    // Tests using TestProjectContext are safe on all platforms.
+    // Exclude tests based on system property and environment
+    // On Windows (native), exclude problematic tests due to Gradle test executor crashes
+    // On Linux/Mac/WSL/Docker, run all tests
+    // Tests using TestProjectContext are safe on all platforms
     val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+    val isWSL = System.getenv("WSL_DISTRO_NAME") != null ||
+                System.getenv("DROPPER_TEST_ENV") == "wsl"
+    val isContainer = System.getenv("DROPPER_TEST_ENV") == "docker" ||
+                      System.getenv("DROPPER_TEST_ENV") == "container"
 
-    if (isWindows) {
+    // Only exclude on native Windows (not WSL or containers)
+    val shouldExcludeTests = isWindows && !isWSL && !isContainer
+
+    if (shouldExcludeTests) {
         // On Windows, exclude integration/e2e tests that still use user.dir modification
-        // NOTE: Tests migrated to TestProjectContext may still crash on Windows due to test executor issues
+        // NOTE: Tests migrated to TestProjectContext and refactored commands are being re-enabled progressively
         filter {
             // Exclude integration tests that haven't been migrated yet
-            excludeTestsMatching("dev.dropper.integration.AddVersionCommandTest")
+            excludeTestsMatching("dev.dropper.integration.AddVersionCommandTest") // Windows test executor crashes with file I/O
             excludeTestsMatching("dev.dropper.integration.AssetPackCommandTest")
             excludeTestsMatching("dev.dropper.integration.BuildCommandTest")
             excludeTestsMatching("dev.dropper.integration.CleanCommandE2ETest")

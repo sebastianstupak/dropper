@@ -1,0 +1,31 @@
+# Dockerfile for running Dropper CLI tests
+# Provides a consistent Linux environment for testing
+
+FROM eclipse-temurin:21-jdk
+
+# Install required tools
+RUN apt-get update && apt-get install -y \
+    git \
+    bash \
+    curl \
+    findutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create working directory
+WORKDIR /project
+
+# Set environment variable to indicate container execution
+ENV DROPPER_TEST_ENV=container
+
+# Copy project files
+COPY . .
+
+# Ensure gradlew is executable
+RUN chmod +x gradlew
+
+# Pre-download dependencies (speeds up subsequent test runs)
+RUN ./gradlew --version && \
+    ./gradlew :src:cli:dependencies --no-daemon || true
+
+# Default command runs all tests
+CMD ["./gradlew", "clean", ":src:cli:test", "--no-daemon", "--info"]

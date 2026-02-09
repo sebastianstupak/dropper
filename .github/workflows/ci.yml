@@ -127,7 +127,128 @@ jobs:
       - name: Run Kotlin linter (if configured)
         run: ./gradlew :src:cli:detekt --no-daemon --continue || true
 
-  # Job 4: Integration Test - Linux Only (no user.dir issues)
+  # Job 4: Full E2E Test Suite - Linux (all tests enabled)
+  e2e-test-linux:
+    name: Full E2E Test Suite - Linux
+    runs-on: ubuntu-latest
+    needs: [unit-tests]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: 21
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run full test suite (all tests enabled on Linux)
+        run: ./gradlew :src:cli:test --no-daemon
+        env:
+          DROPPER_TEST_ENV: linux
+
+      - name: Upload E2E test results
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: e2e-test-results-linux
+          path: |
+            src/cli/build/test-results/test/**/*.xml
+            src/cli/build/reports/tests/test/**
+          retention-days: 7
+
+  # Job 5: WSL Test Suite - Windows with WSL (all tests enabled)
+  wsl-test-windows:
+    name: Full E2E Test Suite - Windows WSL
+    runs-on: windows-latest
+    needs: [unit-tests]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up WSL
+        uses: Vampire/setup-wsl@v3
+        with:
+          distribution: Ubuntu-22.04
+
+      - name: Install Java in WSL
+        shell: wsl-bash {0}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openjdk-21-jdk
+
+      - name: Verify Java installation
+        shell: wsl-bash {0}
+        run: java -version
+
+      - name: Grant execute permission for gradlew
+        shell: wsl-bash {0}
+        run: chmod +x gradlew
+
+      - name: Run full test suite in WSL
+        shell: wsl-bash {0}
+        run: ./gradlew :src:cli:test --no-daemon
+        env:
+          DROPPER_TEST_ENV: wsl
+
+      - name: Upload WSL test results
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: e2e-test-results-wsl
+          path: |
+            src/cli/build/test-results/test/**/*.xml
+            src/cli/build/reports/tests/test/**
+          retention-days: 7
+
+  # Job 6: Docker Test Suite - Container-based (all tests enabled)
+  docker-test:
+    name: Full E2E Test Suite - Docker
+    runs-on: ubuntu-latest
+    needs: [unit-tests]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Build test container
+        run: docker build -t dropper-test -f Dockerfile.test .
+
+      - name: Run full test suite in Docker
+        run: |
+          docker run --rm \
+            -v "$(pwd):/project" \
+            -e DROPPER_TEST_ENV=container \
+            dropper-test
+
+      - name: Extract test results from container
+        if: always()
+        run: |
+          # Test results are in mounted volume, already available
+          mkdir -p docker-test-results
+          cp -r src/cli/build/test-results docker-test-results/ || true
+          cp -r src/cli/build/reports docker-test-results/ || true
+
+      - name: Upload Docker test results
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: e2e-test-results-docker
+          path: |
+            docker-test-results/**/*.xml
+            docker-test-results/**
+          retention-days: 7
+
+  # Job 7: Integration Test - Generated Project
   integration-test-linux:
     name: Integration Test - Generated Project
     runs-on: ubuntu-latest
@@ -187,11 +308,11 @@ jobs:
           path: build/integration-test/test-mod/**
           retention-days: 7
 
-  # Job 5: Test Summary
+  # Job 8: Test Summary
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [unit-tests, build-cli, code-quality, integration-test-linux]
+    needs: [unit-tests, build-cli, code-quality, e2e-test-linux, wsl-test-windows, docker-test, integration-test-linux]
     if: always()
     timeout-minutes: 5
 
@@ -233,6 +354,24 @@ jobs:
             echo "❌ Code quality checks failed" >> $GITHUB_STEP_SUMMARY
           fi
 
+          if [ "${{ needs.e2e-test-linux.result }}" == "success" ]; then
+            echo "✅ E2E tests (Linux) passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ E2E tests (Linux) failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.wsl-test-windows.result }}" == "success" ]; then
+            echo "✅ E2E tests (Windows WSL) passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ E2E tests (Windows WSL) failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.docker-test.result }}" == "success" ]; then
+            echo "✅ E2E tests (Docker) passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ E2E tests (Docker) failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
           if [ "${{ needs.integration-test-linux.result }}" == "success" ]; then
             echo "✅ Integration tests passed" >> $GITHUB_STEP_SUMMARY
           else
@@ -244,5 +383,8 @@ jobs:
           needs.unit-tests.result == 'failure' ||
           needs.build-cli.result == 'failure' ||
           needs.code-quality.result == 'failure' ||
+          needs.e2e-test-linux.result == 'failure' ||
+          needs.wsl-test-windows.result == 'failure' ||
+          needs.docker-test.result == 'failure' ||
           needs.integration-test-linux.result == 'failure'
         run: exit 1
