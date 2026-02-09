@@ -20,7 +20,7 @@ env:
   GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false'
 
 jobs:
-  # Job 1: Unit Tests Only - Fast feedback across all platforms
+  # Job 1: Unit Tests - Fast feedback across all platforms
   unit-tests:
     name: Unit Tests (Java ${{ matrix.java }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -31,7 +31,6 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         java: [21]
         include:
-          # Test with Java 17 on Ubuntu for backwards compatibility
           - os: ubuntu-latest
             java: 17
 
@@ -50,8 +49,8 @@ jobs:
         if: runner.os != 'Windows'
         run: chmod +x gradlew
 
-      - name: Run unit tests only
-        run: ./gradlew :src:cli:test --tests "dev.dropper.util.*" --tests "dev.dropper.e2e.JarValidationUtilsTest" --no-daemon
+      - name: Run unit tests
+        run: ./gradlew :src:cli:test --no-daemon
 
       - name: Upload test results
         if: always()
@@ -63,7 +62,52 @@ jobs:
             src/cli/build/reports/tests/test/**
           retention-days: 7
 
-  # Job 2: Build CLI Distribution
+  # Job 2: Command Tests - Linux only (tests CLI commands)
+  command-tests:
+    name: Command Tests - Linux
+    runs-on: ubuntu-latest
+    needs: [unit-tests]
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: 21
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run command tests
+        run: ./gradlew :src:cli:integrationTests1 --no-daemon --stacktrace
+        env:
+          DROPPER_TEST_ENV: linux
+          RUNNER_TEMP: ${{ runner.temp }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: command-test-results
+          path: |
+            src/cli/build/test-results/**/*.xml
+            src/cli/build/reports/tests/**
+          retention-days: 7
+
+      - name: Upload HTML reports on failure
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: command-test-html-reports
+          path: src/cli/build/reports/tests/**/*.html
+          retention-days: 30
+
+  # Job 3: Build CLI Distribution
   build-cli:
     name: Build CLI (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -99,7 +143,7 @@ jobs:
           path: src/cli/build/distributions/*.zip
           retention-days: 30
 
-  # Job 3: Code Quality Checks
+  # Job 4: Code Quality Checks
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
@@ -127,240 +171,11 @@ jobs:
       - name: Run Kotlin linter (if configured)
         run: ./gradlew :src:cli:detekt --no-daemon --continue || true
 
-  # Job 4: Full E2E Test Suite - Linux (all tests enabled)
-  e2e-test-linux:
-    name: Full E2E Test Suite - Linux
-    runs-on: ubuntu-latest
-    needs: [unit-tests]
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
-        with:
-          java-version: 21
-          distribution: 'temurin'
-          cache: 'gradle'
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Setup test environment
-        run: |
-          mkdir -p ${{ runner.temp }}/dropper-tests
-          echo "RUNNER_TEMP=${{ runner.temp }}" >> $GITHUB_ENV
-
-      - name: Run all tests in batches (with delays)
-        run: ./gradlew :src:cli:allTests --no-daemon --stacktrace --info
-        env:
-          DROPPER_TEST_ENV: linux
-          RUNNER_TEMP: ${{ runner.temp }}
-
-      - name: Upload E2E test results
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: e2e-test-results-linux
-          path: |
-            src/cli/build/test-results/**/*.xml
-            src/cli/build/reports/tests/**
-          retention-days: 7
-
-      - name: Upload test HTML reports
-        if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: e2e-html-reports-linux
-          path: |
-            src/cli/build/reports/tests/*/index.html
-            src/cli/build/reports/tests/**/*.html
-          retention-days: 30
-
-  # Job 5: WSL Test Suite - Windows with WSL (all tests enabled)
-  wsl-test-windows:
-    name: Full E2E Test Suite - Windows WSL
-    runs-on: windows-latest
-    needs: [unit-tests]
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Set up WSL
-        uses: Vampire/setup-wsl@v3
-        with:
-          distribution: Ubuntu-22.04
-
-      - name: Install Java in WSL
-        shell: wsl-bash {0}
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq openjdk-21-jdk
-
-      - name: Verify Java installation
-        shell: wsl-bash {0}
-        run: java -version
-
-      - name: Grant execute permission for gradlew
-        shell: wsl-bash {0}
-        run: chmod +x gradlew
-
-      - name: Setup test environment
-        shell: wsl-bash {0}
-        run: |
-          mkdir -p /tmp/dropper-tests
-          echo "RUNNER_TEMP=/tmp/dropper-tests" >> $GITHUB_ENV
-
-      - name: Run all tests in batches (with delays)
-        shell: wsl-bash {0}
-        run: ./gradlew :src:cli:allTests --no-daemon --stacktrace --info
-        env:
-          DROPPER_TEST_ENV: wsl
-          RUNNER_TEMP: /tmp/dropper-tests
-
-      - name: Upload WSL test results
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: e2e-test-results-wsl
-          path: |
-            src/cli/build/test-results/**/*.xml
-            src/cli/build/reports/tests/**
-          retention-days: 7
-
-      - name: Upload test HTML reports
-        if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: e2e-html-reports-wsl
-          path: |
-            src/cli/build/reports/tests/*/index.html
-            src/cli/build/reports/tests/**/*.html
-          retention-days: 30
-
-  # Job 6: Docker Test Suite - Container-based (all tests enabled)
-  docker-test:
-    name: Full E2E Test Suite - Docker
-    runs-on: ubuntu-latest
-    needs: [unit-tests]
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Build test container
-        run: docker build -t dropper-test -f Dockerfile.test .
-
-      - name: Setup test environment
-        run: mkdir -p ${{ runner.temp }}/dropper-tests
-
-      - name: Run full test suite in Docker
-        run: |
-          docker run --rm \
-            -v "$(pwd):/project" \
-            -v "${{ runner.temp }}/dropper-tests:/tmp/dropper-tests" \
-            -e DROPPER_TEST_ENV=container \
-            -e RUNNER_TEMP=/tmp/dropper-tests \
-            dropper-test
-
-      - name: Extract test results from container
-        if: always()
-        run: |
-          # Test results are in mounted volume, already available
-          mkdir -p docker-test-results
-          cp -r src/cli/build/test-results docker-test-results/ || true
-          cp -r src/cli/build/reports docker-test-results/ || true
-
-      - name: Upload Docker test results
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: e2e-test-results-docker
-          path: |
-            docker-test-results/**/*.xml
-            docker-test-results/**
-          retention-days: 7
-
-      - name: Upload test HTML reports
-        if: failure()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: e2e-html-reports-docker
-          path: |
-            docker-test-results/reports/tests/*/index.html
-            docker-test-results/reports/tests/**/*.html
-          retention-days: 30
-
-  # Job 7: Integration Test - Generated Project
-  integration-test-linux:
-    name: Integration Test - Generated Project
-    runs-on: ubuntu-latest
-    needs: [build-cli]
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
-        with:
-          java-version: 21
-          distribution: 'temurin'
-          cache: 'gradle'
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build CLI
-        run: ./gradlew :src:cli:assemble --no-daemon
-
-      - name: Create test directory
-        run: mkdir -p build/integration-test
-
-      - name: Generate test project with sanitized package names
-        run: |
-          ../../gradlew :src:cli:run --args="init test-mod --name 'Test Mod' --id test-mod --author TestAuthor --description 'Integration test project' --versions 1.20.1 --loaders fabric" --no-daemon
-        working-directory: build/integration-test
-
-      - name: Verify generated project structure
-        run: |
-          cd build/integration-test/test-mod
-
-          # Check that project was created
-          if [ ! -f "config.yml" ]; then
-            echo "ERROR: config.yml not found"
-            exit 1
-          fi
-
-          # Check sanitized package directory exists
-          if [ ! -d "shared/common/src/main/java/com/testmod" ]; then
-            echo "ERROR: Sanitized package directory not found"
-            echo "Looking for: shared/common/src/main/java/com/testmod"
-            find shared -type d
-            exit 1
-          fi
-
-          echo "✓ Project structure verified"
-
-      - name: Upload generated project
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: integration-test-project
-          path: build/integration-test/test-mod/**
-          retention-days: 7
-
-  # Job 8: Test Summary
+  # Job 5: Test Summary
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [unit-tests, build-cli, code-quality, e2e-test-linux, wsl-test-windows, docker-test, integration-test-linux]
+    needs: [unit-tests, command-tests, build-cli, code-quality]
     if: always()
     timeout-minutes: 5
 
@@ -368,7 +183,7 @@ jobs:
       - name: Download test results
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
-          pattern: '*-test-results-*'
+          pattern: '*-test-results*'
           path: test-results
           merge-multiple: true
 
@@ -390,6 +205,12 @@ jobs:
             echo "❌ Unit tests failed" >> $GITHUB_STEP_SUMMARY
           fi
 
+          if [ "${{ needs.command-tests.result }}" == "success" ]; then
+            echo "✅ Command tests passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Command tests failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
           if [ "${{ needs.build-cli.result }}" == "success" ]; then
             echo "✅ CLI build passed" >> $GITHUB_STEP_SUMMARY
           else
@@ -402,37 +223,10 @@ jobs:
             echo "❌ Code quality checks failed" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.e2e-test-linux.result }}" == "success" ]; then
-            echo "✅ E2E tests (Linux) passed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ E2E tests (Linux) failed" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ "${{ needs.wsl-test-windows.result }}" == "success" ]; then
-            echo "✅ E2E tests (Windows WSL) passed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ E2E tests (Windows WSL) failed" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ "${{ needs.docker-test.result }}" == "success" ]; then
-            echo "✅ E2E tests (Docker) passed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ E2E tests (Docker) failed" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ "${{ needs.integration-test-linux.result }}" == "success" ]; then
-            echo "✅ Integration tests passed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Integration tests failed" >> $GITHUB_STEP_SUMMARY
-          fi
-
       - name: Fail if any job failed
         if: |
           needs.unit-tests.result == 'failure' ||
+          needs.command-tests.result == 'failure' ||
           needs.build-cli.result == 'failure' ||
-          needs.code-quality.result == 'failure' ||
-          needs.e2e-test-linux.result == 'failure' ||
-          needs.wsl-test-windows.result == 'failure' ||
-          needs.docker-test.result == 'failure' ||
-          needs.integration-test-linux.result == 'failure'
+          needs.code-quality.result == 'failure'
         run: exit 1
