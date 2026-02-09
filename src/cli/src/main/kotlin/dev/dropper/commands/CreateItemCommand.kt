@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import dev.dropper.util.FileUtil
 import dev.dropper.util.Logger
+import dev.dropper.util.ValidationUtil
 import java.io.File
 
 /**
@@ -21,13 +22,22 @@ class CreateItemCommand : CliktCommand(
     private val recipe by option("--recipe", "-r", help = "Generate recipe").default("true")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
-
-        if (!configFile.exists()) {
-            Logger.error("No config.yml found. Are you in a Dropper project directory?")
+        // Validate item name
+        val nameValidation = ValidationUtil.validateName(name, "Item name")
+        if (!nameValidation.isValid) {
+            ValidationUtil.exitWithError(nameValidation)
             return
         }
+
+        // Validate we're in a Dropper project
+        val projectDir = File(System.getProperty("user.dir"))
+        val projectValidation = ValidationUtil.validateDropperProject(projectDir)
+        if (!projectValidation.isValid) {
+            ValidationUtil.exitWithError(projectValidation)
+            return
+        }
+
+        val configFile = File(projectDir, "config.yml")
 
         // Read mod ID from config
         val modId = extractModId(configFile)
@@ -36,15 +46,31 @@ class CreateItemCommand : CliktCommand(
             return
         }
 
+        // Sanitize mod ID for package names (remove hyphens and underscores)
+        val sanitizedModId = FileUtil.sanitizeModId(modId)
+
+        // Check for duplicates
+        val duplicateCheck = ValidationUtil.checkDuplicate(
+            projectDir,
+            "item",
+            name,
+            listOf("shared/common/src/main/java", "shared/fabric/src/main/java", "shared/forge/src/main/java", "shared/neoforge/src/main/java")
+        )
+        if (!duplicateCheck.isValid) {
+            ValidationUtil.exitWithError(duplicateCheck)
+            Logger.warn("Item was not created to avoid overwriting existing files")
+            return
+        }
+
         Logger.info("Creating item: $name")
 
         // Generate common item code (shared across all loaders)
-        generateItemRegistration(projectDir, name, modId, type)
+        generateItemRegistration(projectDir, name, modId, sanitizedModId, type)
 
         // Generate loader-specific registration
-        generateFabricRegistration(projectDir, name, modId)
-        generateForgeRegistration(projectDir, name, modId)
-        generateNeoForgeRegistration(projectDir, name, modId)
+        generateFabricRegistration(projectDir, name, modId, sanitizedModId)
+        generateForgeRegistration(projectDir, name, modId, sanitizedModId)
+        generateNeoForgeRegistration(projectDir, name, modId, sanitizedModId)
 
         // Generate assets
         generateItemAssets(projectDir, name, modId)
@@ -66,25 +92,25 @@ class CreateItemCommand : CliktCommand(
         return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
     }
 
-    private fun generateItemRegistration(projectDir: File, itemName: String, modId: String, type: String) {
+    private fun generateItemRegistration(projectDir: File, itemName: String, modId: String, sanitizedModId: String, type: String) {
         val className = toClassName(itemName)
-        val packageName = "com.$modId.items"
+        val packageName = "com.$sanitizedModId.items"
 
         val content = when (type) {
-            "tool" -> generateToolItem(className, itemName, modId)
-            "food" -> generateFoodItem(className, itemName, modId)
-            else -> generateBasicItem(className, itemName, modId)
+            "tool" -> generateToolItem(className, itemName, sanitizedModId)
+            "food" -> generateFoodItem(className, itemName, sanitizedModId)
+            else -> generateBasicItem(className, itemName, sanitizedModId)
         }
 
-        val itemFile = File(projectDir, "shared/common/src/main/java/com/$modId/items/$className.java")
+        val itemFile = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/items/$className.java")
         FileUtil.writeText(itemFile, content)
 
-        Logger.info("  ✓ Created registration: shared/common/src/main/java/com/$modId/items/$className.java")
+        Logger.info("  ✓ Created registration: shared/common/src/main/java/com/$sanitizedModId/items/$className.java")
     }
 
-    private fun generateBasicItem(className: String, itemName: String, modId: String): String {
+    private fun generateBasicItem(className: String, itemName: String, sanitizedModId: String): String {
         return """
-            package com.$modId.items;
+            package com.$sanitizedModId.items;
 
             /**
              * Custom item: $className
@@ -117,9 +143,9 @@ class CreateItemCommand : CliktCommand(
         """.trimIndent()
     }
 
-    private fun generateToolItem(className: String, itemName: String, modId: String): String {
+    private fun generateToolItem(className: String, itemName: String, sanitizedModId: String): String {
         return """
-            package com.$modId.items;
+            package com.$sanitizedModId.items;
 
             /**
              * Tool item: $className
@@ -143,9 +169,9 @@ class CreateItemCommand : CliktCommand(
         """.trimIndent()
     }
 
-    private fun generateFoodItem(className: String, itemName: String, modId: String): String {
+    private fun generateFoodItem(className: String, itemName: String, sanitizedModId: String): String {
         return """
-            package com.$modId.items;
+            package com.$sanitizedModId.items;
 
             /**
              * Food item: $className
@@ -217,12 +243,12 @@ class CreateItemCommand : CliktCommand(
         Logger.info("  ✓ Created recipe: versions/shared/v1/data/$modId/recipe/$itemName.json")
     }
 
-    private fun generateFabricRegistration(projectDir: File, itemName: String, modId: String) {
+    private fun generateFabricRegistration(projectDir: File, itemName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(itemName)
         val content = """
-            package com.$modId.platform.fabric;
+            package com.$sanitizedModId.platform.fabric;
 
-            import com.$modId.items.$className;
+            import com.$sanitizedModId.items.$className;
             import net.minecraft.item.Item;
             import net.minecraft.registry.Registries;
             import net.minecraft.registry.Registry;
@@ -243,18 +269,18 @@ class CreateItemCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/fabric/src/main/java/com/$modId/platform/fabric/${className}Fabric.java")
+        val file = File(projectDir, "shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created Fabric registration: shared/fabric/src/main/java/com/$modId/platform/fabric/${className}Fabric.java")
+        Logger.info("  ✓ Created Fabric registration: shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
     }
 
-    private fun generateForgeRegistration(projectDir: File, itemName: String, modId: String) {
+    private fun generateForgeRegistration(projectDir: File, itemName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(itemName)
         val content = """
-            package com.$modId.platform.forge;
+            package com.$sanitizedModId.platform.forge;
 
-            import com.$modId.items.$className;
+            import com.$sanitizedModId.items.$className;
             import net.minecraft.world.item.Item;
             import net.minecraftforge.registries.DeferredRegister;
             import net.minecraftforge.registries.ForgeRegistries;
@@ -273,18 +299,18 @@ class CreateItemCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/forge/src/main/java/com/$modId/platform/forge/${className}Forge.java")
+        val file = File(projectDir, "shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created Forge registration: shared/forge/src/main/java/com/$modId/platform/forge/${className}Forge.java")
+        Logger.info("  ✓ Created Forge registration: shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
     }
 
-    private fun generateNeoForgeRegistration(projectDir: File, itemName: String, modId: String) {
+    private fun generateNeoForgeRegistration(projectDir: File, itemName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(itemName)
         val content = """
-            package com.$modId.platform.neoforge;
+            package com.$sanitizedModId.platform.neoforge;
 
-            import com.$modId.items.$className;
+            import com.$sanitizedModId.items.$className;
             import net.minecraft.core.registries.Registries;
             import net.minecraft.world.item.Item;
             import net.neoforged.neoforge.registries.DeferredRegister;
@@ -303,10 +329,10 @@ class CreateItemCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/neoforge/src/main/java/com/$modId/platform/neoforge/${className}NeoForge.java")
+        val file = File(projectDir, "shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created NeoForge registration: shared/neoforge/src/main/java/com/$modId/platform/neoforge/${className}NeoForge.java")
+        Logger.info("  ✓ Created NeoForge registration: shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
     }
 
     private fun toClassName(snakeCase: String): String {

@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import dev.dropper.util.FileUtil
 import dev.dropper.util.Logger
+import dev.dropper.util.ValidationUtil
 import java.io.File
 
 /**
@@ -22,13 +23,22 @@ class CreateBlockCommand : CliktCommand(
     private val maxAge by option("--max-age", help = "Max age for crops (default: 7)").default("7")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
-
-        if (!configFile.exists()) {
-            Logger.error("No config.yml found. Are you in a Dropper project directory?")
+        // Validate block name
+        val nameValidation = ValidationUtil.validateName(name, "Block name")
+        if (!nameValidation.isValid) {
+            ValidationUtil.exitWithError(nameValidation)
             return
         }
+
+        // Validate we're in a Dropper project
+        val projectDir = File(System.getProperty("user.dir"))
+        val projectValidation = ValidationUtil.validateDropperProject(projectDir)
+        if (!projectValidation.isValid) {
+            ValidationUtil.exitWithError(projectValidation)
+            return
+        }
+
+        val configFile = File(projectDir, "config.yml")
 
         val modId = extractModId(configFile)
         if (modId == null) {
@@ -36,15 +46,31 @@ class CreateBlockCommand : CliktCommand(
             return
         }
 
+        // Sanitize mod ID for package names (remove hyphens and underscores)
+        val sanitizedModId = FileUtil.sanitizeModId(modId)
+
+        // Check for duplicates
+        val duplicateCheck = ValidationUtil.checkDuplicate(
+            projectDir,
+            "block",
+            name,
+            listOf("shared/common/src/main/java", "shared/fabric/src/main/java", "shared/forge/src/main/java", "shared/neoforge/src/main/java")
+        )
+        if (!duplicateCheck.isValid) {
+            ValidationUtil.exitWithError(duplicateCheck)
+            Logger.warn("Block was not created to avoid overwriting existing files")
+            return
+        }
+
         Logger.info("Creating block: $name")
 
         // Generate common block code (shared across all loaders)
-        generateBlockRegistration(projectDir, name, modId, type)
+        generateBlockRegistration(projectDir, name, sanitizedModId, type)
 
         // Generate loader-specific registration
-        generateFabricRegistration(projectDir, name, modId)
-        generateForgeRegistration(projectDir, name, modId)
-        generateNeoForgeRegistration(projectDir, name, modId)
+        generateFabricRegistration(projectDir, name, modId, sanitizedModId)
+        generateForgeRegistration(projectDir, name, modId, sanitizedModId)
+        generateNeoForgeRegistration(projectDir, name, modId, sanitizedModId)
 
         // Generate blockstates
         generateBlockState(projectDir, name, modId, type)
@@ -72,10 +98,10 @@ class CreateBlockCommand : CliktCommand(
         return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
     }
 
-    private fun generateBlockRegistration(projectDir: File, blockName: String, modId: String, type: String) {
+    private fun generateBlockRegistration(projectDir: File, blockName: String, sanitizedModId: String, type: String) {
         val className = toClassName(blockName)
         val content = """
-            package com.$modId.blocks;
+            package com.$sanitizedModId.blocks;
 
             /**
              * Custom block: $className
@@ -108,10 +134,10 @@ class CreateBlockCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val blockFile = File(projectDir, "shared/common/src/main/java/com/$modId/blocks/$className.java")
+        val blockFile = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/blocks/$className.java")
         FileUtil.writeText(blockFile, content)
 
-        Logger.info("  ✓ Created registration: shared/common/src/main/java/com/$modId/blocks/$className.java")
+        Logger.info("  ✓ Created registration: shared/common/src/main/java/com/$sanitizedModId/blocks/$className.java")
     }
 
     private fun generateBlockState(projectDir: File, blockName: String, modId: String, type: String) {
@@ -501,12 +527,12 @@ class CreateBlockCommand : CliktCommand(
         Logger.info("  ✓ Created loot table: versions/shared/v1/data/$modId/loot_table/blocks/$blockName.json")
     }
 
-    private fun generateFabricRegistration(projectDir: File, blockName: String, modId: String) {
+    private fun generateFabricRegistration(projectDir: File, blockName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(blockName)
         val content = """
-            package com.$modId.platform.fabric;
+            package com.$sanitizedModId.platform.fabric;
 
-            import com.$modId.blocks.$className;
+            import com.$sanitizedModId.blocks.$className;
             import net.minecraft.block.Block;
             import net.minecraft.item.BlockItem;
             import net.minecraft.item.Item;
@@ -535,18 +561,18 @@ class CreateBlockCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/fabric/src/main/java/com/$modId/platform/fabric/${className}Fabric.java")
+        val file = File(projectDir, "shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created Fabric registration: shared/fabric/src/main/java/com/$modId/platform/fabric/${className}Fabric.java")
+        Logger.info("  ✓ Created Fabric registration: shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
     }
 
-    private fun generateForgeRegistration(projectDir: File, blockName: String, modId: String) {
+    private fun generateForgeRegistration(projectDir: File, blockName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(blockName)
         val content = """
-            package com.$modId.platform.forge;
+            package com.$sanitizedModId.platform.forge;
 
-            import com.$modId.blocks.$className;
+            import com.$sanitizedModId.blocks.$className;
             import net.minecraft.world.item.BlockItem;
             import net.minecraft.world.item.Item;
             import net.minecraft.world.level.block.Block;
@@ -573,18 +599,18 @@ class CreateBlockCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/forge/src/main/java/com/$modId/platform/forge/${className}Forge.java")
+        val file = File(projectDir, "shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created Forge registration: shared/forge/src/main/java/com/$modId/platform/forge/${className}Forge.java")
+        Logger.info("  ✓ Created Forge registration: shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
     }
 
-    private fun generateNeoForgeRegistration(projectDir: File, blockName: String, modId: String) {
+    private fun generateNeoForgeRegistration(projectDir: File, blockName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(blockName)
         val content = """
-            package com.$modId.platform.neoforge;
+            package com.$sanitizedModId.platform.neoforge;
 
-            import com.$modId.blocks.$className;
+            import com.$sanitizedModId.blocks.$className;
             import net.minecraft.core.registries.Registries;
             import net.minecraft.world.item.BlockItem;
             import net.minecraft.world.item.Item;
@@ -612,10 +638,10 @@ class CreateBlockCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/neoforge/src/main/java/com/$modId/platform/neoforge/${className}NeoForge.java")
+        val file = File(projectDir, "shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created NeoForge registration: shared/neoforge/src/main/java/com/$modId/platform/neoforge/${className}NeoForge.java")
+        Logger.info("  ✓ Created NeoForge registration: shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
     }
 
     private fun toClassName(snakeCase: String): String {

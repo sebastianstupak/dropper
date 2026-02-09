@@ -23,7 +23,8 @@ interface HttpClient {
 data class HttpResponse(
     val code: Int,
     val body: String,
-    val success: Boolean = code in 200..299
+    val success: Boolean = code in 200..299,
+    val headers: Map<String, String> = emptyMap()
 )
 
 /**
@@ -102,26 +103,68 @@ class OkHttpClientImpl : HttpClient {
  */
 class MockHttpClient : HttpClient {
     val requests = mutableListOf<MockRequest>()
-    var nextResponse: HttpResponse = HttpResponse(200, "{\"success\": true}")
+    var defaultResponse: HttpResponse = HttpResponse(200, "{\"success\": true}")
+    val responses = mutableListOf<HttpResponse>()
+
+    private var shouldThrowNetworkError = false
+    private var shouldThrowTimeout = false
+    private var shouldThrowSSLError = false
 
     override fun post(url: String, headers: Map<String, String>, body: String): HttpResponse {
         requests.add(MockRequest("POST", url, headers, body))
-        return nextResponse
+        return getNextResponse()
     }
 
     override fun postMultipart(url: String, headers: Map<String, String>, parts: Map<String, Any>): HttpResponse {
         requests.add(MockRequest("POST_MULTIPART", url, headers, parts.toString()))
-        return nextResponse
+        return getNextResponse()
     }
 
     override fun get(url: String, headers: Map<String, String>): HttpResponse {
         requests.add(MockRequest("GET", url, headers, ""))
-        return nextResponse
+        return getNextResponse()
+    }
+
+    private fun getNextResponse(): HttpResponse {
+        if (shouldThrowNetworkError) {
+            shouldThrowNetworkError = false
+            return HttpResponse(0, "Network error: Connection refused", false)
+        }
+        if (shouldThrowTimeout) {
+            shouldThrowTimeout = false
+            return HttpResponse(0, "Network error: Timeout", false)
+        }
+        if (shouldThrowSSLError) {
+            shouldThrowSSLError = false
+            return HttpResponse(0, "Network error: SSL handshake failed", false)
+        }
+
+        return if (responses.isNotEmpty()) {
+            responses.removeAt(0)
+        } else {
+            defaultResponse
+        }
+    }
+
+    fun simulateNetworkError() {
+        shouldThrowNetworkError = true
+    }
+
+    fun simulateTimeout() {
+        shouldThrowTimeout = true
+    }
+
+    fun simulateSSLError() {
+        shouldThrowSSLError = true
     }
 
     fun reset() {
         requests.clear()
-        nextResponse = HttpResponse(200, "{\"success\": true}")
+        responses.clear()
+        defaultResponse = HttpResponse(200, "{\"success\": true}")
+        shouldThrowNetworkError = false
+        shouldThrowTimeout = false
+        shouldThrowSSLError = false
     }
 
     data class MockRequest(

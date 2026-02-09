@@ -39,6 +39,9 @@ class CreateEnchantmentCommand : CliktCommand(
             return
         }
 
+        // Sanitize mod ID for package names (remove hyphens and underscores)
+        val sanitizedModId = FileUtil.sanitizeModId(modId)
+
         // Validate inputs
         val maxLevelInt = maxLevel.toIntOrNull()
         if (maxLevelInt == null || maxLevelInt < 1) {
@@ -60,19 +63,19 @@ class CreateEnchantmentCommand : CliktCommand(
         Logger.info("Creating enchantment: $name")
 
         // Generate common enchantment code (shared across all loaders)
-        generateEnchantmentClass(projectDir, name, modId, maxLevelInt, rarity, category, treasure)
+        generateEnchantmentClass(projectDir, name, modId, sanitizedModId, maxLevelInt, rarity, category, treasure)
 
         // Generate loader-specific registration
-        generateFabricRegistration(projectDir, name, modId)
-        generateForgeRegistration(projectDir, name, modId)
-        generateNeoForgeRegistration(projectDir, name, modId)
+        generateFabricRegistration(projectDir, name, modId, sanitizedModId)
+        generateForgeRegistration(projectDir, name, modId, sanitizedModId)
+        generateNeoForgeRegistration(projectDir, name, modId, sanitizedModId)
 
         // Generate lang entries
         generateLangEntries(projectDir, name, modId)
 
         Logger.success("Enchantment '$name' created successfully!")
         Logger.info("Next steps:")
-        Logger.info("  1. Customize enchantment logic in shared/common/src/main/java/com/$modId/enchantments/${toClassName(name)}.java")
+        Logger.info("  1. Customize enchantment logic in shared/common/src/main/java/com/$sanitizedModId/enchantments/${toClassName(name)}.java")
         Logger.info("  2. Update lang entry in versions/shared/v1/assets/$modId/lang/en_us.json")
         Logger.info("  3. Build with: dropper build")
     }
@@ -98,13 +101,14 @@ class CreateEnchantmentCommand : CliktCommand(
         projectDir: File,
         enchantmentName: String,
         modId: String,
+        sanitizedModId: String,
         maxLevel: Int,
         rarity: String,
         category: String,
         treasure: Boolean
     ) {
         val className = toClassName(enchantmentName)
-        val packageName = "com.$modId.enchantments"
+        val packageName = "com.$sanitizedModId.enchantments"
 
         val content = """
             package $packageName;
@@ -211,18 +215,18 @@ class CreateEnchantmentCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val enchantmentFile = File(projectDir, "shared/common/src/main/java/com/$modId/enchantments/$className.java")
+        val enchantmentFile = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/enchantments/$className.java")
         FileUtil.writeText(enchantmentFile, content)
 
-        Logger.info("  ✓ Created enchantment: shared/common/src/main/java/com/$modId/enchantments/$className.java")
+        Logger.info("  ✓ Created enchantment: shared/common/src/main/java/com/$sanitizedModId/enchantments/$className.java")
     }
 
-    private fun generateFabricRegistration(projectDir: File, enchantmentName: String, modId: String) {
+    private fun generateFabricRegistration(projectDir: File, enchantmentName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(enchantmentName)
         val content = """
-            package com.$modId.platform.fabric;
+            package com.$sanitizedModId.platform.fabric;
 
-            import com.$modId.enchantments.$className;
+            import com.$sanitizedModId.enchantments.$className;
             import net.minecraft.enchantment.Enchantment;
             import net.minecraft.registry.Registries;
             import net.minecraft.registry.Registry;
@@ -243,18 +247,18 @@ class CreateEnchantmentCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/fabric/src/main/java/com/$modId/platform/fabric/${className}Fabric.java")
+        val file = File(projectDir, "shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created Fabric registration: shared/fabric/src/main/java/com/$modId/platform/fabric/${className}Fabric.java")
+        Logger.info("  ✓ Created Fabric registration: shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
     }
 
-    private fun generateForgeRegistration(projectDir: File, enchantmentName: String, modId: String) {
+    private fun generateForgeRegistration(projectDir: File, enchantmentName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(enchantmentName)
         val content = """
-            package com.$modId.platform.forge;
+            package com.$sanitizedModId.platform.forge;
 
-            import com.$modId.enchantments.$className;
+            import com.$sanitizedModId.enchantments.$className;
             import net.minecraft.world.item.enchantment.Enchantment;
             import net.minecraftforge.registries.DeferredRegister;
             import net.minecraftforge.registries.ForgeRegistries;
@@ -273,18 +277,18 @@ class CreateEnchantmentCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/forge/src/main/java/com/$modId/platform/forge/${className}Forge.java")
+        val file = File(projectDir, "shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created Forge registration: shared/forge/src/main/java/com/$modId/platform/forge/${className}Forge.java")
+        Logger.info("  ✓ Created Forge registration: shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
     }
 
-    private fun generateNeoForgeRegistration(projectDir: File, enchantmentName: String, modId: String) {
+    private fun generateNeoForgeRegistration(projectDir: File, enchantmentName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(enchantmentName)
         val content = """
-            package com.$modId.platform.neoforge;
+            package com.$sanitizedModId.platform.neoforge;
 
-            import com.$modId.enchantments.$className;
+            import com.$sanitizedModId.enchantments.$className;
             import net.minecraft.core.registries.Registries;
             import net.minecraft.world.item.enchantment.Enchantment;
             import net.neoforged.neoforge.registries.DeferredRegister;
@@ -303,10 +307,10 @@ class CreateEnchantmentCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/neoforge/src/main/java/com/$modId/platform/neoforge/${className}NeoForge.java")
+        val file = File(projectDir, "shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created NeoForge registration: shared/neoforge/src/main/java/com/$modId/platform/neoforge/${className}NeoForge.java")
+        Logger.info("  ✓ Created NeoForge registration: shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
     }
 
     private fun generateLangEntries(projectDir: File, enchantmentName: String, modId: String) {

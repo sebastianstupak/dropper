@@ -35,20 +35,23 @@ class CreateEntityCommand : CliktCommand(
             return
         }
 
+        // Sanitize mod ID for package names (remove hyphens and underscores)
+        val sanitizedModId = FileUtil.sanitizeModId(modId)
+
         Logger.info("Creating entity: $name (type: $type)")
 
         // Generate common entity code
-        generateEntityClass(projectDir, name, modId, type)
+        generateEntityClass(projectDir, name, sanitizedModId, type)
 
         // Generate loader-specific implementations
-        generateFabricEntity(projectDir, name, modId, type)
-        generateForgeEntity(projectDir, name, modId, type)
-        generateNeoForgeEntity(projectDir, name, modId, type)
+        generateFabricEntity(projectDir, name, modId, sanitizedModId, type)
+        generateForgeEntity(projectDir, name, modId, sanitizedModId, type)
+        generateNeoForgeEntity(projectDir, name, modId, sanitizedModId, type)
 
         // Generate renderer classes (loader-specific)
-        generateFabricRenderer(projectDir, name, modId)
-        generateForgeRenderer(projectDir, name, modId)
-        generateNeoForgeRenderer(projectDir, name, modId)
+        generateFabricRenderer(projectDir, name, modId, sanitizedModId)
+        generateForgeRenderer(projectDir, name, modId, sanitizedModId)
+        generateNeoForgeRenderer(projectDir, name, modId, sanitizedModId)
 
         // Generate entity model (if applicable)
         if (type in listOf("mob", "animal", "monster", "villager")) {
@@ -60,7 +63,7 @@ class CreateEntityCommand : CliktCommand(
 
         // Generate spawn egg if requested
         if (spawnEgg == "true") {
-            generateSpawnEgg(projectDir, name, modId)
+            generateSpawnEgg(projectDir, name, modId, sanitizedModId)
         }
 
         // Generate lang entries
@@ -72,7 +75,7 @@ class CreateEntityCommand : CliktCommand(
         if (spawnEgg == "true") {
             Logger.info("  2. Add spawn egg texture: versions/shared/v1/assets/$modId/textures/item/${name}_spawn_egg.png")
         }
-        Logger.info("  3. Implement entity behavior in shared/common/src/main/java/com/$modId/entities/${toClassName(name)}.java")
+        Logger.info("  3. Implement entity behavior in shared/common/src/main/java/com/$sanitizedModId/entities/${toClassName(name)}.java")
         Logger.info("  4. Build with: dropper build")
     }
 
@@ -81,7 +84,7 @@ class CreateEntityCommand : CliktCommand(
         return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
     }
 
-    private fun generateEntityClass(projectDir: File, entityName: String, modId: String, type: String) {
+    private fun generateEntityClass(projectDir: File, entityName: String, sanitizedModId: String, type: String) {
         val className = toClassName(entityName)
         val baseClass = when (type) {
             "mob" -> "PathAwareEntity"
@@ -93,7 +96,7 @@ class CreateEntityCommand : CliktCommand(
         }
 
         val content = """
-            package com.$modId.entities;
+            package com.$sanitizedModId.entities;
 
             /**
              * Custom entity: $className
@@ -161,18 +164,18 @@ class CreateEntityCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val entityFile = File(projectDir, "shared/common/src/main/java/com/$modId/entities/$className.java")
+        val entityFile = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/entities/$className.java")
         FileUtil.writeText(entityFile, content)
 
-        Logger.info("  ✓ Created entity class: shared/common/src/main/java/com/$modId/entities/$className.java")
+        Logger.info("  ✓ Created entity class: shared/common/src/main/java/com/$sanitizedModId/entities/$className.java")
     }
 
-    private fun generateFabricEntity(projectDir: File, entityName: String, modId: String, type: String) {
+    private fun generateFabricEntity(projectDir: File, entityName: String, modId: String, sanitizedModId: String, type: String) {
         val className = toClassName(entityName)
         val content = """
-            package com.$modId.platform.fabric;
+            package com.$sanitizedModId.platform.fabric;
 
-            import com.$modId.entities.$className;
+            import com.$sanitizedModId.entities.$className;
             import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
             import net.minecraft.entity.EntityDimensions;
             import net.minecraft.entity.EntityType;
@@ -202,18 +205,18 @@ class CreateEntityCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/fabric/src/main/java/com/$modId/platform/fabric/${className}Fabric.java")
+        val file = File(projectDir, "shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created Fabric entity: shared/fabric/src/main/java/com/$modId/platform/fabric/${className}Fabric.java")
+        Logger.info("  ✓ Created Fabric entity: shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
     }
 
-    private fun generateForgeEntity(projectDir: File, entityName: String, modId: String, type: String) {
+    private fun generateForgeEntity(projectDir: File, entityName: String, modId: String, sanitizedModId: String, type: String) {
         val className = toClassName(entityName)
         val content = """
-            package com.$modId.platform.forge;
+            package com.$sanitizedModId.platform.forge;
 
-            import com.$modId.entities.$className;
+            import com.$sanitizedModId.entities.$className;
             import net.minecraft.world.entity.EntityType;
             import net.minecraft.world.entity.MobCategory;
             import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
@@ -244,18 +247,18 @@ class CreateEntityCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/forge/src/main/java/com/$modId/platform/forge/${className}Forge.java")
+        val file = File(projectDir, "shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created Forge entity: shared/forge/src/main/java/com/$modId/platform/forge/${className}Forge.java")
+        Logger.info("  ✓ Created Forge entity: shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
     }
 
-    private fun generateNeoForgeEntity(projectDir: File, entityName: String, modId: String, type: String) {
+    private fun generateNeoForgeEntity(projectDir: File, entityName: String, modId: String, sanitizedModId: String, type: String) {
         val className = toClassName(entityName)
         val content = """
-            package com.$modId.platform.neoforge;
+            package com.$sanitizedModId.platform.neoforge;
 
-            import com.$modId.entities.$className;
+            import com.$sanitizedModId.entities.$className;
             import net.minecraft.core.registries.Registries;
             import net.minecraft.world.entity.EntityType;
             import net.minecraft.world.entity.MobCategory;
@@ -286,18 +289,18 @@ class CreateEntityCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/neoforge/src/main/java/com/$modId/platform/neoforge/${className}NeoForge.java")
+        val file = File(projectDir, "shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created NeoForge entity: shared/neoforge/src/main/java/com/$modId/platform/neoforge/${className}NeoForge.java")
+        Logger.info("  ✓ Created NeoForge entity: shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
     }
 
-    private fun generateFabricRenderer(projectDir: File, entityName: String, modId: String) {
+    private fun generateFabricRenderer(projectDir: File, entityName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(entityName)
         val content = """
-            package com.$modId.client.renderer.fabric;
+            package com.$sanitizedModId.client.renderer.fabric;
 
-            import com.$modId.entities.$className;
+            import com.$sanitizedModId.entities.$className;
             import net.minecraft.client.render.entity.EntityRendererFactory;
             import net.minecraft.client.render.entity.MobEntityRenderer;
             import net.minecraft.client.render.entity.model.EntityModelLayers;
@@ -323,18 +326,18 @@ class CreateEntityCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/fabric/src/main/java/com/$modId/client/renderer/fabric/${className}Renderer.java")
+        val file = File(projectDir, "shared/fabric/src/main/java/com/$sanitizedModId/client/renderer/fabric/${className}Renderer.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created Fabric renderer: shared/fabric/src/main/java/com/$modId/client/renderer/fabric/${className}Renderer.java")
+        Logger.info("  ✓ Created Fabric renderer: shared/fabric/src/main/java/com/$sanitizedModId/client/renderer/fabric/${className}Renderer.java")
     }
 
-    private fun generateForgeRenderer(projectDir: File, entityName: String, modId: String) {
+    private fun generateForgeRenderer(projectDir: File, entityName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(entityName)
         val content = """
-            package com.$modId.client.renderer.forge;
+            package com.$sanitizedModId.client.renderer.forge;
 
-            import com.$modId.entities.$className;
+            import com.$sanitizedModId.entities.$className;
             import net.minecraft.client.renderer.entity.EntityRendererProvider;
             import net.minecraft.client.renderer.entity.MobRenderer;
             import net.minecraft.client.model.geom.ModelLayers;
@@ -360,18 +363,18 @@ class CreateEntityCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/forge/src/main/java/com/$modId/client/renderer/forge/${className}Renderer.java")
+        val file = File(projectDir, "shared/forge/src/main/java/com/$sanitizedModId/client/renderer/forge/${className}Renderer.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created Forge renderer: shared/forge/src/main/java/com/$modId/client/renderer/forge/${className}Renderer.java")
+        Logger.info("  ✓ Created Forge renderer: shared/forge/src/main/java/com/$sanitizedModId/client/renderer/forge/${className}Renderer.java")
     }
 
-    private fun generateNeoForgeRenderer(projectDir: File, entityName: String, modId: String) {
+    private fun generateNeoForgeRenderer(projectDir: File, entityName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(entityName)
         val content = """
-            package com.$modId.client.renderer.neoforge;
+            package com.$sanitizedModId.client.renderer.neoforge;
 
-            import com.$modId.entities.$className;
+            import com.$sanitizedModId.entities.$className;
             import net.minecraft.client.renderer.entity.EntityRendererProvider;
             import net.minecraft.client.renderer.entity.MobRenderer;
             import net.minecraft.client.model.geom.ModelLayers;
@@ -397,10 +400,10 @@ class CreateEntityCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/neoforge/src/main/java/com/$modId/client/renderer/neoforge/${className}Renderer.java")
+        val file = File(projectDir, "shared/neoforge/src/main/java/com/$sanitizedModId/client/renderer/neoforge/${className}Renderer.java")
         FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created NeoForge renderer: shared/neoforge/src/main/java/com/$modId/client/renderer/neoforge/${className}Renderer.java")
+        Logger.info("  ✓ Created NeoForge renderer: shared/neoforge/src/main/java/com/$sanitizedModId/client/renderer/neoforge/${className}Renderer.java")
     }
 
     private fun generateEntityModel(projectDir: File, entityName: String, modId: String) {
@@ -462,12 +465,12 @@ class CreateEntityCommand : CliktCommand(
         }
     }
 
-    private fun generateSpawnEgg(projectDir: File, entityName: String, modId: String) {
+    private fun generateSpawnEgg(projectDir: File, entityName: String, modId: String, sanitizedModId: String) {
         val className = toClassName(entityName)
 
         // Generate spawn egg item registration
         val itemContent = """
-            package com.$modId.items;
+            package com.$sanitizedModId.items;
 
             /**
              * Spawn egg for $className entity
@@ -486,7 +489,7 @@ class CreateEntityCommand : CliktCommand(
             }
         """.trimIndent()
 
-        val itemFile = File(projectDir, "shared/common/src/main/java/com/$modId/items/${className}SpawnEgg.java")
+        val itemFile = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/items/${className}SpawnEgg.java")
         FileUtil.writeText(itemFile, itemContent)
 
         // Generate item model

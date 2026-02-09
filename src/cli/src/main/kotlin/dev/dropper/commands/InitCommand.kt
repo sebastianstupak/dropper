@@ -8,6 +8,7 @@ import com.github.ajalt.clikt.parameters.options.prompt
 import dev.dropper.config.ModConfig
 import dev.dropper.generator.ProjectGenerator
 import dev.dropper.util.Logger
+import dev.dropper.util.ValidationUtil
 import java.io.File
 
 /**
@@ -55,6 +56,13 @@ class InitCommand : CliktCommand(
         val finalModId = modId ?: projectName.lowercase()
             .replace(" ", "-")
             .replace("_", "-")
+
+        // Validate mod ID
+        val modIdValidation = ValidationUtil.validateModId(finalModId)
+        if (!modIdValidation.isValid) {
+            ValidationUtil.exitWithError(modIdValidation)
+            throw IllegalArgumentException("Invalid mod ID")
+        }
 
         // Parse versions and loaders
         val versionList = versions.split(",").map { it.trim() }
