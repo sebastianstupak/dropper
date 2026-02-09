@@ -1,5 +1,0 @@
-asset_pack:
-  version: "v1"
-  minecraft_versions: [1.20.1]
-  description: "Asset pack for Simple Mod"
-  inherits: null

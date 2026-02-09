@@ -1,7 +1,0 @@
-mod:
-  id: testdevmod
-  name: "Test Dev Mod"
-  version: "1.0.0"
-  description: "E2E test project for dev command"
-  author: "Dropper E2E Test"
-  license: "MIT"

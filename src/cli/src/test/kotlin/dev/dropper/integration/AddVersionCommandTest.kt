@@ -3,7 +3,7 @@ package dev.dropper.integration
 import dev.dropper.commands.AddVersionCommand
 import dev.dropper.commands.CreateItemCommand
 import dev.dropper.config.ModConfig
-import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestProjectContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -16,13 +16,11 @@ import kotlin.test.assertTrue
  */
 class AddVersionCommandTest {
 
-    private lateinit var testProjectDir: File
-    private val originalUserDir = System.getProperty("user.dir")
+    private lateinit var context: TestProjectContext
 
     @BeforeEach
     fun setup() {
-        testProjectDir = File("build/test-add-version/${System.currentTimeMillis()}/test-mod")
-        testProjectDir.mkdirs()
+        context = TestProjectContext.create("test-add-version")
 
         // Create initial project with 1.20.1
         val config = ModConfig(
@@ -36,17 +34,12 @@ class AddVersionCommandTest {
             loaders = listOf("fabric", "neoforge")
         )
 
-        val generator = ProjectGenerator()
-        generator.generate(testProjectDir, config)
-        System.setProperty("user.dir", testProjectDir.absolutePath)
+        context.createProject(config)
     }
 
     @AfterEach
     fun cleanup() {
-        System.setProperty("user.dir", originalUserDir)
-        if (testProjectDir.exists()) {
-            testProjectDir.deleteRecursively()
-        }
+        context.cleanup()
     }
 
     @Test
@@ -57,11 +50,13 @@ class AddVersionCommandTest {
 
         // Add 1.21.1
         println("Adding Minecraft version 1.21.1...")
-        val command = AddVersionCommand()
-        command.parse(arrayOf("1.21.1"))
+        context.withProjectDir {
+            val command = AddVersionCommand()
+            command.parse(arrayOf("1.21.1"))
+        }
 
         // Verify version directory created
-        val versionDir = File(testProjectDir, "versions/1_21_1")
+        val versionDir = context.file("versions/1_21_1")
         assertTrue(versionDir.exists(), "Version directory should be created")
         println("  ✓ Version directory created")
 
@@ -96,10 +91,12 @@ class AddVersionCommandTest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Add 1.21.1 with v2 asset pack
-        val command = AddVersionCommand()
-        command.parse(arrayOf("1.21.1", "--asset-pack", "v2"))
+        context.withProjectDir {
+            val command = AddVersionCommand()
+            command.parse(arrayOf("1.21.1", "--asset-pack", "v2"))
+        }
 
-        val versionConfig = File(testProjectDir, "versions/1_21_1/config.yml")
+        val versionConfig = context.file("versions/1_21_1/config.yml")
         val configContent = versionConfig.readText()
         assertTrue(configContent.contains("asset_pack: \"v2\""), "Config should use v2 asset pack")
 
@@ -114,16 +111,18 @@ class AddVersionCommandTest {
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         // Add 1.21.1 with only fabric
-        val command = AddVersionCommand()
-        command.parse(arrayOf("1.21.1", "--loaders", "fabric"))
+        context.withProjectDir {
+            val command = AddVersionCommand()
+            command.parse(arrayOf("1.21.1", "--loaders", "fabric"))
+        }
 
         // Verify only fabric directory exists
         assertTrue(
-            File(testProjectDir, "versions/1_21_1/fabric").exists(),
+            context.file("versions/1_21_1/fabric").exists(),
             "Fabric directory should exist"
         )
         assertTrue(
-            !File(testProjectDir, "versions/1_21_1/neoforge").exists(),
+            !context.file("versions/1_21_1/neoforge").exists(),
             "NeoForge directory should NOT exist"
         )
 
@@ -139,15 +138,17 @@ class AddVersionCommandTest {
 
         // Add multiple versions
         println("Adding versions 1.20.4, 1.21.1, 1.21.4...")
-        AddVersionCommand().parse(arrayOf("1.20.4"))
-        AddVersionCommand().parse(arrayOf("1.21.1"))
-        AddVersionCommand().parse(arrayOf("1.21.4"))
+        context.withProjectDir {
+            AddVersionCommand().parse(arrayOf("1.20.4"))
+            AddVersionCommand().parse(arrayOf("1.21.1"))
+            AddVersionCommand().parse(arrayOf("1.21.4"))
+        }
 
         // Verify all exist
         val versions = listOf("1_20_1", "1_20_4", "1_21_1", "1_21_4")
         versions.forEach { version ->
             assertTrue(
-                File(testProjectDir, "versions/$version").exists(),
+                context.file("versions/$version").exists(),
                 "Version $version should exist"
             )
             println("  ✓ Version $version added")
@@ -164,22 +165,26 @@ class AddVersionCommandTest {
 
         // Create item in existing version
         println("Creating shared item...")
-        CreateItemCommand().parse(arrayOf("shared_gem"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("shared_gem"))
+        }
 
         // Verify item is in shared/common (version-agnostic)
         assertTrue(
-            File(testProjectDir, "shared/common/src/main/java/com/versiontest/items/SharedGem.java").exists(),
+            context.file("shared/common/src/main/java/com/versiontest/items/SharedGem.java").exists(),
             "Item should be in shared/common"
         )
         println("  ✓ Item created in shared/common")
 
         // Add new version
         println("\nAdding new version 1.21.1...")
-        AddVersionCommand().parse(arrayOf("1.21.1"))
+        context.withProjectDir {
+            AddVersionCommand().parse(arrayOf("1.21.1"))
+        }
 
         // Verify the item model is in shared asset pack (available to all versions)
         assertTrue(
-            File(testProjectDir, "versions/shared/v1/assets/versiontest/models/item/shared_gem.json").exists(),
+            context.file("versions/shared/v1/assets/versiontest/models/item/shared_gem.json").exists(),
             "Item model should be in shared asset pack"
         )
         println("  ✓ Item assets in shared asset pack")
@@ -195,7 +200,9 @@ class AddVersionCommandTest {
         println("║     E2E Test: IntelliJ Compatibility for New Version         ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
-        AddVersionCommand().parse(arrayOf("1.21.1"))
+        context.withProjectDir {
+            AddVersionCommand().parse(arrayOf("1.21.1"))
+        }
 
         // Verify standard Maven/Gradle structure
         val checks = listOf(
@@ -208,7 +215,7 @@ class AddVersionCommandTest {
         )
 
         checks.forEach { (path, description) ->
-            val dir = File(testProjectDir, path)
+            val dir = context.file(path)
             assertTrue(dir.exists(), "$description should exist: $path")
             println("  ✓ $description")
         }

@@ -90,14 +90,46 @@ tasks.test {
     )
 
     // Exclude tests based on system property
-    // On Windows, exclude problematic tests. On Linux/Mac, run all tests.
+    // On Windows, exclude problematic tests that haven't been migrated yet.
+    // On Linux/Mac, run all tests.
+    // Tests using TestProjectContext are safe on all platforms.
     val isWindows = System.getProperty("os.name").lowercase().contains("windows")
 
     if (isWindows) {
-        // On Windows, exclude integration/e2e tests that modify user.dir (causes crashes)
+        // On Windows, exclude integration/e2e tests that still use user.dir modification
+        // NOTE: Tests migrated to TestProjectContext (like AddVersionCommandTest) are safe and NOT excluded
         filter {
-            excludeTestsMatching("dev.dropper.integration.*")
+            // Exclude integration tests that haven't been migrated yet
+            excludeTestsMatching("dev.dropper.integration.AssetPackCommandTest")
+            excludeTestsMatching("dev.dropper.integration.BuildCommandTest")
+            excludeTestsMatching("dev.dropper.integration.CleanCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.CompleteWorkflowTest")
+            excludeTestsMatching("dev.dropper.integration.CreateCommandTest")
+            excludeTestsMatching("dev.dropper.integration.DevCommandTest")
+            excludeTestsMatching("dev.dropper.integration.E2ETest")
+            excludeTestsMatching("dev.dropper.integration.ExportCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.FullCLIBuildTest")
+            excludeTestsMatching("dev.dropper.integration.FullWorkflowTest")
+            excludeTestsMatching("dev.dropper.integration.ImportCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.ListCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.ListCommandBasicTest")
+            excludeTestsMatching("dev.dropper.integration.MigrateCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.MigrateCommandAdvancedE2ETest")
+            excludeTestsMatching("dev.dropper.integration.PackageCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.PackageCommandAdvancedE2ETest")
+            excludeTestsMatching("dev.dropper.integration.RemoveCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.RenameCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.SearchCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.SyncCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.TemplateCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.UpdateCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.ValidateCommandE2ETest")
+            excludeTestsMatching("dev.dropper.integration.CLIWorkflowTest")
+
+            // Exclude command tests
             excludeTestsMatching("dev.dropper.commands.*")
+
+            // Exclude e2e tests
             excludeTestsMatching("dev.dropper.e2e.AssetPackE2ETest")
             excludeTestsMatching("dev.dropper.e2e.ComplexModpackE2ETest")
             excludeTestsMatching("dev.dropper.e2e.DevCommandE2ETest")
