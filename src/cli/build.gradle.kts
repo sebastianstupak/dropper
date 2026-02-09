@@ -74,18 +74,21 @@ graalvmNative {
 fun Test.configureTestTask() {
     useJUnitPlatform()
 
-    // Conservative settings to prevent executor crashes
-    forkEvery = 1  // Fork for each test class
+    // Aggressive resource allocation to prevent executor crashes
+    // Don't fork too often - reuse JVM more
+    forkEvery = 10  // Fork every 10 test classes (reuse JVM)
     maxParallelForks = 1  // No parallel execution
 
-    // Reduce heap size to prevent OOM
-    maxHeapSize = "2g"
-    minHeapSize = "512m"
+    // Increase heap size significantly - tests need lots of memory for file I/O
+    maxHeapSize = "6g"  // Was 4g, then 2g - try 6g
+    minHeapSize = "2g"
 
-    // JVM args for stability
+    // JVM args for stability with more resources
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
-        "-XX:MaxMetaspaceSize=256m",
+        "-XX:MaxMetaspaceSize=1g",  // More metaspace for many classes
+        "-XX:+UseG1GC",  // Better GC for large heaps
+        "-XX:MaxGCPauseMillis=100",  // Limit GC pauses
         "-Dfile.encoding=UTF-8",
         "-Djava.io.tmpdir=${layout.buildDirectory.get().asFile}/tmp"
     )
@@ -154,13 +157,7 @@ val integrationTests2 by tasks.registering(Test::class) {
     }
 
     enabled = !shouldExcludeTests
-
-    // Add delay after previous batch
     mustRunAfter(integrationTests1)
-    doFirst {
-        println("Waiting 5 seconds before starting integration tests batch 2...")
-        Thread.sleep(5000)
-    }
 }
 
 // Integration tests batch 3 - Integration tests N-Z
@@ -181,12 +178,7 @@ val integrationTests3 by tasks.registering(Test::class) {
     }
 
     enabled = !shouldExcludeTests
-
     mustRunAfter(integrationTests2)
-    doFirst {
-        println("Waiting 5 seconds before starting integration tests batch 3...")
-        Thread.sleep(5000)
-    }
 }
 
 // E2E tests - Small focused tests
@@ -198,12 +190,7 @@ val e2eTests by tasks.registering(Test::class) {
     }
 
     enabled = !shouldExcludeTests
-
     mustRunAfter(integrationTests3)
-    doFirst {
-        println("Waiting 5 seconds before starting E2E tests...")
-        Thread.sleep(5000)
-    }
 }
 
 // Aggregate task to run all tests sequentially with delays
