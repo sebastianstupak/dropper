@@ -1,8 +1,8 @@
 package dev.dropper.commands.list
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.commands.DropperCommand
 import dev.dropper.indexer.*
 import dev.dropper.util.FileUtil
 import dev.dropper.util.Logger
@@ -11,7 +11,7 @@ import java.io.File
 /**
  * List all components in the project
  */
-class ListAllCommand : CliktCommand(
+class ListAllCommand : DropperCommand(
     name = "all",
     help = "List all components (complete inventory)"
 ) {
@@ -22,8 +22,7 @@ class ListAllCommand : CliktCommand(
     private val export by option("--export", "-e", help = "Export to file")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")
@@ -95,7 +94,7 @@ class ListAllCommand : CliktCommand(
             FileUtil.writeText(exportFile, output.toString())
             Logger.success("Exported complete inventory to ${exportFile.absolutePath}")
         } else {
-            echo(output.toString())
+            println(output.toString())
         }
     }
 

@@ -150,7 +150,7 @@ abstract class GenerateMetadataTask : DefaultTask() {
             "license" to config.mod.license,
             "environment" to "*",
             "entrypoints" to mapOf(
-                "main" to listOf("com.$basePackage.fabric.$mainClass")
+                "main" to listOf("com.$basePackage.platform.fabric.$mainClass")
             ),
             "depends" to mapOf(
                 "fabricloader" to ">=${versionCfg.fabric_loader_version}",

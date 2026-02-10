@@ -1118,19 +1118,17 @@ class PackageCommandE2ETest {
     // =================================================================
 
     @Test
-    fun `package universal throws not implemented error`() {
+    fun `package universal shows not implemented message gracefully`() {
         println("\n╔═══════════════════════════════════════════════════════════════╗")
         println("║     Test 45: Universal Package Not Implemented              ║")
         println("╚═══════════════════════════════════════════════════════════════╝\n")
 
         val command = PackageUniversalCommand()
 
-        // Should throw error
-        assertThrows<UnsupportedOperationException> {
-            command.parse(emptyArray())
-        }
+        // Should not throw - now exits gracefully with error message
+        command.parse(emptyArray())
 
-        println("✓ Universal package correctly throws not implemented error")
+        println("✓ Universal package gracefully shows not implemented message")
     }
 
     @Test

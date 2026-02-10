@@ -28,6 +28,7 @@ class ExportResourcepackCommand : DropperCommand(
         Logger.info("Exporting resource pack...")
 
         val exporter = ResourcepackExporter()
+        packFormat?.let { exporter.packFormat = it.toIntOrNull() }
         val outputFile = exporter.export(projectDir, "v1", File(output))
 
         if (outputFile != null) {

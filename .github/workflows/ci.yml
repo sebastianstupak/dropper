@@ -62,12 +62,12 @@ jobs:
             src/cli/build/reports/tests/test/**
           retention-days: 7
 
-  # Job 2: Command Tests - Linux only (tests CLI commands)
-  command-tests:
-    name: Command Tests - Linux
+  # Job 2: Integration & E2E Tests - Linux only (all test batches)
+  integration-tests:
+    name: Integration & E2E Tests - Linux
     runs-on: ubuntu-latest
     needs: [unit-tests]
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -83,8 +83,26 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Run command tests
-        run: ./gradlew :src:cli:integrationTests1 --no-daemon --stacktrace
+      - name: Run integration tests batch 1 (command tests)
+        run: ./gradlew :src:cli:integrationTests1 -PforceTests=true -PrunIntegrationTests=true --no-daemon --stacktrace
+        env:
+          DROPPER_TEST_ENV: linux
+          RUNNER_TEMP: ${{ runner.temp }}
+
+      - name: Run integration tests batch 2
+        run: ./gradlew :src:cli:integrationTests2 -PforceTests=true -PrunIntegrationTests=true --no-daemon --stacktrace
+        env:
+          DROPPER_TEST_ENV: linux
+          RUNNER_TEMP: ${{ runner.temp }}
+
+      - name: Run integration tests batch 3
+        run: ./gradlew :src:cli:integrationTests3 -PforceTests=true -PrunIntegrationTests=true --no-daemon --stacktrace
+        env:
+          DROPPER_TEST_ENV: linux
+          RUNNER_TEMP: ${{ runner.temp }}
+
+      - name: Run E2E tests
+        run: ./gradlew :src:cli:e2eTests -PforceTests=true -PrunIntegrationTests=true --no-daemon --stacktrace
         env:
           DROPPER_TEST_ENV: linux
           RUNNER_TEMP: ${{ runner.temp }}
@@ -93,7 +111,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: command-test-results
+          name: integration-test-results
           path: |
             src/cli/build/test-results/**/*.xml
             src/cli/build/reports/tests/**
@@ -103,7 +121,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: command-test-html-reports
+          name: integration-test-html-reports
           path: src/cli/build/reports/tests/**/*.html
           retention-days: 30
 
@@ -175,7 +193,7 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [unit-tests, command-tests, build-cli, code-quality]
+    needs: [unit-tests, integration-tests, build-cli, code-quality]
     if: always()
     timeout-minutes: 5
 
@@ -205,10 +223,10 @@ jobs:
             echo "❌ Unit tests failed" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.command-tests.result }}" == "success" ]; then
-            echo "✅ Command tests passed" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.integration-tests.result }}" == "success" ]; then
+            echo "✅ Integration & E2E tests passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Command tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Integration & E2E tests failed" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ "${{ needs.build-cli.result }}" == "success" ]; then
@@ -226,7 +244,7 @@ jobs:
       - name: Fail if any job failed
         if: |
           needs.unit-tests.result == 'failure' ||
-          needs.command-tests.result == 'failure' ||
+          needs.integration-tests.result == 'failure' ||
           needs.build-cli.result == 'failure' ||
           needs.code-quality.result == 'failure'
         run: exit 1

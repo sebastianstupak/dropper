@@ -140,14 +140,14 @@ class CompleteWorkflowTest {
             "shared/neoforge should have src/main/java/com/mymod/platform"
         )
 
-        // Verify generated files exist
+        // Verify per-loader entry points exist instead of Services/PlatformHelper
         assertTrue(
-            context.file("shared/common/src/main/java/com/mymod/Services.java").exists(),
-            "Services.java should be generated"
+            context.file("shared/fabric/src/main/java/com/mymod/platform").exists(),
+            "Fabric platform directory should exist"
         )
         assertTrue(
-            context.file("shared/common/src/main/java/com/mymod/platform/PlatformHelper.java").exists(),
-            "PlatformHelper.java should be generated"
+            context.file("shared/neoforge/src/main/java/com/mymod/platform").exists(),
+            "NeoForge platform directory should exist"
         )
 
         // Verify versions directory
@@ -240,15 +240,9 @@ class CompleteWorkflowTest {
         val itemFile = context.file("shared/common/src/main/java/com/multiversion/items/SharedItem.java")
         assertTrue(itemFile.exists(), "Item should be in shared/common")
 
-        // Verify loader registrations exist for all loaders
-        val loaders = listOf("fabric", "forge", "neoforge")
-        loaders.forEach { loader ->
-            val regFile = File(
-                context.projectDir,
-                "shared/$loader/src/main/java/com/multiversion/platform/$loader/SharedItem${loader.capitalize()}.java"
-            )
-            assertTrue(regFile.exists(), "$loader registration should exist")
-        }
+        // Verify registry file exists in common (Architectury)
+        val registryFile = context.file("shared/common/src/main/java/com/multiversion/registry/ModItems.java")
+        assertTrue(registryFile.exists(), "ModItems registry should exist in shared/common")
 
         // Verify assets are in shared v1 (version-agnostic)
         val modelFile = context.file("versions/shared/v1/assets/multiversion/models/item/shared_item.json")
@@ -337,14 +331,11 @@ class CompleteWorkflowTest {
             "$className should exist in shared/common"
         )
 
-        // Loader registrations
-        listOf("fabric", "forge", "neoforge").forEach { loader ->
-            val loaderClass = "${className}${loader.capitalize()}"
-            assertTrue(
-                context.file("shared/$loader/src/main/java/com/testmod/platform/$loader/$loaderClass.java").exists(),
-                "$loaderClass should exist in shared/$loader"
-            )
-        }
+        // Registry file (Architectury: single registry in common)
+        assertTrue(
+            context.file("shared/common/src/main/java/com/testmod/registry/ModItems.java").exists(),
+            "ModItems registry should exist in shared/common"
+        )
 
         // Assets
         assertTrue(
@@ -360,14 +351,11 @@ class CompleteWorkflowTest {
             "$className should exist in shared/common"
         )
 
-        // Loader registrations
-        listOf("fabric", "forge", "neoforge").forEach { loader ->
-            val loaderClass = "${className}${loader.capitalize()}"
-            assertTrue(
-                context.file("shared/$loader/src/main/java/com/testmod/platform/$loader/$loaderClass.java").exists(),
-                "$loaderClass should exist in shared/$loader"
-            )
-        }
+        // Registry file (Architectury: single registry in common)
+        assertTrue(
+            context.file("shared/common/src/main/java/com/testmod/registry/ModBlocks.java").exists(),
+            "ModBlocks registry should exist in shared/common"
+        )
 
         // Assets
         assertTrue(

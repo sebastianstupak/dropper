@@ -1,7 +1,6 @@
 package dev.dropper.packagers
 
 import com.google.gson.GsonBuilder
-import dev.dropper.util.FileUtil
 import dev.dropper.util.Logger
 import java.io.File
 import java.io.FileOutputStream
@@ -23,9 +22,16 @@ class ModrinthPackager : Packager {
 
         ZipOutputStream(FileOutputStream(zipFile)).use { zip ->
             // Add all JAR files
+            val buildDir = File(projectDir, "build")
             val jars = collectJars(projectDir, options)
             jars.forEach { jar ->
-                addFileToZip(zip, jar, jar.name)
+                // Use relative path from build dir to avoid duplicate entries across versions
+                val entryName = if (buildDir.exists() && jar.startsWith(buildDir)) {
+                    jar.relativeTo(buildDir).path.replace('\\', '/')
+                } else {
+                    jar.name
+                }
+                addFileToZip(zip, jar, entryName)
             }
 
             // Add metadata
@@ -45,12 +51,6 @@ class ModrinthPackager : Packager {
                 addFileToZip(zip, changelog, "CHANGELOG.md")
             }
 
-            // Add LICENSE if exists
-            val license = File(projectDir, "LICENSE")
-            if (license.exists()) {
-                addFileToZip(zip, license, "LICENSE")
-            }
-
             // Add icon if exists
             val icon = findIcon(projectDir)
             if (icon != null) {
@@ -61,7 +61,12 @@ class ModrinthPackager : Packager {
             if (options.includeSources) {
                 val sourceJars = collectJars(projectDir, options, "-sources.jar")
                 sourceJars.forEach { jar ->
-                    addFileToZip(zip, jar, jar.name)
+                    val entryName = if (buildDir.exists() && jar.startsWith(buildDir)) {
+                        jar.relativeTo(buildDir).path.replace('\\', '/')
+                    } else {
+                        jar.name
+                    }
+                    addFileToZip(zip, jar, entryName)
                 }
             }
 
@@ -69,7 +74,12 @@ class ModrinthPackager : Packager {
             if (options.includeJavadoc) {
                 val javadocJars = collectJars(projectDir, options, "-javadoc.jar")
                 javadocJars.forEach { jar ->
-                    addFileToZip(zip, jar, jar.name)
+                    val entryName = if (buildDir.exists() && jar.startsWith(buildDir)) {
+                        jar.relativeTo(buildDir).path.replace('\\', '/')
+                    } else {
+                        jar.name
+                    }
+                    addFileToZip(zip, jar, entryName)
                 }
             }
         }
@@ -104,17 +114,24 @@ class ModrinthPackager : Packager {
         }
 
         val jars = mutableListOf<File>()
+        val isDefaultSuffix = suffix == ".jar"
 
         // Scan build directory for JARs
         buildDir.walkTopDown().forEach { file ->
             if (file.isFile && file.name.endsWith(suffix) && !file.name.contains("-dev") && !file.name.contains("-shadow")) {
+                // When collecting regular JARs, exclude sources and javadoc
+                if (isDefaultSuffix && (file.name.contains("-sources.jar") || file.name.contains("-javadoc.jar"))) {
+                    return@forEach
+                }
+
                 // Filter by version if specified
                 val includeByVersion = options.versions.isEmpty() ||
                     options.versions.any { file.absolutePath.contains(it.replace(".", "_")) }
 
-                // Filter by loader if specified
+                // Filter by loader if specified (use path separator matching to avoid "forge" matching "neoforge")
+                val normalizedPath = file.absolutePath.replace('\\', '/')
                 val includeByLoader = options.loaders.isEmpty() ||
-                    options.loaders.any { file.absolutePath.contains(it) }
+                    options.loaders.any { loader -> normalizedPath.contains("/$loader/") || normalizedPath.contains("/$loader-") }
 
                 if (includeByVersion && includeByLoader) {
                     jars.add(file)

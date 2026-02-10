@@ -19,6 +19,9 @@ object DependencyAnalyzer {
         recipeDir.walkTopDown()
             .filter { it.isFile && it.extension == "json" }
             .forEach { recipeFile ->
+                // Skip the component's own recipe (self-reference)
+                if (recipeFile.nameWithoutExtension == componentId) return@forEach
+
                 val content = recipeFile.readText()
                 if (content.contains("\"$modId:$componentId\"") ||
                     content.contains("\"item\": \"$modId:$componentId\"") ||
@@ -68,7 +71,7 @@ object DependencyAnalyzer {
      */
     fun findLootTableReferences(projectDir: File, componentId: String, modId: String): List<Dependency> {
         val dependencies = mutableListOf<Dependency>()
-        val lootTableDir = File(projectDir, "versions/shared/v1/data/$modId/loot_table")
+        val lootTableDir = File(projectDir, "versions/shared/v1/data/$modId/loot_tables")
 
         if (!lootTableDir.exists()) return dependencies
 

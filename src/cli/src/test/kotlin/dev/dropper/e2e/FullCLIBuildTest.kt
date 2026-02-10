@@ -5,6 +5,7 @@ import dev.dropper.commands.util.GradleRunner
 import dev.dropper.config.ModConfig
 import dev.dropper.generator.ProjectGenerator
 import dev.dropper.util.TestProjectContext
+import dev.dropper.util.TestValidationUtils
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Assumptions.*
@@ -299,5 +300,90 @@ class FullCLIBuildTest {
         }
 
         println("\n✅ All required Gradle tasks are available!")
+    }
+
+    @Test
+    fun `verify build system files have proper Architectury Loom configuration`() {
+        println("\n╔═══════════════════════════════════════════════════════════════╗")
+        println("║     Test: Build System Architectury Loom Configuration      ║")
+        println("╚═══════════════════════════════════════════════════════════════╝\n")
+
+        // Create project
+        val config = ModConfig(
+            id = "testdevmod",
+            name = "Test Dev Mod",
+            version = "1.0.0",
+            description = "E2E test project for build system verification",
+            author = "Dropper E2E Test",
+            license = "MIT",
+            minecraftVersions = listOf("1.20.1", "1.21.1"),
+            loaders = listOf("fabric", "neoforge")
+        )
+
+        context.createProject(config)
+
+        // Verify root build.gradle.kts
+        val rootBuildGradle = File(context.projectDir, "build.gradle.kts").readText()
+        assertTrue(rootBuildGradle.contains("plugins"), "Root build.gradle.kts should have plugins block")
+        assertTrue(
+            rootBuildGradle.contains("maven.architectury.dev"),
+            "Root build.gradle.kts should reference Architectury Maven repository"
+        )
+
+        // Verify settings.gradle.kts
+        val settingsGradle = File(context.projectDir, "settings.gradle.kts").readText()
+        assertTrue(settingsGradle.contains("rootProject.name"), "settings.gradle.kts should set rootProject.name")
+        assertTrue(settingsGradle.contains("include("), "settings.gradle.kts should include subprojects")
+        assertTrue(
+            settingsGradle.contains("versions") || settingsGradle.contains("versionsDir"),
+            "settings.gradle.kts should reference versions directory for subproject discovery"
+        )
+
+        // Verify build-logic has Architectury Loom dependency
+        val buildLogicFile = File(context.projectDir, "build-logic/build.gradle.kts")
+        assertTrue(buildLogicFile.exists(), "build-logic/build.gradle.kts should exist")
+        val buildLogicContent = buildLogicFile.readText()
+        assertTrue(
+            buildLogicContent.contains("architectury-loom"),
+            "build-logic should depend on Architectury Loom"
+        )
+
+        // Verify version directories were created for both versions
+        assertTrue(
+            File(context.projectDir, "versions/1_20_1").exists(),
+            "1_20_1 version directory should exist"
+        )
+        assertTrue(
+            File(context.projectDir, "versions/1_21_1").exists(),
+            "1_21_1 version directory should exist"
+        )
+
+        println("Build system Architectury Loom configuration verified successfully.")
+    }
+
+    @Test
+    fun `verify all generated code passes syntax validation`() {
+        println("\n╔═══════════════════════════════════════════════════════════════╗")
+        println("║     Test: Generated Code Syntax Validation                  ║")
+        println("╚═══════════════════════════════════════════════════════════════╝\n")
+
+        val config = ModConfig(
+            id = "syntaxmod",
+            name = "Syntax Mod",
+            version = "1.0.0",
+            description = "Syntax validation test",
+            author = "Test",
+            license = "MIT",
+            minecraftVersions = listOf("1.20.1"),
+            loaders = listOf("fabric", "forge", "neoforge")
+        )
+
+        context.createProject(config)
+
+        // Validate all generated Java files
+        val javaCount = TestValidationUtils.validateAllJavaFiles(context.projectDir)
+        assertTrue(javaCount >= 1, "Should have at least 1 Java file (SyntaxMod)")
+
+        println("Validated $javaCount Java files - all pass syntax checks.")
     }
 }

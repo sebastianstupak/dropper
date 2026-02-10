@@ -44,13 +44,9 @@ class CreateEntityCommandTest {
         // Verify entity files exist
         assertEntityFilesExist(entityName, listOf(
             "shared/common/src/main/java/com/testmod/entities/TestMob.java",
-            "shared/fabric/src/main/java/com/testmod/platform/fabric/TestMobFabric.java",
-            "shared/forge/src/main/java/com/testmod/platform/forge/TestMobForge.java",
-            "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestMobNeoForge.java",
-            "shared/fabric/src/main/java/com/testmod/client/renderer/fabric/TestMobRenderer.java",
-            "shared/forge/src/main/java/com/testmod/client/renderer/forge/TestMobRenderer.java",
-            "shared/neoforge/src/main/java/com/testmod/client/renderer/neoforge/TestMobRenderer.java",
-            "versions/shared/v1/assets/testmod/models/entity/test_mob.json",
+            "shared/common/src/main/java/com/testmod/registry/ModEntities.java",
+            "shared/common/src/main/java/com/testmod/client/renderer/TestMobRenderer.java",
+            "shared/common/src/main/java/com/testmod/client/model/TestMobModel.java",
             "versions/shared/v1/assets/testmod/textures/entity/test_mob.png",
             "shared/common/src/main/java/com/testmod/items/TestMobSpawnEgg.java",
             "versions/shared/v1/assets/testmod/models/item/test_mob_spawn_egg.json",
@@ -58,27 +54,20 @@ class CreateEntityCommandTest {
             "versions/shared/v1/assets/testmod/lang/en_us.json"
         ))
 
+        // Verify no Bedrock JSON model is generated
+        val bedrockModelFile = File(context.projectDir, "versions/shared/v1/assets/testmod/models/entity/test_mob.json")
+        assertFalse(bedrockModelFile.exists(), "Bedrock JSON model should not be generated for Java Edition entities")
+
         // Verify entity class content
         val entityClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/entities/TestMob.java"))
         assertTrue(entityClass.contains("package com.testmod.entities;"))
         assertTrue(entityClass.contains("public class TestMob"))
         assertTrue(entityClass.contains("public static final String ID = \"test_mob\";"))
-        assertTrue(entityClass.contains("PathAwareEntity"))
+        assertTrue(entityClass.contains("PathfinderMob"))
 
-        // Verify Fabric registration
-        val fabricEntity = FileUtil.readText(File(context.projectDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/TestMobFabric.java"))
-        assertTrue(fabricEntity.contains("FabricEntityTypeBuilder"))
-        assertTrue(fabricEntity.contains("SpawnGroup.CREATURE"))
-
-        // Verify Forge registration
-        val forgeEntity = FileUtil.readText(File(context.projectDir, "shared/forge/src/main/java/com/testmod/platform/forge/TestMobForge.java"))
-        assertTrue(forgeEntity.contains("DeferredRegister"))
-        assertTrue(forgeEntity.contains("MobCategory.CREATURE"))
-
-        // Verify NeoForge registration
-        val neoforgeEntity = FileUtil.readText(File(context.projectDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestMobNeoForge.java"))
-        assertTrue(neoforgeEntity.contains("DeferredRegister"))
-        assertTrue(neoforgeEntity.contains("DeferredHolder"))
+        // Verify registry file exists
+        val registryFile = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/registry/ModEntities.java"))
+        assertTrue(registryFile.contains("test_mob"))
     }
 
     @Test
@@ -89,15 +78,21 @@ class CreateEntityCommandTest {
 
         assertEntityFilesExist(entityName, listOf(
             "shared/common/src/main/java/com/testmod/entities/CustomCow.java",
-            "versions/shared/v1/assets/testmod/models/entity/custom_cow.json",
+            "shared/common/src/main/java/com/testmod/client/model/CustomCowModel.java",
             "versions/shared/v1/assets/testmod/textures/entity/custom_cow.png"
         ))
 
-        // Verify entity class mentions AnimalEntity
+        // Verify no Bedrock JSON model
+        val bedrockModelFile = File(context.projectDir, "versions/shared/v1/assets/testmod/models/entity/custom_cow.json")
+        assertFalse(bedrockModelFile.exists(), "Bedrock JSON model should not be generated")
+
+        // Verify entity class uses Animal and getBreedOffspring
         val entityClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/entities/CustomCow.java"))
-        assertTrue(entityClass.contains("AnimalEntity"))
-        assertTrue(entityClass.contains("PassiveEntity"))
-        assertTrue(entityClass.contains("createChild"))
+        assertTrue(entityClass.contains("Animal"))
+        assertTrue(entityClass.contains("getBreedOffspring"))
+        assertTrue(entityClass.contains("AgeableMob"))
+        assertFalse(entityClass.contains("PassiveEntity"), "Should not use Fabric-mapped PassiveEntity")
+        assertFalse(entityClass.contains("createChild"), "Should use getBreedOffspring instead of createChild")
     }
 
     @Test
@@ -108,13 +103,17 @@ class CreateEntityCommandTest {
 
         assertEntityFilesExist(entityName, listOf(
             "shared/common/src/main/java/com/testmod/entities/FireDemon.java",
-            "versions/shared/v1/assets/testmod/models/entity/fire_demon.json",
+            "shared/common/src/main/java/com/testmod/client/model/FireDemonModel.java",
             "versions/shared/v1/assets/testmod/textures/entity/fire_demon.png"
         ))
 
-        // Verify entity class mentions HostileEntity
+        // Verify no Bedrock JSON model
+        val bedrockModelFile = File(context.projectDir, "versions/shared/v1/assets/testmod/models/entity/fire_demon.json")
+        assertFalse(bedrockModelFile.exists(), "Bedrock JSON model should not be generated")
+
+        // Verify entity class mentions Monster
         val entityClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/entities/FireDemon.java"))
-        assertTrue(entityClass.contains("HostileEntity"))
+        assertTrue(entityClass.contains("Monster"))
         assertTrue(entityClass.contains("Entity type: monster"))
     }
 
@@ -126,13 +125,18 @@ class CreateEntityCommandTest {
 
         assertEntityFilesExist(entityName, listOf(
             "shared/common/src/main/java/com/testmod/entities/CustomVillager.java",
-            "versions/shared/v1/assets/testmod/models/entity/custom_villager.json",
+            "shared/common/src/main/java/com/testmod/client/model/CustomVillagerModel.java",
             "versions/shared/v1/assets/testmod/textures/entity/custom_villager.png"
         ))
 
-        // Verify entity class mentions VillagerEntity
+        // Verify no Bedrock JSON model
+        val bedrockModelFile = File(context.projectDir, "versions/shared/v1/assets/testmod/models/entity/custom_villager.json")
+        assertFalse(bedrockModelFile.exists(), "Bedrock JSON model should not be generated")
+
+        // Verify entity class uses AbstractVillager (not VillagerEntity)
         val entityClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/entities/CustomVillager.java"))
-        assertTrue(entityClass.contains("VillagerEntity"))
+        assertTrue(entityClass.contains("AbstractVillager"))
+        assertFalse(entityClass.contains("VillagerEntity"), "Should use AbstractVillager instead of VillagerEntity")
     }
 
     @Test
@@ -143,19 +147,20 @@ class CreateEntityCommandTest {
 
         assertEntityFilesExist(entityName, listOf(
             "shared/common/src/main/java/com/testmod/entities/MagicBolt.java",
-            "shared/fabric/src/main/java/com/testmod/platform/fabric/MagicBoltFabric.java",
-            "shared/forge/src/main/java/com/testmod/platform/forge/MagicBoltForge.java",
-            "shared/neoforge/src/main/java/com/testmod/platform/neoforge/MagicBoltNeoForge.java"
+            "shared/common/src/main/java/com/testmod/registry/ModEntities.java"
         ))
 
-        // Verify entity class mentions ProjectileEntity
+        // Verify entity class mentions ThrowableProjectile (Mojang mapping)
         val entityClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/entities/MagicBolt.java"))
-        assertTrue(entityClass.contains("ProjectileEntity"))
+        assertTrue(entityClass.contains("ThrowableProjectile"))
         assertTrue(entityClass.contains("onCollision"))
 
-        // Verify no model is generated for projectiles
+        // Verify no model is generated for projectiles (neither JSON nor Java)
         val modelFile = File(context.projectDir, "versions/shared/v1/assets/testmod/models/entity/magic_bolt.json")
         assertFalse(modelFile.exists(), "Projectile should not have a model file")
+
+        val commonModelFile = File(context.projectDir, "shared/common/src/main/java/com/testmod/client/model/MagicBoltModel.java")
+        assertFalse(commonModelFile.exists(), "Projectile should not have a Java model class")
     }
 
     @Test
@@ -181,50 +186,42 @@ class CreateEntityCommandTest {
     }
 
     @Test
-    fun `test all loader-specific renderer files created`() {
+    fun `test common renderer file created`() {
         val entityName = "test_mob"
 
         executeEntityCommand(entityName, "mob")
 
-        // Check Fabric renderer
-        val fabricRenderer = File(context.projectDir, "shared/fabric/src/main/java/com/testmod/client/renderer/fabric/TestMobRenderer.java")
-        assertTrue(fabricRenderer.exists())
-        val fabricContent = FileUtil.readText(fabricRenderer)
-        assertTrue(fabricContent.contains("MobEntityRenderer"))
-        assertTrue(fabricContent.contains("EntityRendererFactory.Context"))
-        assertTrue(fabricContent.contains("textures/entity/test_mob.png"))
-
-        // Check Forge renderer
-        val forgeRenderer = File(context.projectDir, "shared/forge/src/main/java/com/testmod/client/renderer/forge/TestMobRenderer.java")
-        assertTrue(forgeRenderer.exists())
-        val forgeContent = FileUtil.readText(forgeRenderer)
-        assertTrue(forgeContent.contains("MobRenderer"))
-        assertTrue(forgeContent.contains("EntityRendererProvider.Context"))
-        assertTrue(forgeContent.contains("ResourceLocation"))
-
-        // Check NeoForge renderer
-        val neoforgeRenderer = File(context.projectDir, "shared/neoforge/src/main/java/com/testmod/client/renderer/neoforge/TestMobRenderer.java")
-        assertTrue(neoforgeRenderer.exists())
-        val neoforgeContent = FileUtil.readText(neoforgeRenderer)
-        assertTrue(neoforgeContent.contains("MobRenderer"))
-        assertTrue(neoforgeContent.contains("ResourceLocation"))
+        // Check common renderer (Architectury uses Mojang mappings in shared/common)
+        val commonRenderer = File(context.projectDir, "shared/common/src/main/java/com/testmod/client/renderer/TestMobRenderer.java")
+        assertTrue(commonRenderer.exists())
+        val content = FileUtil.readText(commonRenderer)
+        assertTrue(content.contains("MobRenderer"))
+        assertTrue(content.contains("EntityRendererProvider.Context"))
+        assertTrue(content.contains("textures/entity/test_mob.png"))
+        assertTrue(content.contains("import com.testmod.client.model.TestMobModel;"), "Renderer should import model from common package")
     }
 
     @Test
-    fun `test entity model generation for mobs`() {
+    fun `test entity model Java class generated for mobs in common`() {
         val entityName = "zombie_guard"
 
         executeEntityCommand(entityName, "mob")
 
-        val modelFile = File(context.projectDir, "versions/shared/v1/assets/testmod/models/entity/zombie_guard.json")
-        assertTrue(modelFile.exists())
+        // Verify no Bedrock JSON model
+        val bedrockModelFile = File(context.projectDir, "versions/shared/v1/assets/testmod/models/entity/zombie_guard.json")
+        assertFalse(bedrockModelFile.exists(), "Should not generate Bedrock JSON model")
 
-        val modelContent = FileUtil.readText(modelFile)
-        assertTrue(modelContent.contains("\"format_version\": \"1.12.0\""))
-        assertTrue(modelContent.contains("\"minecraft:geometry\""))
-        assertTrue(modelContent.contains("\"identifier\": \"geometry.testmod.zombie_guard\""))
-        assertTrue(modelContent.contains("\"head\""))
-        assertTrue(modelContent.contains("\"body\""))
+        // Verify common model class (Mojang mappings via Architectury)
+        val commonModel = File(context.projectDir, "shared/common/src/main/java/com/testmod/client/model/ZombieGuardModel.java")
+        assertTrue(commonModel.exists(), "Common model class should exist")
+        val commonContent = FileUtil.readText(commonModel)
+        assertTrue(commonContent.contains("package com.testmod.client.model;"))
+        assertTrue(commonContent.contains("extends EntityModel<ZombieGuard>"))
+        assertTrue(commonContent.contains("setupAnim"), "Common model should use Mojang-mapped setupAnim method")
+        assertTrue(commonContent.contains("PoseStack"), "Common model should use Mojang-mapped PoseStack")
+        assertTrue(commonContent.contains("renderToBuffer"), "Common model should use Mojang-mapped renderToBuffer method")
+        assertTrue(commonContent.contains("VertexConsumer"))
+        assertTrue(commonContent.contains("ModelPart"))
     }
 
     @Test
@@ -320,11 +317,11 @@ class CreateEntityCommandTest {
     @Test
     fun `test all entity types have correct base class suggestions`() {
         val testCases = mapOf(
-            "mob" to ("test_mob_entity" to "PathAwareEntity"),
-            "animal" to ("test_animal_entity" to "AnimalEntity"),
-            "monster" to ("test_monster_entity" to "HostileEntity"),
-            "villager" to ("test_villager_entity" to "VillagerEntity"),
-            "projectile" to ("test_projectile_entity" to "ProjectileEntity")
+            "mob" to ("test_mob_entity" to "PathfinderMob"),
+            "animal" to ("test_animal_entity" to "Animal"),
+            "monster" to ("test_monster_entity" to "Monster"),
+            "villager" to ("test_villager_entity" to "AbstractVillager"),
+            "projectile" to ("test_projectile_entity" to "ThrowableProjectile")
         )
 
         testCases.forEach { (type, pair) ->
@@ -345,63 +342,36 @@ class CreateEntityCommandTest {
     }
 
     @Test
-    fun `test fabric entity dimensions and tracking`() {
+    fun `test entity registry has dimensions and tracking`() {
         val entityName = "test_entity"
 
         executeEntityCommand(entityName, "mob")
 
-        val fabricEntity = FileUtil.readText(File(context.projectDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/TestEntityFabric.java"))
-        assertTrue(fabricEntity.contains("dimensions(EntityDimensions.fixed(0.6f, 1.8f))"))
-        assertTrue(fabricEntity.contains("trackRangeChunks(8)"))
-        assertTrue(fabricEntity.contains("trackedUpdateRate(3)"))
+        val registryFile = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/registry/ModEntities.java"))
+        assertTrue(registryFile.contains("sized(0.6f, 1.8f)"))
+        assertTrue(registryFile.contains("clientTrackingRange(8)"))
     }
 
     @Test
-    fun `test forge entity builder configuration`() {
-        val entityName = "test_entity"
-
-        executeEntityCommand(entityName, "mob")
-
-        val forgeEntity = FileUtil.readText(File(context.projectDir, "shared/forge/src/main/java/com/testmod/platform/forge/TestEntityForge.java"))
-        assertTrue(forgeEntity.contains("EntityType.Builder.of"))
-        assertTrue(forgeEntity.contains("sized(0.6f, 1.8f)"))
-        assertTrue(forgeEntity.contains("clientTrackingRange(8)"))
-        assertTrue(forgeEntity.contains("updateInterval(3)"))
-        assertTrue(forgeEntity.contains("registerAttributes"))
-    }
-
-    @Test
-    fun `test neoforge entity registration pattern`() {
-        val entityName = "test_entity"
-
-        executeEntityCommand(entityName, "mob")
-
-        val neoforgeEntity = FileUtil.readText(File(context.projectDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestEntityNeoForge.java"))
-        assertTrue(neoforgeEntity.contains("DeferredRegister.create(Registries.ENTITY_TYPE"))
-        assertTrue(neoforgeEntity.contains("DeferredHolder<EntityType<?>, EntityType<"))
-        assertTrue(neoforgeEntity.contains("registerAttributes"))
-    }
-
-    @Test
-    fun `test entity model JSON structure`() {
+    fun `test entity model class structure in common`() {
         val entityName = "knight"
 
         executeEntityCommand(entityName, "mob")
 
-        val modelFile = File(context.projectDir, "versions/shared/v1/assets/testmod/models/entity/knight.json")
-        val modelContent = FileUtil.readText(modelFile)
+        // Verify no Bedrock JSON model exists
+        val bedrockModel = File(context.projectDir, "versions/shared/v1/assets/testmod/models/entity/knight.json")
+        assertFalse(bedrockModel.exists(), "Should not generate Bedrock JSON model")
 
-        // Verify JSON structure
-        assertTrue(modelContent.contains("\"format_version\""))
-        assertTrue(modelContent.contains("\"minecraft:geometry\""))
-        assertTrue(modelContent.contains("\"description\""))
-        assertTrue(modelContent.contains("\"texture_width\": 64"))
-        assertTrue(modelContent.contains("\"texture_height\": 64"))
-        assertTrue(modelContent.contains("\"bones\""))
-        assertTrue(modelContent.contains("\"head\""))
-        assertTrue(modelContent.contains("\"body\""))
-        assertTrue(modelContent.contains("\"pivot\""))
-        assertTrue(modelContent.contains("\"cubes\""))
+        // Verify common model uses Mojang mappings (Architectury)
+        val commonModel = File(context.projectDir, "shared/common/src/main/java/com/testmod/client/model/KnightModel.java")
+        assertTrue(commonModel.exists(), "Common model class should exist")
+        val commonContent = FileUtil.readText(commonModel)
+        assertTrue(commonContent.contains("EntityModel<Knight>"))
+        assertTrue(commonContent.contains("setupAnim"))
+        assertTrue(commonContent.contains("PoseStack"))
+        assertTrue(commonContent.contains("renderToBuffer"))
+        assertFalse(commonContent.contains("MatrixStack"), "Common model should not use Yarn-mapped MatrixStack")
+        assertFalse(commonContent.contains("setAngles"), "Common model should not use Yarn-mapped setAngles")
     }
 
     // Helper methods

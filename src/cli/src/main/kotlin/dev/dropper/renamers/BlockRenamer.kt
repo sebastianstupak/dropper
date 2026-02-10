@@ -18,7 +18,8 @@ class BlockRenamer : ComponentRenamer {
 
         // Loader-specific registration files
         listOf("fabric", "forge", "neoforge").forEach { loader ->
-            val loaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${oldClassName}${loader.capitalize()}.java")
+            val loaderSuffix = RenamerUtil.loaderClassName(loader)
+            val loaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${oldClassName}${loaderSuffix}.java")
             if (loaderFile.exists()) files.add(loaderFile)
         }
 
@@ -46,7 +47,7 @@ class BlockRenamer : ComponentRenamer {
         if (textureFile.exists()) files.add(textureFile)
 
         // Loot table
-        val lootTableFile = File(context.projectDir, "$versionPath/data/${context.modId}/loot_table/blocks/${context.oldName}.json")
+        val lootTableFile = File(context.projectDir, "$versionPath/data/${context.modId}/loot_tables/blocks/${context.oldName}.json")
         if (lootTableFile.exists()) files.add(lootTableFile)
 
         return files
@@ -138,20 +139,31 @@ class BlockRenamer : ComponentRenamer {
                     description = "Update ID constant"
                 )
             )
+
+            // Update any remaining references to the old class name
+            operations.add(
+                RenameOperation.ContentReplace(
+                    file = newFile,
+                    oldContent = oldClassName,
+                    newContent = newClassName,
+                    description = "Update all remaining class name references"
+                )
+            )
         }
 
         // 2. Rename loader-specific files
         listOf("fabric", "forge", "neoforge").forEach { loader ->
-            val oldLoaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${oldClassName}${loader.capitalize()}.java")
+            val loaderSuffix = RenamerUtil.loaderClassName(loader)
+            val oldLoaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${oldClassName}${loaderSuffix}.java")
             if (oldLoaderFile.exists()) {
-                val newLoaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${newClassName}${loader.capitalize()}.java")
+                val newLoaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${newClassName}${loaderSuffix}.java")
                 operations.add(RenameOperation.FileRename(oldLoaderFile, newLoaderFile))
 
                 operations.add(
                     RenameOperation.ContentReplace(
                         file = newLoaderFile,
-                        oldContent = "class ${oldClassName}${loader.capitalize()}",
-                        newContent = "class ${newClassName}${loader.capitalize()}",
+                        oldContent = "class ${oldClassName}${loaderSuffix}",
+                        newContent = "class ${newClassName}${loaderSuffix}",
                         description = "Update loader class name"
                     )
                 )
@@ -162,6 +174,16 @@ class BlockRenamer : ComponentRenamer {
                         oldContent = "import ${context.packageName}.blocks.$oldClassName",
                         newContent = "import ${context.packageName}.blocks.$newClassName",
                         description = "Update import statement"
+                    )
+                )
+
+                // Update any remaining references to the old class name
+                operations.add(
+                    RenameOperation.ContentReplace(
+                        file = newLoaderFile,
+                        oldContent = oldClassName,
+                        newContent = newClassName,
+                        description = "Update all remaining class name references"
                     )
                 )
             }
@@ -230,9 +252,9 @@ class BlockRenamer : ComponentRenamer {
         }
 
         // Loot table
-        val oldLootTableFile = File(context.projectDir, "$versionPath/data/${context.modId}/loot_table/blocks/${context.oldName}.json")
+        val oldLootTableFile = File(context.projectDir, "$versionPath/data/${context.modId}/loot_tables/blocks/${context.oldName}.json")
         if (oldLootTableFile.exists()) {
-            val newLootTableFile = File(context.projectDir, "$versionPath/data/${context.modId}/loot_table/blocks/${context.newName}.json")
+            val newLootTableFile = File(context.projectDir, "$versionPath/data/${context.modId}/loot_tables/blocks/${context.newName}.json")
             operations.add(RenameOperation.FileRename(oldLootTableFile, newLootTableFile))
 
             operations.add(

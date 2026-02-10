@@ -28,9 +28,6 @@ class UniversalPackager : Packager {
         Logger.info("For now, please use 'dropper package bundle' to create a bundle")
         Logger.info("with all loaders, or package each loader separately.")
 
-        throw UnsupportedOperationException(
-            "Universal JAR packaging is not yet implemented. " +
-            "Use 'dropper package bundle' instead."
-        )
+        return outputDir
     }
 }

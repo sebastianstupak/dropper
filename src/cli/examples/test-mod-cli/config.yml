@@ -1,7 +1,0 @@
-mod:
-  id: testmodcli
-  name: "Test Mod CLI"
-  version: "1.0.0"
-  description: "E2E test mod created via CLI workflow"
-  author: "Dropper E2E Test"
-  license: "MIT"

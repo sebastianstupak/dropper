@@ -37,12 +37,31 @@ object TemplateLoader {
      * @param targetDir Target directory on filesystem
      */
     fun copyDirectory(resourcePath: String, targetDir: File) {
-        // For GraalVM compatibility, we need to know the file structure ahead of time
-        // This will be populated with the actual structure from the ruby-sword example
         targetDir.mkdirs()
 
-        // TODO: Implement directory copying with resource listing
-        // For now, we'll use individual file copying in the generator
+        // For GraalVM native image compatibility, we enumerate known resource files
+        // explicitly rather than scanning the classpath at runtime. Resources under
+        // the given path are loaded individually and written to the target directory.
+        // The generator classes (e.g., ProjectGenerator) handle the explicit file
+        // list for their respective resource directories, so this method serves as
+        // a fallback that copies any resource files it can discover via the classloader.
+        val resourceUrl = javaClass.getResource("/$resourcePath")
+        if (resourceUrl != null && resourceUrl.protocol == "file") {
+            // Running from filesystem (IDE / development mode)
+            val sourceDir = File(resourceUrl.toURI())
+            if (sourceDir.isDirectory) {
+                sourceDir.walkTopDown().forEach { file ->
+                    if (file.isFile) {
+                        val relativePath = file.toRelativeString(sourceDir)
+                        val targetFile = File(targetDir, relativePath)
+                        targetFile.parentFile?.mkdirs()
+                        file.copyTo(targetFile, overwrite = true)
+                    }
+                }
+            }
+        }
+        // When running from JAR/native image, the generator classes use
+        // individual copyResourceFile() calls for each known file path.
     }
 }
 

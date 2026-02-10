@@ -8,7 +8,9 @@ import java.io.File
 data class Template(
     val name: String,
     val description: String,
-    val generator: TemplateGenerator
+    val generator: TemplateGenerator,
+    val version: String? = "1.0.0",
+    val category: String? = null
 )
 
 /**

@@ -45,7 +45,7 @@ class GradleRunner(private val projectDir: File) {
             Validators.exitWithError(loaderCheck)
         }
 
-        val gradlewCmd = getGradleWrapperPath(validate = true)
+        val gradlewCmd = getGradleWrapperPath(validate = false)
         val moduleId = "${version.replace(".", "_")}-$loader"
         val taskName = ":$moduleId:$task"
 

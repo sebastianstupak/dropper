@@ -63,7 +63,7 @@ class ListRecipesCommand : DropperCommand(
             FileUtil.writeText(exportFile, output)
             Logger.success("Exported ${recipes.size} recipes to ${exportFile.absolutePath}")
         } else {
-            echo(output)
+            println(output)
         }
     }
 }

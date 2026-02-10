@@ -13,10 +13,10 @@ class TagRemover : ComponentRemover {
 
         // Tag could be in items, blocks, or other directories
         val tagsDirs = listOf(
-            File(projectDir, "versions/shared/v1/data/$modId/tags/items"),
-            File(projectDir, "versions/shared/v1/data/$modId/tags/blocks"),
-            File(projectDir, "versions/shared/v1/data/$modId/tags/entity_types"),
-            File(projectDir, "versions/shared/v1/data/$modId/tags/biomes")
+            File(projectDir, "versions/shared/v1/data/$modId/tags/item"),
+            File(projectDir, "versions/shared/v1/data/$modId/tags/block"),
+            File(projectDir, "versions/shared/v1/data/$modId/tags/entity_type"),
+            File(projectDir, "versions/shared/v1/data/$modId/tags/biome")
         )
 
         tagsDirs.forEach { tagsDir ->

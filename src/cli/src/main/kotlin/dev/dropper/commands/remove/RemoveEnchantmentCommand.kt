@@ -1,15 +1,14 @@
 package dev.dropper.commands.remove
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.commands.DropperCommand
 import dev.dropper.removers.EnchantmentRemover
 import dev.dropper.removers.RemovalOptions
 import dev.dropper.util.Logger
-import java.io.File
 
-class RemoveEnchantmentCommand : CliktCommand(
+class RemoveEnchantmentCommand : DropperCommand(
     name = "enchantment",
     help = "Remove an enchantment and all associated files"
 ) {
@@ -18,8 +17,7 @@ class RemoveEnchantmentCommand : CliktCommand(
     private val force by option("--force", "-f", help = "Skip confirmation and ignore dependencies").flag()
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")
@@ -53,6 +51,4 @@ class RemoveEnchantmentCommand : CliktCommand(
         result.warnings.forEach { Logger.warn(it) }
     }
 
-    private fun extractModId(configFile: File): String? =
-        Regex("id:\\s*([a-z0-9-]+)").find(configFile.readText())?.groupValues?.get(1)
 }

@@ -404,7 +404,7 @@ class AssetPackE2ETest {
         val modRecipes = File(modData, "recipe")
         modRecipes.mkdirs()
 
-        val modLootTables = File(modData, "loot_table/blocks")
+        val modLootTables = File(modData, "loot_tables/blocks")
         modLootTables.mkdirs()
 
         // Verify namespace structure
@@ -412,7 +412,7 @@ class AssetPackE2ETest {
         assertTrue(modModels.exists(), "models/item should exist")
         assertTrue(modLang.exists(), "lang should exist")
         assertTrue(modRecipes.exists(), "recipe should exist")
-        assertTrue(modLootTables.exists(), "loot_table/blocks should exist")
+        assertTrue(modLootTables.exists(), "loot_tables/blocks should exist")
 
         println("  ✓ Mod namespace: namespacetest")
         println("  ✓ Assets organized by type")

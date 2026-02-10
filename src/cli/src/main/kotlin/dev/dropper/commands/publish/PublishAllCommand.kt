@@ -124,7 +124,7 @@ class PublishAllCommand : CliktCommand(
 
         } catch (e: Exception) {
             Logger.error("Failed to publish: ${e.message}")
-            e.printStackTrace()
+            Logger.debug("Stack trace: ${e.stackTraceToString()}")
         }
     }
 }

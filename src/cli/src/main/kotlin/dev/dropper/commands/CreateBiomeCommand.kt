@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.float
 import dev.dropper.util.FileUtil
 import dev.dropper.util.Logger
+import dev.dropper.util.ValidationUtil
 import java.io.File
 
 /**
@@ -23,6 +24,20 @@ class CreateBiomeCommand : DropperCommand(
     private val precipitation by option("--precipitation", help = "Precipitation type: rain, snow, none").default("rain")
 
     override fun run() {
+        // Validate project directory
+        val projectValidation = ValidationUtil.validateDropperProject(projectDir)
+        if (!projectValidation.isValid) {
+            ValidationUtil.exitWithError(projectValidation)
+            return
+        }
+
+        // Validate biome name
+        val nameValidation = ValidationUtil.validateName(name, "biome")
+        if (!nameValidation.isValid) {
+            ValidationUtil.exitWithError(nameValidation)
+            return
+        }
+
         val configFile = getConfigFile()
 
         if (!configFile.exists()) {
@@ -69,11 +84,6 @@ class CreateBiomeCommand : DropperCommand(
         Logger.info("  1. Customize biome settings: versions/shared/v1/data/$modId/worldgen/biome/$name.json")
         Logger.info("  2. Add custom features, spawns, and carvers as needed")
         Logger.info("  3. Build with: dropper build")
-    }
-
-    private fun extractModId(configFile: File): String? {
-        val content = configFile.readText()
-        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
     }
 
     private fun generateBiomeJson(projectDir: File, biomeName: String, modId: String) {

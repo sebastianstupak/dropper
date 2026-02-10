@@ -5,6 +5,8 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import dev.dropper.util.FileUtil
 import dev.dropper.util.Logger
+import dev.dropper.util.StringUtil
+import dev.dropper.util.ValidationUtil
 import java.io.File
 
 /**
@@ -20,12 +22,20 @@ class CreateEntityCommand : DropperCommand(
     private val spawnEgg by option("--spawn-egg", "-s", help = "Generate spawn egg item").default("true")
 
     override fun run() {
-        val configFile = getConfigFile()
-
-        if (!configFile.exists()) {
-            Logger.error("No config.yml found. Are you in a Dropper project directory?")
+        val nameValidation = ValidationUtil.validateName(name, "Entity name")
+        if (!nameValidation.isValid) {
+            ValidationUtil.exitWithError(nameValidation)
             return
         }
+
+        // Validate we're in a Dropper project
+        val projectValidation = ValidationUtil.validateDropperProject(projectDir)
+        if (!projectValidation.isValid) {
+            ValidationUtil.exitWithError(projectValidation)
+            return
+        }
+
+        val configFile = getConfigFile()
 
         val modId = extractModId(configFile)
         if (modId == null) {
@@ -33,27 +43,36 @@ class CreateEntityCommand : DropperCommand(
             return
         }
 
-        // Sanitize mod ID for package names (remove hyphens and underscores)
         val sanitizedModId = FileUtil.sanitizeModId(modId)
+
+        // Check for duplicates
+        val duplicateCheck = ValidationUtil.checkDuplicate(
+            projectDir, "entity", name,
+            listOf("shared/common/src/main/java")
+        )
+        if (!duplicateCheck.isValid) {
+            ValidationUtil.exitWithError(duplicateCheck)
+            Logger.warn("Entity was not created to avoid overwriting existing files")
+            return
+        }
 
         Logger.info("Creating entity: $name (type: $type)")
 
-        // Generate common entity code
+        // Generate common entity class (Mojang mappings, Architectury remaps for Fabric)
         generateEntityClass(projectDir, name, sanitizedModId, type)
 
-        // Generate loader-specific implementations
-        generateFabricEntity(projectDir, name, modId, sanitizedModId, type)
-        generateForgeEntity(projectDir, name, modId, sanitizedModId, type)
-        generateNeoForgeEntity(projectDir, name, modId, sanitizedModId, type)
+        // Generate/update Architectury registry
+        generateOrUpdateModEntities(projectDir, name, modId, sanitizedModId, type)
 
-        // Generate renderer classes (loader-specific)
-        generateFabricRenderer(projectDir, name, modId, sanitizedModId)
-        generateForgeRenderer(projectDir, name, modId, sanitizedModId)
-        generateNeoForgeRenderer(projectDir, name, modId, sanitizedModId)
+        // Update main mod class init() to call ModEntities.init()
+        updateMainModInit(projectDir, sanitizedModId, "ModEntities")
 
-        // Generate entity model (if applicable)
+        // Generate common renderer (Mojang mappings)
+        generateCommonRenderer(projectDir, name, modId, sanitizedModId)
+
+        // Generate common entity model (Mojang mappings)
         if (type in listOf("mob", "animal", "monster", "villager")) {
-            generateEntityModel(projectDir, name, modId)
+            generateCommonEntityModel(projectDir, name, sanitizedModId)
         }
 
         // Generate texture placeholder
@@ -77,24 +96,61 @@ class CreateEntityCommand : DropperCommand(
         Logger.info("  4. Build with: dropper build")
     }
 
-    private fun extractModId(configFile: File): String? {
-        val content = configFile.readText()
-        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
+    /**
+     * Returns entity type metadata for the given type string.
+     */
+    private data class EntityTypeInfo(
+        val baseClass: String,
+        val importFqn: String,
+        val spawnGroup: String,
+        val mobCategory: String
+    )
+
+    private fun getEntityTypeInfo(type: String): EntityTypeInfo {
+        // All names use Mojang mappings (Architectury Loom remaps for Fabric)
+        return when (type) {
+            "animal" -> EntityTypeInfo(
+                "Animal", "net.minecraft.world.entity.animal.Animal",
+                "SpawnGroup.CREATURE", "MobCategory.CREATURE"
+            )
+            "monster" -> EntityTypeInfo(
+                "Monster", "net.minecraft.world.entity.monster.Monster",
+                "SpawnGroup.MONSTER", "MobCategory.MONSTER"
+            )
+            "villager" -> EntityTypeInfo(
+                "AbstractVillager", "net.minecraft.world.entity.npc.AbstractVillager",
+                "SpawnGroup.CREATURE", "MobCategory.CREATURE"
+            )
+            "projectile" -> EntityTypeInfo(
+                "ThrowableProjectile", "net.minecraft.world.entity.projectile.ThrowableProjectile",
+                "SpawnGroup.MISC", "MobCategory.MISC"
+            )
+            else -> EntityTypeInfo(
+                "PathfinderMob", "net.minecraft.world.entity.PathfinderMob",
+                "SpawnGroup.CREATURE", "MobCategory.CREATURE"
+            )
+        }
     }
 
     private fun generateEntityClass(projectDir: File, entityName: String, sanitizedModId: String, type: String) {
         val className = toClassName(entityName)
-        val baseClass = when (type) {
-            "mob" -> "PathAwareEntity"
-            "animal" -> "AnimalEntity"
-            "monster" -> "HostileEntity"
-            "villager" -> "VillagerEntity"
-            "projectile" -> "ProjectileEntity"
-            else -> "LivingEntity"
+        val info = getEntityTypeInfo(type)
+
+        val entityBody = when (type) {
+            "animal" -> generateAnimalEntityBody(className, info)
+            "monster" -> generateMonsterEntityBody(className, info)
+            "projectile" -> generateProjectileEntityBody(className, info)
+            else -> generateMobEntityBody(className, info, type)
         }
 
         val content = """
             package com.$sanitizedModId.entities;
+
+            import ${info.importFqn};
+            import net.minecraft.world.entity.EntityType;
+            import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+            import net.minecraft.world.entity.ai.attributes.Attributes;
+            import net.minecraft.world.level.Level;
 
             /**
              * Custom entity: $className
@@ -107,59 +163,9 @@ class CreateEntityCommand : DropperCommand(
              * Loader-specific registration happens in platform code.
              *
              * Entity type: $type
-             * Base class suggestion: $baseClass
+             * Base class suggestion: ${info.baseClass}
              */
-            public class $className {
-                public static final String ID = "$entityName";
-
-                // TODO: Implement entity logic
-                // Example for PathAwareEntity (mob):
-                // public static class ${className}Entity extends PathAwareEntity {
-                //     public ${className}Entity(EntityType<? extends PathAwareEntity> entityType, World world) {
-                //         super(entityType, world);
-                //     }
-                //
-                //     @Override
-                //     protected void initGoals() {
-                //         this.goalSelector.add(0, new SwimGoal(this));
-                //         this.goalSelector.add(1, new WanderAroundFarGoal(this, 1.0));
-                //         this.goalSelector.add(2, new LookAtEntityGoal(this, PlayerEntity.class, 8.0f));
-                //         this.goalSelector.add(3, new LookAroundGoal(this));
-                //     }
-                //
-                //     @Override
-                //     public static DefaultAttributeContainer.Builder createAttributes() {
-                //         return LivingEntity.createLivingAttributes()
-                //             .add(EntityAttributes.GENERIC_MAX_HEALTH, 20.0)
-                //             .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.25);
-                //     }
-                // }
-                //
-                // For projectiles:
-                // public static class ${className}Entity extends ProjectileEntity {
-                //     public ${className}Entity(EntityType<? extends ProjectileEntity> entityType, World world) {
-                //         super(entityType, world);
-                //     }
-                //
-                //     @Override
-                //     protected void onCollision(HitResult hitResult) {
-                //         super.onCollision(hitResult);
-                //         // Custom collision logic
-                //     }
-                // }
-                //
-                // For animals:
-                // public static class ${className}Entity extends AnimalEntity {
-                //     public ${className}Entity(EntityType<? extends AnimalEntity> entityType, World world) {
-                //         super(entityType, world);
-                //     }
-                //
-                //     @Override
-                //     public @Nullable PassiveEntity createChild(ServerWorld world, PassiveEntity entity) {
-                //         return null; // TODO: Implement breeding
-                //     }
-                // }
-            }
+            $entityBody
         """.trimIndent()
 
         val entityFile = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/entities/$className.java")
@@ -168,290 +174,249 @@ class CreateEntityCommand : DropperCommand(
         Logger.info("  ✓ Created entity class: shared/common/src/main/java/com/$sanitizedModId/entities/$className.java")
     }
 
-    private fun generateFabricEntity(projectDir: File, entityName: String, modId: String, sanitizedModId: String, type: String) {
-        val className = toClassName(entityName)
-        val content = """
-            package com.$sanitizedModId.platform.fabric;
+    private fun generateMobEntityBody(className: String, info: EntityTypeInfo, type: String): String {
+        return """public class $className extends ${info.baseClass} {
+    public static final String ID = "${toSnakeCase(className)}";
 
-            import com.$sanitizedModId.entities.$className;
-            import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
-            import net.minecraft.entity.EntityDimensions;
-            import net.minecraft.entity.EntityType;
-            import net.minecraft.entity.SpawnGroup;
-            import net.minecraft.registry.Registries;
-            import net.minecraft.registry.Registry;
-            import net.minecraft.util.Identifier;
-
-            /**
-             * Fabric-specific entity registration for $className
-             */
-            public class ${className}Fabric {
-                public static void register() {
-                    // Example Fabric entity registration:
-                    // EntityType<${className}.${className}Entity> entityType = Registry.register(
-                    //     Registries.ENTITY_TYPE,
-                    //     Identifier.of("$modId", $className.ID),
-                    //     FabricEntityTypeBuilder.create(SpawnGroup.CREATURE, ${className}.${className}Entity::new)
-                    //         .dimensions(EntityDimensions.fixed(0.6f, 1.8f))
-                    //         .trackRangeChunks(8)
-                    //         .trackedUpdateRate(3)
-                    //         .build()
-                    // );
-                    //
-                    // FabricDefaultAttributeRegistry.register(entityType, ${className}.${className}Entity.createAttributes());
-                }
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created Fabric entity: shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
+    public $className(EntityType<? extends ${info.baseClass}> entityType, Level level) {
+        super(entityType, level);
     }
 
-    private fun generateForgeEntity(projectDir: File, entityName: String, modId: String, sanitizedModId: String, type: String) {
-        val className = toClassName(entityName)
-        val content = """
-            package com.$sanitizedModId.platform.forge;
-
-            import com.$sanitizedModId.entities.$className;
-            import net.minecraft.world.entity.EntityType;
-            import net.minecraft.world.entity.MobCategory;
-            import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
-            import net.minecraftforge.eventbus.api.IEventBus;
-            import net.minecraftforge.registries.DeferredRegister;
-            import net.minecraftforge.registries.ForgeRegistries;
-            import net.minecraftforge.registries.RegistryObject;
-
-            /**
-             * Forge-specific entity registration for $className
-             */
-            public class ${className}Forge {
-                // Example Forge entity registration:
-                // public static final DeferredRegister<EntityType<?>> ENTITIES =
-                //     DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, "$modId");
-                //
-                // public static final RegistryObject<EntityType<${className}.${className}Entity>> ${entityName.uppercase().replace("-", "_")} =
-                //     ENTITIES.register($className.ID, () -> EntityType.Builder.of(
-                //         ${className}.${className}Entity::new, MobCategory.CREATURE)
-                //         .sized(0.6f, 1.8f)
-                //         .clientTrackingRange(8)
-                //         .updateInterval(3)
-                //         .build($className.ID));
-                //
-                // public static void registerAttributes(EntityAttributeCreationEvent event) {
-                //     event.put(${entityName.uppercase().replace("-", "_")}.get(), ${className}.${className}Entity.createAttributes().build());
-                // }
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created Forge entity: shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
+    @Override
+    protected void registerGoals() {
+        this.goalSelector.addGoal(0, new net.minecraft.world.entity.ai.goal.FloatGoal(this));
+        this.goalSelector.addGoal(1, new net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal(this, 1.0D));
+        this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.LookAtPlayerGoal(this, net.minecraft.world.entity.player.Player.class, 8.0F));
+        this.goalSelector.addGoal(3, new net.minecraft.world.entity.ai.goal.RandomLookAroundGoal(this));
     }
 
-    private fun generateNeoForgeEntity(projectDir: File, entityName: String, modId: String, sanitizedModId: String, type: String) {
-        val className = toClassName(entityName)
-        val content = """
-            package com.$sanitizedModId.platform.neoforge;
-
-            import com.$sanitizedModId.entities.$className;
-            import net.minecraft.core.registries.Registries;
-            import net.minecraft.world.entity.EntityType;
-            import net.minecraft.world.entity.MobCategory;
-            import net.neoforged.bus.api.IEventBus;
-            import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
-            import net.neoforged.neoforge.registries.DeferredRegister;
-            import net.neoforged.neoforge.registries.DeferredHolder;
-
-            /**
-             * NeoForge-specific entity registration for $className
-             */
-            public class ${className}NeoForge {
-                // Example NeoForge entity registration:
-                // public static final DeferredRegister<EntityType<?>> ENTITIES =
-                //     DeferredRegister.create(Registries.ENTITY_TYPE, "$modId");
-                //
-                // public static final DeferredHolder<EntityType<?>, EntityType<${className}.${className}Entity>> ${entityName.uppercase().replace("-", "_")} =
-                //     ENTITIES.register($className.ID, () -> EntityType.Builder.of(
-                //         ${className}.${className}Entity::new, MobCategory.CREATURE)
-                //         .sized(0.6f, 1.8f)
-                //         .clientTrackingRange(8)
-                //         .updateInterval(3)
-                //         .build($className.ID));
-                //
-                // public static void registerAttributes(EntityAttributeCreationEvent event) {
-                //     event.put(${entityName.uppercase().replace("-", "_")}.get(), ${className}.${className}Entity.createAttributes().build());
-                // }
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created NeoForge entity: shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
+    public static AttributeSupplier.Builder createAttributes() {
+        return ${info.baseClass}.createMobAttributes()
+            .add(Attributes.MAX_HEALTH, 20.0D)
+            .add(Attributes.MOVEMENT_SPEED, 0.25D);
+    }
+}"""
     }
 
-    private fun generateFabricRenderer(projectDir: File, entityName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(entityName)
-        val content = """
-            package com.$sanitizedModId.client.renderer.fabric;
+    private fun generateAnimalEntityBody(className: String, info: EntityTypeInfo): String {
+        return """public class $className extends ${info.baseClass} {
+    public static final String ID = "${toSnakeCase(className)}";
 
-            import com.$sanitizedModId.entities.$className;
-            import net.minecraft.client.render.entity.EntityRendererFactory;
-            import net.minecraft.client.render.entity.MobEntityRenderer;
-            import net.minecraft.client.render.entity.model.EntityModelLayers;
-            import net.minecraft.util.Identifier;
+    /**
+     * The registered EntityType for this entity.
+     * Set during platform-specific registration (Fabric/Forge/NeoForge).
+     */
+    public static EntityType<$className> ENTITY_TYPE;
 
-            /**
-             * Fabric-specific renderer for $className
-             */
-            public class ${className}Renderer extends MobEntityRenderer<${className}.${className}Entity, ${className}Model> {
-                private static final Identifier TEXTURE = Identifier.of("$modId", "textures/entity/$entityName.png");
-
-                public ${className}Renderer(EntityRendererFactory.Context context) {
-                    super(context, new ${className}Model(context.getPart(EntityModelLayers.PLAYER)), 0.5f);
-                }
-
-                @Override
-                public Identifier getTexture(${className}.${className}Entity entity) {
-                    return TEXTURE;
-                }
-
-                // Registration example (in client initializer):
-                // EntityRendererRegistry.register(${className}Fabric.ENTITY_TYPE, ${className}Renderer::new);
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/fabric/src/main/java/com/$sanitizedModId/client/renderer/fabric/${className}Renderer.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created Fabric renderer: shared/fabric/src/main/java/com/$sanitizedModId/client/renderer/fabric/${className}Renderer.java")
+    public $className(EntityType<? extends ${info.baseClass}> entityType, Level level) {
+        super(entityType, level);
     }
 
-    private fun generateForgeRenderer(projectDir: File, entityName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(entityName)
-        val content = """
-            package com.$sanitizedModId.client.renderer.forge;
-
-            import com.$sanitizedModId.entities.$className;
-            import net.minecraft.client.renderer.entity.EntityRendererProvider;
-            import net.minecraft.client.renderer.entity.MobRenderer;
-            import net.minecraft.client.model.geom.ModelLayers;
-            import net.minecraft.resources.ResourceLocation;
-
-            /**
-             * Forge-specific renderer for $className
-             */
-            public class ${className}Renderer extends MobRenderer<${className}.${className}Entity, ${className}Model> {
-                private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("$modId", "textures/entity/$entityName.png");
-
-                public ${className}Renderer(EntityRendererProvider.Context context) {
-                    super(context, new ${className}Model(context.bakeLayer(ModelLayers.PLAYER)), 0.5f);
-                }
-
-                @Override
-                public ResourceLocation getTextureLocation(${className}.${className}Entity entity) {
-                    return TEXTURE;
-                }
-
-                // Registration example (in client setup):
-                // EntityRenderers.register(${className}Forge.ENTITY_TYPE.get(), ${className}Renderer::new);
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/forge/src/main/java/com/$sanitizedModId/client/renderer/forge/${className}Renderer.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created Forge renderer: shared/forge/src/main/java/com/$sanitizedModId/client/renderer/forge/${className}Renderer.java")
+    @Override
+    protected void registerGoals() {
+        this.goalSelector.addGoal(0, new net.minecraft.world.entity.ai.goal.FloatGoal(this));
+        this.goalSelector.addGoal(1, new net.minecraft.world.entity.ai.goal.PanicGoal(this, 1.25D));
+        this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.BreedGoal(this, 1.0D));
+        this.goalSelector.addGoal(3, new net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal(this, 1.0D));
+        this.goalSelector.addGoal(4, new net.minecraft.world.entity.ai.goal.LookAtPlayerGoal(this, net.minecraft.world.entity.player.Player.class, 6.0F));
+        this.goalSelector.addGoal(5, new net.minecraft.world.entity.ai.goal.RandomLookAroundGoal(this));
     }
 
-    private fun generateNeoForgeRenderer(projectDir: File, entityName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(entityName)
-        val content = """
-            package com.$sanitizedModId.client.renderer.neoforge;
-
-            import com.$sanitizedModId.entities.$className;
-            import net.minecraft.client.renderer.entity.EntityRendererProvider;
-            import net.minecraft.client.renderer.entity.MobRenderer;
-            import net.minecraft.client.model.geom.ModelLayers;
-            import net.minecraft.resources.ResourceLocation;
-
-            /**
-             * NeoForge-specific renderer for $className
-             */
-            public class ${className}Renderer extends MobRenderer<${className}.${className}Entity, ${className}Model> {
-                private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("$modId", "textures/entity/$entityName.png");
-
-                public ${className}Renderer(EntityRendererProvider.Context context) {
-                    super(context, new ${className}Model(context.bakeLayer(ModelLayers.PLAYER)), 0.5f);
-                }
-
-                @Override
-                public ResourceLocation getTextureLocation(${className}.${className}Entity entity) {
-                    return TEXTURE;
-                }
-
-                // Registration example (in client setup):
-                // EntityRenderers.register(${className}NeoForge.ENTITY_TYPE.get(), ${className}Renderer::new);
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/neoforge/src/main/java/com/$sanitizedModId/client/renderer/neoforge/${className}Renderer.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created NeoForge renderer: shared/neoforge/src/main/java/com/$sanitizedModId/client/renderer/neoforge/${className}Renderer.java")
+    public static AttributeSupplier.Builder createAttributes() {
+        return ${info.baseClass}.createMobAttributes()
+            .add(Attributes.MAX_HEALTH, 10.0D)
+            .add(Attributes.MOVEMENT_SPEED, 0.2D);
     }
 
-    private fun generateEntityModel(projectDir: File, entityName: String, modId: String) {
+    @Override
+    public $className getBreedOffspring(net.minecraft.server.level.ServerLevel serverLevel, net.minecraft.world.entity.AgeableMob otherParent) {
+        return new $className(ENTITY_TYPE, serverLevel);
+    }
+}"""
+    }
+
+    private fun generateMonsterEntityBody(className: String, info: EntityTypeInfo): String {
+        return """public class $className extends ${info.baseClass} {
+    public static final String ID = "${toSnakeCase(className)}";
+
+    public $className(EntityType<? extends ${info.baseClass}> entityType, Level level) {
+        super(entityType, level);
+    }
+
+    @Override
+    protected void registerGoals() {
+        this.goalSelector.addGoal(0, new net.minecraft.world.entity.ai.goal.FloatGoal(this));
+        this.goalSelector.addGoal(1, new net.minecraft.world.entity.ai.goal.MeleeAttackGoal(this, 1.0D, false));
+        this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal(this, 1.0D));
+        this.goalSelector.addGoal(3, new net.minecraft.world.entity.ai.goal.LookAtPlayerGoal(this, net.minecraft.world.entity.player.Player.class, 8.0F));
+        this.goalSelector.addGoal(4, new net.minecraft.world.entity.ai.goal.RandomLookAroundGoal(this));
+        this.targetSelector.addGoal(1, new net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<>(this, net.minecraft.world.entity.player.Player.class, true));
+        this.targetSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal(this));
+    }
+
+    public static AttributeSupplier.Builder createAttributes() {
+        return ${info.baseClass}.createMonsterAttributes()
+            .add(Attributes.MAX_HEALTH, 20.0D)
+            .add(Attributes.MOVEMENT_SPEED, 0.3D)
+            .add(Attributes.ATTACK_DAMAGE, 3.0D);
+    }
+}"""
+    }
+
+    private fun generateProjectileEntityBody(className: String, info: EntityTypeInfo): String {
+        return """public class $className extends ${info.baseClass} {
+    public static final String ID = "${toSnakeCase(className)}";
+
+    public $className(EntityType<? extends ${info.baseClass}> entityType, Level level) {
+        super(entityType, level);
+    }
+
+    @Override
+    protected void onHit(net.minecraft.world.phys.HitResult hitResult) {
+        super.onHit(hitResult);
+        // Custom onCollision logic
+    }
+
+    protected void onCollision(net.minecraft.world.phys.HitResult hitResult) {
+        onHit(hitResult);
+    }
+}"""
+    }
+
+    /**
+     * Generate or update the common ModEntities registry using Architectury DeferredRegister.
+     */
+    private fun generateOrUpdateModEntities(
+        projectDir: File,
+        entityName: String,
+        modId: String,
+        sanitizedModId: String,
+        type: String
+    ) {
         val className = toClassName(entityName)
-        val content = """
-            {
-              "format_version": "1.12.0",
-              "minecraft:geometry": [
-                {
-                  "description": {
-                    "identifier": "geometry.$modId.$entityName",
-                    "texture_width": 64,
-                    "texture_height": 64,
-                    "visible_bounds_width": 2,
-                    "visible_bounds_height": 3,
-                    "visible_bounds_offset": [0, 1, 0]
-                  },
-                  "bones": [
-                    {
-                      "name": "head",
-                      "pivot": [0, 24, 0],
-                      "cubes": [
-                        {
-                          "origin": [-4, 24, -4],
-                          "size": [8, 8, 8],
-                          "uv": [0, 0]
-                        }
-                      ]
-                    },
-                    {
-                      "name": "body",
-                      "pivot": [0, 24, 0],
-                      "cubes": [
-                        {
-                          "origin": [-4, 12, -2],
-                          "size": [8, 12, 4],
-                          "uv": [16, 16]
-                        }
-                      ]
+        val constantName = entityName.uppercase()
+        val info = getEntityTypeInfo(type)
+        val registryFile = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/registry/ModEntities.java")
+
+        if (registryFile.exists()) {
+            val existingContent = registryFile.readText()
+
+            val newField = """    public static final RegistrySupplier<EntityType<$className>> $constantName = ENTITIES.register("$entityName", () ->
+            EntityType.Builder.of($className::new, ${info.mobCategory}).sized(0.6f, 1.8f).clientTrackingRange(8).updateInterval(3).build());"""
+            val newImport = "import com.$sanitizedModId.entities.$className;"
+
+            val updatedContent = existingContent
+                .replace("    public static void init()", "$newField\n\n    public static void init()")
+                .let { content ->
+                    if (!content.contains(newImport)) {
+                        content.replace("import net.minecraft.world.entity.EntityType;", "import net.minecraft.world.entity.EntityType;\nimport com.$sanitizedModId.entities.$className;")
+                    } else content
+                }
+
+            FileUtil.writeText(registryFile, updatedContent)
+            Logger.info("  ✓ Added $className to registry/ModEntities.java")
+        } else {
+            val content = """
+                package com.$sanitizedModId.registry;
+
+                import com.$sanitizedModId.entities.$className;
+                import dev.architectury.registry.registries.DeferredRegister;
+                import dev.architectury.registry.registries.RegistrySupplier;
+                import net.minecraft.core.registries.Registries;
+                import net.minecraft.world.entity.EntityType;
+                import net.minecraft.world.entity.MobCategory;
+
+                public class ModEntities {
+                    public static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create("$modId", Registries.ENTITY_TYPE);
+
+                    public static final RegistrySupplier<EntityType<$className>> $constantName = ENTITIES.register("$entityName", () ->
+                        EntityType.Builder.of($className::new, ${info.mobCategory}).sized(0.6f, 1.8f).clientTrackingRange(8).updateInterval(3).build());
+
+                    public static void init() {
+                        ENTITIES.register();
                     }
-                  ]
                 }
-              ]
+            """.trimIndent()
+
+            FileUtil.writeText(registryFile, content)
+            Logger.info("  ✓ Created registry/ModEntities.java with $className")
+        }
+    }
+
+    /**
+     * Generate common renderer using Mojang mappings (Architectury Loom remaps for Fabric).
+     */
+    private fun generateCommonRenderer(projectDir: File, entityName: String, modId: String, sanitizedModId: String) {
+        val className = toClassName(entityName)
+
+        val content = """
+            package com.$sanitizedModId.client.renderer;
+
+            import com.$sanitizedModId.entities.$className;
+            import com.$sanitizedModId.client.model.${className}Model;
+            import net.minecraft.client.renderer.entity.EntityRendererProvider;
+            import net.minecraft.client.renderer.entity.MobRenderer;
+            import net.minecraft.client.model.geom.ModelLayers;
+            import net.minecraft.resources.ResourceLocation;
+
+            public class ${className}Renderer extends MobRenderer<$className, ${className}Model> {
+                private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("$modId", "textures/entity/$entityName.png");
+
+                public ${className}Renderer(EntityRendererProvider.Context context) {
+                    super(context, new ${className}Model(context.bakeLayer(ModelLayers.PLAYER)), 0.5f);
+                }
+
+                @Override
+                public ResourceLocation getTextureLocation($className entity) {
+                    return TEXTURE;
+                }
             }
         """.trimIndent()
 
-        val modelFile = File(projectDir, "versions/shared/v1/assets/$modId/models/entity/$entityName.json")
-        FileUtil.writeText(modelFile, content)
+        val file = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/client/renderer/${className}Renderer.java")
+        FileUtil.writeText(file, content)
 
-        Logger.info("  ✓ Created entity model: versions/shared/v1/assets/$modId/models/entity/$entityName.json")
+        Logger.info("  ✓ Created renderer: shared/common/src/main/java/com/$sanitizedModId/client/renderer/${className}Renderer.java")
+    }
+
+    /**
+     * Generate common entity model using Mojang mappings.
+     */
+    private fun generateCommonEntityModel(projectDir: File, entityName: String, sanitizedModId: String) {
+        val className = toClassName(entityName)
+
+        val content = """
+            package com.$sanitizedModId.client.model;
+
+            import com.$sanitizedModId.entities.$className;
+            import com.mojang.blaze3d.vertex.PoseStack;
+            import com.mojang.blaze3d.vertex.VertexConsumer;
+            import net.minecraft.client.model.EntityModel;
+            import net.minecraft.client.model.geom.ModelPart;
+
+            public class ${className}Model extends EntityModel<$className> {
+                private final ModelPart root;
+
+                public ${className}Model(ModelPart root) {
+                    this.root = root;
+                }
+
+                @Override
+                public void setupAnim($className entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
+                    // Animate model parts here
+                }
+
+                @Override
+                public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
+                    root.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
+                }
+            }
+        """.trimIndent()
+
+        val file = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/client/model/${className}Model.java")
+        FileUtil.writeText(file, content)
+
+        Logger.info("  ✓ Created entity model: shared/common/src/main/java/com/$sanitizedModId/client/model/${className}Model.java")
     }
 
     private fun generateEntityTexture(projectDir: File, entityName: String, modId: String) {
@@ -470,20 +435,36 @@ class CreateEntityCommand : DropperCommand(
         val itemContent = """
             package com.$sanitizedModId.items;
 
+            import net.minecraft.world.item.SpawnEggItem;
+            import net.minecraft.world.item.Item;
+
             /**
              * Spawn egg for $className entity
              */
             public class ${className}SpawnEgg {
                 public static final String ID = "${entityName}_spawn_egg";
 
-                // TODO: Implement spawn egg item
-                // Example:
-                // public static final SpawnEggItem INSTANCE = new SpawnEggItem(
-                //     ${className}Fabric.ENTITY_TYPE,
-                //     0x7E9680, // Primary color
-                //     0x7E7E7E, // Secondary color
-                //     new Item.Settings()
-                // );
+                /**
+                 * Primary egg color (background)
+                 */
+                public static final int PRIMARY_COLOR = 0x7E9680;
+
+                /**
+                 * Secondary egg color (spots)
+                 */
+                public static final int SECONDARY_COLOR = 0x7E7E7E;
+
+                /**
+                 * Create the spawn egg item instance.
+                 * Call this from your loader-specific registration code,
+                 * passing the registered EntityType.
+                 *
+                 * Example (Fabric):
+                 *   SpawnEggItem egg = ${className}SpawnEgg.create(${className}Fabric.ENTITY_TYPE);
+                 */
+                public static SpawnEggItem create(net.minecraft.world.entity.EntityType<?> entityType) {
+                    return new SpawnEggItem(entityType, PRIMARY_COLOR, SECONDARY_COLOR, new Item.Properties());
+                }
             }
         """.trimIndent()
 
@@ -515,7 +496,7 @@ class CreateEntityCommand : DropperCommand(
     private fun generateLangEntries(projectDir: File, entityName: String, modId: String, hasSpawnEgg: Boolean) {
         val langFile = File(projectDir, "versions/shared/v1/assets/$modId/lang/en_us.json")
 
-        val displayName = entityName.split("_").joinToString(" ") { it.capitalize() }
+        val displayName = entityName.split("_").joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
 
         val langEntries = mutableMapOf(
             "entity.$modId.$entityName" to displayName
@@ -567,7 +548,7 @@ class CreateEntityCommand : DropperCommand(
         Logger.info("  ✓ Updated lang file: versions/shared/v1/assets/$modId/lang/en_us.json")
     }
 
-    private fun toClassName(snakeCase: String): String {
-        return snakeCase.split("_").joinToString("") { it.capitalize() }
-    }
+    private fun toClassName(snakeCase: String): String = StringUtil.toClassName(snakeCase)
+
+    private fun toSnakeCase(className: String): String = StringUtil.toSnakeCase(className)
 }

@@ -16,6 +16,7 @@ class CleanCacheCommand : CliktCommand(
 ) {
     private val dryRun by option("--dry-run", "-d", help = "Preview what would be deleted").flag()
     private val force by option("--force", "-f", help = "Skip confirmation").flag()
+    private val killZombies by option("--kill-zombies", help = "Attempt to clean up zombie Gradle daemon processes").flag()
 
     override fun run() {
         val projectDir = File(System.getProperty("user.dir"))
@@ -24,6 +25,28 @@ class CleanCacheCommand : CliktCommand(
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")
             return
+        }
+
+        if (killZombies) {
+            Logger.info("Checking for zombie Gradle daemon processes...")
+            // Attempt to stop any running Gradle daemons
+            try {
+                val gradlew = if (System.getProperty("os.name").lowercase().contains("win")) {
+                    File(projectDir, "gradlew.bat")
+                } else {
+                    File(projectDir, "gradlew")
+                }
+                if (gradlew.exists()) {
+                    Logger.info("Stopping Gradle daemons...")
+                    ProcessBuilder(gradlew.absolutePath, "--stop")
+                        .directory(projectDir)
+                        .start()
+                        .waitFor()
+                }
+            } catch (e: Exception) {
+                Logger.warn("Could not stop Gradle daemons: ${e.message}")
+            }
+            Logger.success("Zombie process cleanup complete")
         }
 
         val cleaner = CacheCleaner()

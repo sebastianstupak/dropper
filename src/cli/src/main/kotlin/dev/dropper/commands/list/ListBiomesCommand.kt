@@ -1,8 +1,8 @@
 package dev.dropper.commands.list
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.commands.DropperCommand
 import dev.dropper.indexer.BiomeIndexer
 import dev.dropper.indexer.FormatterFactory
 import dev.dropper.indexer.IndexCache
@@ -13,7 +13,7 @@ import java.io.File
 /**
  * List all biomes in the project
  */
-class ListBiomesCommand : CliktCommand(
+class ListBiomesCommand : DropperCommand(
     name = "biomes",
     help = "List all biomes"
 ) {
@@ -24,8 +24,7 @@ class ListBiomesCommand : CliktCommand(
     private val export by option("--export", "-e", help = "Export to file")
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")
@@ -64,7 +63,7 @@ class ListBiomesCommand : CliktCommand(
             FileUtil.writeText(exportFile, output)
             Logger.success("Exported ${biomes.size} biomes to ${exportFile.absolutePath}")
         } else {
-            echo(output)
+            println(output)
         }
     }
 }

@@ -32,7 +32,7 @@ class LoaderMigrator : Migrator {
             return MigrationPlan(operations, warnings, manualSteps)
         }
 
-        val versionDirs = if (version != null) {
+        val versionDirs = if (version != null && version.isNotEmpty()) {
             listOf(version.replace(".", "_"))
         } else {
             versionsDir.listFiles()?.filter { it.isDirectory }?.map { it.name } ?: emptyList()
@@ -42,16 +42,23 @@ class LoaderMigrator : Migrator {
             val versionPath = File(versionsDir, versionDir)
             val loaderPath = File(versionPath, loader)
 
-            // Check if loader already exists
-            if (loaderPath.exists() && !context.force) {
+            // Check if loader already exists with full structure
+            val srcMainJava = File(loaderPath, "src/main/java")
+            if (loaderPath.exists() && srcMainJava.exists() && !context.force) {
                 warnings.add("Loader $loader already exists in $versionDir. Use --force to overwrite")
                 return@forEach
             }
 
             // Create loader directory structure
-            operations.add(MigrationOperation.CreateDirectory("versions/$versionDir/$loader"))
-            operations.add(MigrationOperation.CreateDirectory("versions/$versionDir/$loader/src/main/java"))
-            operations.add(MigrationOperation.CreateDirectory("versions/$versionDir/$loader/src/main/resources"))
+            operations.add(MigrationOperation.CreateDirectory(
+                File(context.projectDir, "versions/$versionDir/$loader").absolutePath
+            ))
+            operations.add(MigrationOperation.CreateDirectory(
+                File(context.projectDir, "versions/$versionDir/$loader/src/main/java").absolutePath
+            ))
+            operations.add(MigrationOperation.CreateDirectory(
+                File(context.projectDir, "versions/$versionDir/$loader/src/main/resources").absolutePath
+            ))
 
             // Generate loader-specific registration code
             val packagePath = context.packageName.replace(".", "/")
@@ -59,7 +66,7 @@ class LoaderMigrator : Migrator {
 
             operations.add(
                 MigrationOperation.UpdateFileContent(
-                    "versions/$versionDir/$loader/src/main/java/$packagePath/${context.modId.capitalize()}$loader.java",
+                    File(context.projectDir, "versions/$versionDir/$loader/src/main/java/$packagePath/${context.modId.capitalize()}${loader.capitalize()}.java").absolutePath,
                     "",
                     mainClassContent,
                     "Generate $loader main class"
@@ -73,7 +80,7 @@ class LoaderMigrator : Migrator {
             // Update version config
             operations.add(
                 MigrationOperation.UpdateConfig(
-                    "versions/$versionDir/config.yml",
+                    File(context.projectDir, "versions/$versionDir/config.yml").absolutePath,
                     mapOf("add_loader" to loader),
                     "Add $loader to version config"
                 )
@@ -83,7 +90,7 @@ class LoaderMigrator : Migrator {
         // Update root config to include loader
         operations.add(
             MigrationOperation.UpdateConfig(
-                "config.yml",
+                File(context.projectDir, "config.yml").absolutePath,
                 mapOf("add_loader" to loader),
                 "Add $loader to root config"
             )

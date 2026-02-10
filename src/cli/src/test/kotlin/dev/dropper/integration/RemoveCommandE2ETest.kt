@@ -115,7 +115,7 @@ class RemoveCommandE2ETest {
         assertFalse(context.file( "versions/shared/v1/assets/testremove/models/item/ruby_slab.json").exists())
 
         // Verify loot table removed
-        assertFalse(context.file( "versions/shared/v1/data/testremove/loot_table/blocks/ruby_slab.json").exists())
+        assertFalse(context.file( "versions/shared/v1/data/testremove/loot_tables/blocks/ruby_slab.json").exists())
 
         println("✓ Block and all variants removed successfully")
     }
@@ -146,8 +146,8 @@ class RemoveCommandE2ETest {
     fun `remove tag deletes tag file`() {
         println("\n[TEST] Remove tag")
 
-        // Create a tag file manually
-        val tagFile = context.file( "versions/shared/v1/data/testremove/tags/items/test_tag.json")
+        // Create a tag file manually (TagRemover looks at tags/item, tags/block, etc. - singular)
+        val tagFile = context.file( "versions/shared/v1/data/testremove/tags/item/test_tag.json")
         FileUtil.writeText(tagFile, """{"values": []}""")
 
         assertTrue(tagFile.exists())
@@ -369,7 +369,7 @@ class RemoveCommandE2ETest {
         }
 
         // Create loot table that references the item
-        val lootFile = context.file( "versions/shared/v1/data/testremove/loot_table/chests/custom_chest.json")
+        val lootFile = context.file( "versions/shared/v1/data/testremove/loot_tables/chests/custom_chest.json")
         FileUtil.writeText(lootFile, """
             {
               "type": "minecraft:chest",
@@ -754,7 +754,7 @@ class RemoveCommandE2ETest {
         FileUtil.writeText(tagFile, """{"values": ["testremove:dep_test_item"]}""")
 
         // Loot table dependency
-        val lootFile = context.file( "versions/shared/v1/data/testremove/loot_table/blocks/test_block.json")
+        val lootFile = context.file( "versions/shared/v1/data/testremove/loot_tables/blocks/test_block.json")
         FileUtil.writeText(lootFile, """{"pools": [{"entries": [{"name": "testremove:dep_test_item"}]}]}""")
 
         val dependencies = DependencyAnalyzer.findAllDependencies(context.projectDir, "dep_test_item", "testremove")

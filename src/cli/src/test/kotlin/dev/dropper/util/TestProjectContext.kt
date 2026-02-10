@@ -5,8 +5,9 @@ import dev.dropper.generator.ProjectGenerator
 import java.io.File
 
 /**
- * Test utility to create and manage test project contexts without modifying user.dir
- * This allows tests to run safely on Windows without system property conflicts
+ * Test utility to create and manage test project contexts.
+ * Sets user.dir to the project directory so commands using the default
+ * projectDir (System.getProperty("user.dir")) find the correct project.
  */
 class TestProjectContext(val projectDir: File) {
     private val originalUserDir = System.getProperty("user.dir")
@@ -26,10 +27,20 @@ class TestProjectContext(val projectDir: File) {
     }
 
     /**
+     * Activate this context by setting user.dir to the project directory.
+     * Commands that default to System.getProperty("user.dir") will then
+     * resolve to this project directory.
+     */
+    fun activate() {
+        System.setProperty("user.dir", projectDir.absolutePath)
+    }
+
+    /**
      * Create a test project with the given configuration
      */
     fun createProject(config: ModConfig) {
         ProjectGenerator().generate(projectDir, config)
+        activate()
     }
 
     /**

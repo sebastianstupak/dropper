@@ -64,14 +64,38 @@ object DiffAnalyzer {
     }
 
     /**
-     * Convert glob pattern to regex
+     * Convert glob pattern to regex.
+     * Supports: ** (match across directories), * (match within a single directory), ? (single char)
      */
     private fun globToRegex(pattern: String): Regex {
-        val regexPattern = pattern
-            .replace(".", "\\.")
-            .replace("*", ".*")
-            .replace("?", ".")
-        return Regex(regexPattern)
+        val normalized = pattern.replace("\\", "/")
+        val regexStr = buildString {
+            var i = 0
+            while (i < normalized.length) {
+                val c = normalized[i]
+                when {
+                    c == '*' && i + 1 < normalized.length && normalized[i + 1] == '*' -> {
+                        // ** matches everything including path separators
+                        append(".*")
+                        i += 2
+                        // skip trailing slash after **
+                        if (i < normalized.length && normalized[i] == '/') i++
+                        continue
+                    }
+                    c == '*' -> append("[^/]*")
+                    c == '?' -> append("[^/]")
+                    c == '.' -> append("\\.")
+                    c == '(' || c == ')' || c == '{' || c == '}' || c == '[' || c == ']'
+                        || c == '+' || c == '^' || c == '$' || c == '|' -> {
+                        append("\\")
+                        append(c)
+                    }
+                    else -> append(c)
+                }
+                i++
+            }
+        }
+        return Regex(regexStr)
     }
 
     /**

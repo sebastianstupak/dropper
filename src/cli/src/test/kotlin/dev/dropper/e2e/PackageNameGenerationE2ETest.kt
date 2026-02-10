@@ -11,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import java.io.File
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
 /**
  * E2E tests verifying that package names are correctly sanitized
@@ -65,14 +66,15 @@ class PackageNameGenerationE2ETest {
             "Package directory should exist at $packagePath"
         )
 
-        // Verify Services.java has correct package
-        val servicesFile = File(projectDir, "shared/common/src/main/java/$packagePath/Services.java")
-        assertTrue(servicesFile.exists(), "Services.java should exist")
+        // Verify main mod class has correct package
+        val modClassName = config.name.replace(" ", "")
+        val modClassFile = File(projectDir, "shared/common/src/main/java/$packagePath/${modClassName}.java")
+        assertTrue(modClassFile.exists(), "Main mod class should exist")
 
-        val servicesContent = servicesFile.readText()
+        val modClassContent = modClassFile.readText()
         assertTrue(
-            servicesContent.contains("package com.$expectedPackageName;"),
-            "Services.java should have correct package declaration"
+            modClassContent.contains("package com.$expectedPackageName;"),
+            "Main mod class should have correct package declaration"
         )
     }
 
@@ -111,18 +113,18 @@ class PackageNameGenerationE2ETest {
             "Item class should have correct package declaration"
         )
 
-        // Verify loader-specific files
-        val fabricFile = File(projectDir, "shared/fabric/src/main/java/com/$expectedPackage/platform/fabric/TestItemFabric.java")
-        assertTrue(fabricFile.exists(), "Fabric item registration should exist")
+        // Verify common registry file (Architectury pattern)
+        val registryFile = File(projectDir, "shared/common/src/main/java/com/$expectedPackage/registry/ModItems.java")
+        assertTrue(registryFile.exists(), "ModItems registry should exist")
 
-        val fabricContent = fabricFile.readText()
+        val registryContent = registryFile.readText()
         assertTrue(
-            fabricContent.contains("package com.$expectedPackage.platform.fabric;"),
-            "Fabric registration should have correct package"
+            registryContent.contains("package com.$expectedPackage.registry;"),
+            "Registry should have correct package"
         )
         assertTrue(
-            fabricContent.contains("import com.$expectedPackage.items.TestItem;"),
-            "Fabric registration should have correct import"
+            registryContent.contains("test_item"),
+            "Registry should contain test_item registration"
         )
     }
 
@@ -160,20 +162,19 @@ class PackageNameGenerationE2ETest {
             "Block should have correct package"
         )
 
-        // Verify all loader-specific files have correct packages
-        listOf("fabric", "forge", "neoforge").forEach { loader ->
-            val loaderFile = File(
-                projectDir,
-                "shared/$loader/src/main/java/com/$expectedPackage/platform/$loader/CustomBlock${loader.replaceFirstChar { it.uppercase() }}.java"
-            )
-            assertTrue(loaderFile.exists(), "$loader block registration should exist")
+        // Verify common registry file (Architectury pattern)
+        val registryFile = File(projectDir, "shared/common/src/main/java/com/$expectedPackage/registry/ModBlocks.java")
+        assertTrue(registryFile.exists(), "ModBlocks registry should exist")
 
-            val loaderContent = loaderFile.readText()
-            assertTrue(
-                loaderContent.contains("package com.$expectedPackage.platform.$loader;"),
-                "$loader registration should have correct package"
-            )
-        }
+        val registryContent = registryFile.readText()
+        assertTrue(
+            registryContent.contains("package com.$expectedPackage.registry;"),
+            "Block registry should have correct package"
+        )
+        assertTrue(
+            registryContent.contains("custom_block"),
+            "Block registry should contain custom_block registration"
+        )
     }
 
     @Test
@@ -254,7 +255,7 @@ class PackageNameGenerationE2ETest {
         val modelFile = File(projectDir, "versions/shared/v1/assets/$modId/models/item/test_item.json")
         assertTrue(modelFile.exists(), "Asset should use original mod ID: $modId")
 
-        val recipeFile = File(projectDir, "versions/shared/v1/data/$modId/recipes/test_item.json")
+        val recipeFile = File(projectDir, "versions/shared/v1/data/$modId/recipe/test_item.json")
         assertTrue(recipeFile.exists(), "Data file should use original mod ID: $modId")
     }
 
@@ -298,16 +299,15 @@ class PackageNameGenerationE2ETest {
         )
         ProjectGenerator().generate(projectDir, config)
 
-        val servicesFile = File(projectDir, "shared/common/src/main/java/com/$expectedPackage/Services.java")
-        assertTrue(servicesFile.exists())
+        val modClassFile = File(projectDir, "shared/common/src/main/java/com/$expectedPackage/MixedMod.java")
+        assertTrue(modClassFile.exists(), "Main mod class should exist")
 
-        val content = servicesFile.readText()
+        val content = modClassFile.readText()
         assertTrue(content.contains("package com.$expectedPackage;"))
-        assertTrue(content.contains("import com.$expectedPackage.platform.PlatformHelper;"))
     }
 
     @Test
-    fun `all loader registrations use sanitized package names`() {
+    fun `common registry uses sanitized package names`() {
         val modId = "test_loader-mod"
         val expectedPackage = "testloadermod"
         val projectDir = File(testDir, "loader-test")
@@ -327,29 +327,28 @@ class PackageNameGenerationE2ETest {
         System.setProperty("user.dir", projectDir.absolutePath)
         CreateItemCommand().parse(arrayOf("loader_test_item"))
 
-        // Check each loader's registration
-        val loaders = mapOf(
-            "fabric" to "Fabric",
-            "forge" to "Forge",
-            "neoforge" to "NeoForge"
+        // Architectury pattern: single common registry with sanitized package
+        val registryFile = File(
+            projectDir,
+            "shared/common/src/main/java/com/$expectedPackage/registry/ModItems.java"
+        )
+        assertTrue(registryFile.exists(), "ModItems registry should exist")
+
+        val content = registryFile.readText()
+        assertTrue(
+            content.contains("package com.$expectedPackage.registry;"),
+            "Registry should use sanitized package"
+        )
+        assertTrue(
+            content.contains("loader_test_item"),
+            "Registry should contain loader_test_item"
         )
 
-        loaders.forEach { (loader, className) ->
-            val file = File(
-                projectDir,
-                "shared/$loader/src/main/java/com/$expectedPackage/platform/$loader/LoaderTestItem$className.java"
-            )
-            assertTrue(file.exists(), "$loader registration should exist")
-
-            val content = file.readText()
-            assertTrue(
-                content.contains("package com.$expectedPackage.platform.$loader;"),
-                "$loader should use sanitized package"
-            )
-            assertTrue(
-                content.contains("import com.$expectedPackage.items.LoaderTestItem;"),
-                "$loader should import from sanitized package"
-            )
-        }
+        // Per-loader files should NOT exist
+        val fabricFile = File(
+            projectDir,
+            "shared/fabric/src/main/java/com/$expectedPackage/platform/fabric/LoaderTestItemFabric.java"
+        )
+        assertFalse(fabricFile.exists(), "Per-loader Fabric file should NOT exist with Architectury")
     }
 }

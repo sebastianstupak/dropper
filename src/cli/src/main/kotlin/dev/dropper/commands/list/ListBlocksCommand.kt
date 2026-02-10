@@ -63,7 +63,7 @@ class ListBlocksCommand : DropperCommand(
             FileUtil.writeText(exportFile, output)
             Logger.success("Exported ${blocks.size} blocks to ${exportFile.absolutePath}")
         } else {
-            echo(output)
+            println(output)
         }
     }
 }

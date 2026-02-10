@@ -21,10 +21,15 @@ class BundlePackager : Packager {
 
         ZipOutputStream(FileOutputStream(zipFile)).use { zip ->
             // Add all JAR files organized by version/loader
+            val buildDir = File(projectDir, "build")
             val jars = collectJars(projectDir, options)
             jars.forEach { jar ->
-                // Determine version and loader from path
-                val relativePath = jar.relativeTo(File(projectDir, "build")).path
+                // Determine version and loader from path, use forward slashes for ZIP entries
+                val relativePath = if (buildDir.exists() && jar.startsWith(buildDir)) {
+                    jar.relativeTo(buildDir).path.replace('\\', '/')
+                } else {
+                    jar.name
+                }
                 addFileToZip(zip, jar, relativePath)
             }
 
@@ -54,7 +59,11 @@ class BundlePackager : Packager {
             if (options.includeSources) {
                 val sourceJars = collectJars(projectDir, options, "-sources.jar")
                 sourceJars.forEach { jar ->
-                    val relativePath = jar.relativeTo(File(projectDir, "build")).path
+                    val relativePath = if (buildDir.exists() && jar.startsWith(buildDir)) {
+                        jar.relativeTo(buildDir).path.replace('\\', '/')
+                    } else {
+                        jar.name
+                    }
                     addFileToZip(zip, jar, relativePath)
                 }
             }
@@ -63,7 +72,11 @@ class BundlePackager : Packager {
             if (options.includeJavadoc) {
                 val javadocJars = collectJars(projectDir, options, "-javadoc.jar")
                 javadocJars.forEach { jar ->
-                    val relativePath = jar.relativeTo(File(projectDir, "build")).path
+                    val relativePath = if (buildDir.exists() && jar.startsWith(buildDir)) {
+                        jar.relativeTo(buildDir).path.replace('\\', '/')
+                    } else {
+                        jar.name
+                    }
                     addFileToZip(zip, jar, relativePath)
                 }
             }
@@ -114,17 +127,24 @@ class BundlePackager : Packager {
         }
 
         val jars = mutableListOf<File>()
+        val isDefaultSuffix = suffix == ".jar"
 
         // Scan build directory for JARs
         buildDir.walkTopDown().forEach { file ->
             if (file.isFile && file.name.endsWith(suffix) && !file.name.contains("-dev") && !file.name.contains("-shadow")) {
+                // When collecting regular JARs, exclude sources and javadoc
+                if (isDefaultSuffix && (file.name.contains("-sources.jar") || file.name.contains("-javadoc.jar"))) {
+                    return@forEach
+                }
+
                 // Filter by version if specified
                 val includeByVersion = options.versions.isEmpty() ||
                     options.versions.any { file.absolutePath.contains(it.replace(".", "_")) }
 
-                // Filter by loader if specified
+                // Filter by loader if specified (use path separator matching to avoid "forge" matching "neoforge")
+                val normalizedPath = file.absolutePath.replace('\\', '/')
                 val includeByLoader = options.loaders.isEmpty() ||
-                    options.loaders.any { file.absolutePath.contains(it) }
+                    options.loaders.any { loader -> normalizedPath.contains("/$loader/") || normalizedPath.contains("/$loader-") }
 
                 if (includeByVersion && includeByLoader) {
                     jars.add(file)

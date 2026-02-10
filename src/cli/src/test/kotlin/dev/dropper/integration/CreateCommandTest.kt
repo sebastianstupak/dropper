@@ -64,32 +64,14 @@ class CreateCommandTest {
         assertTrue(itemContent.contains("public static final String ID = \"ruby_sword\""), "Should have ID constant")
         println("  ✓ Common item code verified")
 
-        // Assert: Verify Fabric registration
-        println("\nVerifying Fabric registration...")
-        val fabricFile = context.file("shared/fabric/src/main/java/com/testcreate/platform/fabric/RubySwordFabric.java")
-        assertTrue(fabricFile.exists(), "Fabric registration should exist")
-        val fabricContent = fabricFile.readText()
-        assertTrue(fabricContent.contains("class RubySwordFabric"), "Should have Fabric class")
-        assertTrue(fabricContent.contains("Registry.register"), "Should have Registry.register")
-        println("  ✓ Fabric registration verified")
-
-        // Assert: Verify Forge registration
-        println("\nVerifying Forge registration...")
-        val forgeFile = context.file("shared/forge/src/main/java/com/testcreate/platform/forge/RubySwordForge.java")
-        assertTrue(forgeFile.exists(), "Forge registration should exist")
-        val forgeContent = forgeFile.readText()
-        assertTrue(forgeContent.contains("class RubySwordForge"), "Should have Forge class")
-        assertTrue(forgeContent.contains("DeferredRegister"), "Should use DeferredRegister")
-        println("  ✓ Forge registration verified")
-
-        // Assert: Verify NeoForge registration
-        println("\nVerifying NeoForge registration...")
-        val neoforgeFile = context.file("shared/neoforge/src/main/java/com/testcreate/platform/neoforge/RubySwordNeoForge.java")
-        assertTrue(neoforgeFile.exists(), "NeoForge registration should exist")
-        val neoforgeContent = neoforgeFile.readText()
-        assertTrue(neoforgeContent.contains("class RubySwordNeoForge"), "Should have NeoForge class")
-        assertTrue(neoforgeContent.contains("DeferredItem"), "Should use DeferredItem")
-        println("  ✓ NeoForge registration verified")
+        // Assert: Verify registry file (Architectury: single registry in common)
+        println("\nVerifying item registry...")
+        val registryFile = context.file("shared/common/src/main/java/com/testcreate/registry/ModItems.java")
+        assertTrue(registryFile.exists(), "Registry file should exist")
+        val registryContent = registryFile.readText()
+        assertTrue(registryContent.contains("class ModItems"), "Should have ModItems class")
+        assertTrue(registryContent.contains("ruby_sword"), "Should register ruby_sword")
+        println("  ✓ Item registry verified")
 
         // Assert: Verify item model
         println("\nVerifying item assets...")
@@ -143,32 +125,14 @@ class CreateCommandTest {
         assertTrue(blockContent.contains("public static final String ID = \"ruby_ore\""), "Should have ID constant")
         println("  ✓ Common block code verified")
 
-        // Assert: Verify Fabric registration
-        println("\nVerifying Fabric registration...")
-        val fabricFile = context.file("shared/fabric/src/main/java/com/testcreate/platform/fabric/RubyOreFabric.java")
-        assertTrue(fabricFile.exists(), "Fabric registration should exist")
-        val fabricContent = fabricFile.readText()
-        assertTrue(fabricContent.contains("class RubyOreFabric"), "Should have Fabric class")
-        assertTrue(fabricContent.contains("BlockItem"), "Should register BlockItem")
-        println("  ✓ Fabric registration verified")
-
-        // Assert: Verify Forge registration
-        println("\nVerifying Forge registration...")
-        val forgeFile = context.file("shared/forge/src/main/java/com/testcreate/platform/forge/RubyOreForge.java")
-        assertTrue(forgeFile.exists(), "Forge registration should exist")
-        val forgeContent = forgeFile.readText()
-        assertTrue(forgeContent.contains("class RubyOreForge"), "Should have Forge class")
-        assertTrue(forgeContent.contains("BLOCKS"), "Should have BLOCKS register")
-        println("  ✓ Forge registration verified")
-
-        // Assert: Verify NeoForge registration
-        println("\nVerifying NeoForge registration...")
-        val neoforgeFile = context.file("shared/neoforge/src/main/java/com/testcreate/platform/neoforge/RubyOreNeoForge.java")
-        assertTrue(neoforgeFile.exists(), "NeoForge registration should exist")
-        val neoforgeContent = neoforgeFile.readText()
-        assertTrue(neoforgeContent.contains("class RubyOreNeoForge"), "Should have NeoForge class")
-        assertTrue(neoforgeContent.contains("DeferredBlock"), "Should use DeferredBlock")
-        println("  ✓ NeoForge registration verified")
+        // Assert: Verify block registry file (Architectury: single registry in common)
+        println("\nVerifying block registry...")
+        val registryFile = context.file("shared/common/src/main/java/com/testcreate/registry/ModBlocks.java")
+        assertTrue(registryFile.exists(), "Block registry file should exist")
+        val registryContent = registryFile.readText()
+        assertTrue(registryContent.contains("class ModBlocks"), "Should have ModBlocks class")
+        assertTrue(registryContent.contains("ruby_ore"), "Should register ruby_ore")
+        println("  ✓ Block registry verified")
 
         // Assert: Verify blockstate
         println("\nVerifying block assets...")
@@ -198,7 +162,7 @@ class CreateCommandTest {
         println("  ✓ Texture placeholder verified")
 
         // Assert: Verify loot table
-        val lootTableFile = context.file("versions/shared/v1/data/testcreate/loot_table/blocks/ruby_ore.json")
+        val lootTableFile = context.file("versions/shared/v1/data/testcreate/loot_tables/blocks/ruby_ore.json")
         assertTrue(lootTableFile.exists(), "Loot table should exist")
         val lootTableContent = lootTableFile.readText()
         assertTrue(lootTableContent.contains("\"type\": \"minecraft:block\""), "Should be block loot table")
@@ -241,44 +205,32 @@ class CreateCommandTest {
         val blocks = listOf("ruby_ore", "ruby_block", "ruby_pillar")
 
         items.forEach { item ->
-            val className = item.split("_").joinToString("") { it.capitalize() }
+            val className = item.split("_").joinToString("") { word -> word.replaceFirstChar { it.uppercase() } }
             assertTrue(
                 context.file("shared/common/src/main/java/com/testcreate/items/$className.java").exists(),
                 "Item $item should exist"
             )
-            assertTrue(
-                context.file("shared/fabric/src/main/java/com/testcreate/platform/fabric/${className}Fabric.java").exists(),
-                "Item $item Fabric registration should exist"
-            )
-            assertTrue(
-                context.file("shared/forge/src/main/java/com/testcreate/platform/forge/${className}Forge.java").exists(),
-                "Item $item Forge registration should exist"
-            )
-            assertTrue(
-                context.file("shared/neoforge/src/main/java/com/testcreate/platform/neoforge/${className}NeoForge.java").exists(),
-                "Item $item NeoForge registration should exist"
-            )
         }
 
+        // Verify single registry file for items
+        assertTrue(
+            context.file("shared/common/src/main/java/com/testcreate/registry/ModItems.java").exists(),
+            "ModItems registry should exist"
+        )
+
         blocks.forEach { block ->
-            val className = block.split("_").joinToString("") { it.capitalize() }
+            val className = block.split("_").joinToString("") { word -> word.replaceFirstChar { it.uppercase() } }
             assertTrue(
                 context.file("shared/common/src/main/java/com/testcreate/blocks/$className.java").exists(),
                 "Block $block should exist"
             )
-            assertTrue(
-                context.file("shared/fabric/src/main/java/com/testcreate/platform/fabric/${className}Fabric.java").exists(),
-                "Block $block Fabric registration should exist"
-            )
-            assertTrue(
-                context.file("shared/forge/src/main/java/com/testcreate/platform/forge/${className}Forge.java").exists(),
-                "Block $block Forge registration should exist"
-            )
-            assertTrue(
-                context.file("shared/neoforge/src/main/java/com/testcreate/platform/neoforge/${className}NeoForge.java").exists(),
-                "Block $block NeoForge registration should exist"
-            )
         }
+
+        // Verify single registry file for blocks
+        assertTrue(
+            context.file("shared/common/src/main/java/com/testcreate/registry/ModBlocks.java").exists(),
+            "ModBlocks registry should exist"
+        )
 
         println("  ✓ All ${items.size} items verified")
         println("  ✓ All ${blocks.size} blocks verified")
@@ -327,7 +279,7 @@ class CreateCommandTest {
         val blockFile = context.file("shared/common/src/main/java/com/testcreate/blocks/RubyLeaves.java")
         assertTrue(blockFile.exists(), "Block should exist")
 
-        val lootTableFile = context.file("versions/shared/v1/data/testcreate/loot_table/blocks/ruby_leaves.json")
+        val lootTableFile = context.file("versions/shared/v1/data/testcreate/loot_tables/blocks/ruby_leaves.json")
         assertTrue(!lootTableFile.exists(), "Loot table should NOT exist")
 
         println("  ✓ Block created without loot table")

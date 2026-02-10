@@ -63,7 +63,7 @@ object RenamerUtil {
      * Convert snake_case to PascalCase class name
      */
     fun toClassName(snakeCase: String): String {
-        return snakeCase.split("_").joinToString("") { it.capitalize() }
+        return snakeCase.split("_").joinToString("") { word -> word.replaceFirstChar { it.uppercase() } }
     }
 
     /**
@@ -140,5 +140,17 @@ object RenamerUtil {
      */
     fun getPackagePath(packageName: String): String {
         return packageName.replace(".", "/")
+    }
+
+    /**
+     * Get the proper class name suffix for a loader.
+     * Maps loader names to their PascalCase class name suffixes.
+     * For example: "neoforge" -> "NeoForge", "fabric" -> "Fabric"
+     */
+    fun loaderClassName(loader: String): String {
+        return when (loader) {
+            "neoforge" -> "NeoForge"
+            else -> loader.replaceFirstChar { it.uppercase() }
+        }
     }
 }

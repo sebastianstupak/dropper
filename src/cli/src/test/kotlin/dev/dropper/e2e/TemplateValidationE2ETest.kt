@@ -4,6 +4,7 @@ import dev.dropper.commands.CreateItemCommand
 import dev.dropper.commands.CreateBlockCommand
 import dev.dropper.config.ModConfig
 import dev.dropper.generator.ProjectGenerator
+import dev.dropper.util.TestValidationUtils
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -76,19 +77,17 @@ class TemplateValidationE2ETest {
         javaFiles.forEach { javaFile ->
             val content = javaFile.readText()
 
-            // Check package declaration
-            assertTrue(content.contains("package "), "Should have package declaration: ${javaFile.name}")
+            // Full Java syntax validation using TestValidationUtils
+            TestValidationUtils.assertValidJavaSyntax(content, javaFile.name)
+            TestValidationUtils.assertClassNameMatchesFile(content, javaFile.name)
+            TestValidationUtils.assertPackageMatchesPath(content, javaFile.absolutePath, projectDir.absolutePath)
 
-            // Check modId is properly substituted
-            val packageName = modId.replace("-", "")
+            // Check modId is properly substituted (sanitization removes both hyphens and underscores)
+            val packageName = modId.replace("-", "").replace("_", "")
             assertTrue(
                 content.contains("package com.$packageName") || content.contains("package com.${packageName}."),
                 "Package should contain mod ID: ${javaFile.name}"
             )
-
-            // Verify no template variables remain
-            assertFalse(content.contains("{{"), "No unsubstituted variables in ${javaFile.name}")
-            assertFalse(content.contains("}}"), "No unsubstituted variables in ${javaFile.name}")
 
             println("  ✓ ${javaFile.name} - valid")
         }
@@ -132,22 +131,14 @@ class TemplateValidationE2ETest {
 
         println("  Found ${javaFiles.size} Java files to validate")
 
-        // Basic syntax checks (full compilation would require Minecraft dependencies)
+        // Comprehensive syntax checks using TestValidationUtils
         javaFiles.forEach { javaFile ->
             val content = javaFile.readText()
 
-            // Check basic Java syntax elements
-            assertTrue(content.contains("package "), "Should have package: ${javaFile.name}")
-            assertTrue(content.contains("class ") || content.contains("interface "), "Should have class/interface: ${javaFile.name}")
-
-            // Check for common syntax errors
-            val openBraces = content.count { it == '{' }
-            val closeBraces = content.count { it == '}' }
-            assertTrue(openBraces == closeBraces, "Braces should match in ${javaFile.name}")
-
-            val openParens = content.count { it == '(' }
-            val closeParens = content.count { it == ')' }
-            assertTrue(openParens == closeParens, "Parentheses should match in ${javaFile.name}")
+            // Full Java syntax validation (balanced delimiters, package, class, imports)
+            TestValidationUtils.assertValidJavaSyntax(content, javaFile.name)
+            TestValidationUtils.assertClassNameMatchesFile(content, javaFile.name)
+            TestValidationUtils.assertPackageMatchesPath(content, javaFile.absolutePath, projectDir.absolutePath)
 
             println("  ✓ ${javaFile.name} - syntax valid")
         }
@@ -189,32 +180,13 @@ class TemplateValidationE2ETest {
         jsonFiles.forEach { jsonFile ->
             val content = jsonFile.readText()
 
-            // Basic JSON structure validation
-            assertTrue(content.trim().startsWith("{") || content.trim().startsWith("["),
-                "JSON should start with { or [: ${jsonFile.name}")
-            assertTrue(content.trim().endsWith("}") || content.trim().endsWith("]"),
-                "JSON should end with } or ]: ${jsonFile.name}")
+            // Real JSON validation using Gson parser
+            TestValidationUtils.assertValidJson(content, jsonFile.name)
 
-            // Check no template variables remain
-            assertFalse(content.contains("{{"), "No unsubstituted variables in ${jsonFile.name}")
-            assertFalse(content.contains("}}"), "No unsubstituted variables in ${jsonFile.name}")
-
-            // Check balanced braces
-            val openBraces = content.count { it == '{' }
-            val closeBraces = content.count { it == '}' }
-            assertTrue(openBraces == closeBraces, "Braces should balance in ${jsonFile.name}")
-
-            // Try parsing as JSON (basic check)
-            try {
-                // Just check it doesn't throw on basic parsing
-                val hasValidStructure = content.contains("\":") || content.contains("\": ")
-                assertTrue(hasValidStructure || content == "{}" || content == "[]",
-                    "Should have valid JSON structure: ${jsonFile.name}")
-                println("  ✓ ${jsonFile.name} - valid JSON")
-            } catch (e: Exception) {
-                throw AssertionError("Invalid JSON in ${jsonFile.name}: ${e.message}")
-            }
+            println("  ✓ ${jsonFile.name} - valid JSON (Gson parsed)")
         }
+
+        println("  Total: ${jsonFiles.size} JSON files validated with real parser")
     }
 
     @Test
@@ -394,8 +366,10 @@ class TemplateValidationE2ETest {
 
             loaderFiles.forEach { file ->
                 val content = file.readText()
-                assertTrue(content.contains("package "), "Should have package: ${file.name}")
-                println("    ✓ ${file.name}")
+                // Full Java syntax validation for each loader file
+                TestValidationUtils.assertValidJavaSyntax(content, file.name)
+                TestValidationUtils.assertClassNameMatchesFile(content, file.name)
+                println("    ✓ ${file.name} - syntax valid")
             }
         }
     }

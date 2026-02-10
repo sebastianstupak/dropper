@@ -9,8 +9,10 @@ import java.io.File
  */
 class VersionMigrator : Migrator {
     private val apiDetector = ApiChangeDetector()
+    private lateinit var projectDir: File
 
     override fun planMigration(context: MigrationContext): MigrationPlan {
+        projectDir = context.projectDir
         val operations = mutableListOf<MigrationOperation>()
         val warnings = mutableListOf<String>()
         val manualSteps = mutableListOf<String>()
@@ -33,7 +35,9 @@ class VersionMigrator : Migrator {
         }
 
         // Create version directory
-        operations.add(MigrationOperation.CreateDirectory("versions/$versionDir"))
+        operations.add(MigrationOperation.CreateDirectory(
+            File(context.projectDir, "versions/$versionDir").absolutePath
+        ))
 
         // Find source version to copy from
         val sourceVersionDir = if (fromVersion.isNotEmpty()) {
@@ -66,7 +70,7 @@ class VersionMigrator : Migrator {
         // Update version config
         operations.add(
             MigrationOperation.UpdateConfig(
-                "versions/$versionDir/config.yml",
+                File(context.projectDir, "versions/$versionDir/config.yml").absolutePath,
                 mapOf(
                     "minecraft_version" to toVersion,
                     "asset_pack" to (context.params["assetPack"] ?: "v1")
@@ -83,7 +87,7 @@ class VersionMigrator : Migrator {
         // Update root config.yml
         operations.add(
             MigrationOperation.UpdateConfig(
-                "config.yml",
+                File(context.projectDir, "config.yml").absolutePath,
                 mapOf("add_version" to toVersion),
                 "Add version to root config"
             )
@@ -137,7 +141,7 @@ class VersionMigrator : Migrator {
             val targetFile = File(target, relativePath)
 
             if (file.isDirectory) {
-                operations.add(MigrationOperation.CreateDirectory(targetFile.path))
+                operations.add(MigrationOperation.CreateDirectory(targetFile.absolutePath))
                 copyVersionStructure(file, targetFile, operations, context)
             } else {
                 operations.add(

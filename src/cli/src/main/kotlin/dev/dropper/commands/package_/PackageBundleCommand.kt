@@ -71,7 +71,7 @@ class PackageBundleCommand : CliktCommand(
             license = license
         )
 
-        val outputDir = File(output)
+        val outputDir = if (File(output).isAbsolute) File(output) else File(projectDir, output)
         val packager = BundlePackager()
 
         try {

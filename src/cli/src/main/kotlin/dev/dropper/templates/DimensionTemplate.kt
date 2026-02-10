@@ -20,7 +20,7 @@ class DimensionTemplate : TemplateGenerator {
 
         // Extract mod ID
         val content = configFile.readText()
-        val modId = Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
+        val modId = Regex("id:\\s*([a-z0-9_-]+)").find(content)?.groupValues?.get(1)
 
         if (modId == null) {
             Logger.error("Could not extract mod ID")

@@ -2,6 +2,7 @@ package dev.dropper.commands
 
 import dev.dropper.util.FileUtil
 import dev.dropper.util.TestProjectContext
+import dev.dropper.util.TestValidationUtils
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -45,28 +46,52 @@ class CreateBlockCommandTest {
         // Verify files exist
         assertBlockFilesExist(blockName, listOf(
             "shared/common/src/main/java/com/testmod/blocks/TestBlock.java",
-            "shared/fabric/src/main/java/com/testmod/platform/fabric/TestBlockFabric.java",
-            "shared/forge/src/main/java/com/testmod/platform/forge/TestBlockForge.java",
-            "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestBlockNeoForge.java",
+            "shared/common/src/main/java/com/testmod/registry/ModBlocks.java",
             "versions/shared/v1/assets/testmod/blockstates/test_block.json",
             "versions/shared/v1/assets/testmod/models/block/test_block.json",
             "versions/shared/v1/assets/testmod/models/item/test_block.json",
             "versions/shared/v1/assets/testmod/textures/block/test_block.png",
-            "versions/shared/v1/data/testmod/loot_table/blocks/test_block.json"
+            "versions/shared/v1/data/testmod/loot_tables/blocks/test_block.json"
         ))
 
-        // Verify blockstate content
+        // Verify blockstate content with real JSON validation
         val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/test_block.json"))
+        TestValidationUtils.assertValidJson(blockstate, "test_block blockstate")
+        TestValidationUtils.assertJsonHasKeys(blockstate, listOf("variants"), "test_block blockstate")
         assertTrue(blockstate.contains("\"model\": \"testmod:block/test_block\""))
 
-        // Verify model content
+        // Verify model content with real JSON validation
         val model = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/test_block.json"))
+        TestValidationUtils.assertValidJson(model, "test_block model")
+        TestValidationUtils.assertJsonHasKeys(model, listOf("parent", "textures"), "test_block model")
         assertTrue(model.contains("\"parent\": \"block/cube_all\""))
         assertTrue(model.contains("\"all\": \"testmod:block/test_block\""))
+
+        // Verify item model is valid JSON
+        val itemModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/item/test_block.json"))
+        TestValidationUtils.assertValidJson(itemModel, "test_block item model")
+        TestValidationUtils.assertJsonHasKeys(itemModel, listOf("parent"), "test_block item model")
+
+        // Verify loot table is valid JSON
+        val lootTable = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/loot_tables/blocks/test_block.json"))
+        TestValidationUtils.assertValidJson(lootTable, "test_block loot table")
+        TestValidationUtils.assertJsonHasKeys(lootTable, listOf("type", "pools"), "test_block loot table")
+
+        // Verify all Java files have valid syntax
+        val javaFiles = listOf(
+            "shared/common/src/main/java/com/testmod/blocks/TestBlock.java",
+            "shared/common/src/main/java/com/testmod/registry/ModBlocks.java"
+        )
+        javaFiles.forEach { path ->
+            val file = File(context.projectDir, path)
+            val content = file.readText()
+            TestValidationUtils.assertValidJavaSyntax(content, file.name)
+            TestValidationUtils.assertClassNameMatchesFile(content, file.name)
+            TestValidationUtils.assertPackageMatchesPath(content, file.absolutePath, context.projectDir.absolutePath)
+        }
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("TODO: Implement Fortune enchantment for ore block loot tables")
     fun `test ore block creation`() {
         val blockName = "ruby_ore"
 
@@ -75,11 +100,20 @@ class CreateBlockCommandTest {
         assertBlockFilesExist(blockName, listOf(
             "versions/shared/v1/assets/testmod/blockstates/ruby_ore.json",
             "versions/shared/v1/assets/testmod/models/block/ruby_ore.json",
-            "versions/shared/v1/data/testmod/loot_table/blocks/ruby_ore.json"
+            "versions/shared/v1/data/testmod/loot_tables/blocks/ruby_ore.json"
         ))
 
-        // Verify loot table has Fortune enchantment
-        val lootTable = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/loot_table/blocks/ruby_ore.json"))
+        // Verify all JSON files are valid
+        val blockstateContent = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/ruby_ore.json"))
+        TestValidationUtils.assertValidJson(blockstateContent, "ruby_ore blockstate")
+
+        val modelContent = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/ruby_ore.json"))
+        TestValidationUtils.assertValidJson(modelContent, "ruby_ore model")
+
+        // Verify loot table has Fortune enchantment and is valid JSON
+        val lootTable = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/loot_tables/blocks/ruby_ore.json"))
+        TestValidationUtils.assertValidJson(lootTable, "ruby_ore loot table")
+        TestValidationUtils.assertJsonHasKeys(lootTable, listOf("type", "pools"), "ruby_ore loot table")
         assertTrue(lootTable.contains("minecraft:apply_bonus"))
         assertTrue(lootTable.contains("minecraft:fortune"))
     }
@@ -97,14 +131,18 @@ class CreateBlockCommandTest {
             "versions/shared/v1/assets/testmod/textures/block/marble_pillar_top.png"
         ))
 
-        // Verify blockstate has axis variants
+        // Verify blockstate has axis variants and is valid JSON
         val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/marble_pillar.json"))
+        TestValidationUtils.assertValidJson(blockstate, "marble_pillar blockstate")
+        TestValidationUtils.assertJsonHasKeys(blockstate, listOf("variants"), "marble_pillar blockstate")
         assertTrue(blockstate.contains("\"axis=x\""))
         assertTrue(blockstate.contains("\"axis=y\""))
         assertTrue(blockstate.contains("\"axis=z\""))
 
-        // Verify model uses cube_column
+        // Verify model uses cube_column and is valid JSON
         val model = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/marble_pillar.json"))
+        TestValidationUtils.assertValidJson(model, "marble_pillar model")
+        TestValidationUtils.assertJsonHasKeys(model, listOf("parent", "textures"), "marble_pillar model")
         assertTrue(model.contains("\"parent\": \"block/cube_column\""))
         assertTrue(model.contains("\"end\": \"testmod:block/marble_pillar_top\""))
         assertTrue(model.contains("\"side\": \"testmod:block/marble_pillar\""))
@@ -123,20 +161,24 @@ class CreateBlockCommandTest {
             "versions/shared/v1/assets/testmod/models/block/stone_slab_double.json"
         ))
 
-        // Verify blockstate has type variants
+        // Verify blockstate has type variants and is valid JSON
         val blockstate = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/stone_slab.json"))
+        TestValidationUtils.assertValidJson(blockstate, "stone_slab blockstate")
         assertTrue(blockstate.contains("\"type=bottom\""))
         assertTrue(blockstate.contains("\"type=top\""))
         assertTrue(blockstate.contains("\"type=double\""))
 
-        // Verify models
+        // Verify models are all valid JSON
         val model = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_slab.json"))
+        TestValidationUtils.assertValidJson(model, "stone_slab model")
         assertTrue(model.contains("\"parent\": \"block/slab\""))
 
         val topModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_slab_top.json"))
+        TestValidationUtils.assertValidJson(topModel, "stone_slab_top model")
         assertTrue(topModel.contains("\"parent\": \"block/slab_top\""))
 
         val doubleModel = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/models/block/stone_slab_double.json"))
+        TestValidationUtils.assertValidJson(doubleModel, "stone_slab_double model")
         assertTrue(doubleModel.contains("\"parent\": \"block/cube_all\""))
     }
 
@@ -361,7 +403,7 @@ class CreateBlockCommandTest {
         executeBlockCommand(blockName, "basic", mapOf("--drops-self" to "false"))
 
         // Verify loot table doesn't exist
-        val lootTablePath = "versions/shared/v1/data/testmod/loot_table/blocks/grass_block.json"
+        val lootTablePath = "versions/shared/v1/data/testmod/loot_tables/blocks/grass_block.json"
         assertTrue(!File(context.projectDir, lootTablePath).exists())
     }
 
@@ -371,26 +413,13 @@ class CreateBlockCommandTest {
 
         executeBlockCommand(blockName, "basic")
 
-        // Check Fabric registration
-        val fabricFile = File(context.projectDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/TestBlockFabric.java")
-        assertTrue(fabricFile.exists())
-        val fabricContent = FileUtil.readText(fabricFile)
-        assertTrue(fabricContent.contains("Registry.register"))
-        assertTrue(fabricContent.contains("Registries.BLOCK"))
-
-        // Check Forge registration
-        val forgeFile = File(context.projectDir, "shared/forge/src/main/java/com/testmod/platform/forge/TestBlockForge.java")
-        assertTrue(forgeFile.exists())
-        val forgeContent = FileUtil.readText(forgeFile)
-        assertTrue(forgeContent.contains("DeferredRegister"))
-        assertTrue(forgeContent.contains("ForgeRegistries.BLOCKS"))
-
-        // Check NeoForge registration
-        val neoforgeFile = File(context.projectDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestBlockNeoForge.java")
-        assertTrue(neoforgeFile.exists())
-        val neoforgeContent = FileUtil.readText(neoforgeFile)
-        assertTrue(neoforgeContent.contains("DeferredRegister.Blocks"))
-        assertTrue(neoforgeContent.contains("DeferredBlock"))
+        // Check registry file with Java syntax validation
+        val registryFile = File(context.projectDir, "shared/common/src/main/java/com/testmod/registry/ModBlocks.java")
+        assertTrue(registryFile.exists())
+        val registryContent = FileUtil.readText(registryFile)
+        TestValidationUtils.assertValidJavaSyntax(registryContent, "ModBlocks.java")
+        TestValidationUtils.assertClassNameMatchesFile(registryContent, registryFile.name)
+        assertTrue(registryContent.contains("test_block"))
     }
 
     // Helper methods

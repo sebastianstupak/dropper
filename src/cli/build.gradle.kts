@@ -129,11 +129,14 @@ val isWSL = System.getenv("WSL_DISTRO_NAME") != null ||
             System.getenv("DROPPER_TEST_ENV") == "wsl"
 val isContainer = System.getenv("DROPPER_TEST_ENV") == "docker" ||
                   System.getenv("DROPPER_TEST_ENV") == "container"
-val shouldExcludeTests = isWindows && !isWSL && !isContainer
+val shouldExcludeTests = (isWindows && !isWSL && !isContainer) &&
+    findProperty("forceTests") != "true"
 
 // Integration tests are gated - many test incomplete features
 // Set RUN_INTEGRATION_TESTS=true to run them
-val runIntegrationTests = System.getenv("RUN_INTEGRATION_TESTS") == "true"
+// Also support Gradle property: -PrunIntegrationTests=true
+val runIntegrationTests = System.getenv("RUN_INTEGRATION_TESTS") == "true" ||
+    findProperty("runIntegrationTests") == "true"
 
 // Main test task - runs only unit tests (fast)
 tasks.test {
@@ -151,6 +154,8 @@ val integrationTests1 by tasks.registering(Test::class) {
 
     filter {
         includeTestsMatching("dev.dropper.commands.*")
+        includeTestsMatching("dev.dropper.integration.VersionAwareCreateTest")
+        includeTestsMatching("dev.dropper.integration.RegistryInitTest")
     }
 
     // Only run on non-Windows or in WSL/Docker
@@ -168,18 +173,16 @@ val integrationTests2 by tasks.registering(Test::class) {
         includeTestsMatching("dev.dropper.integration.AssetPackCommandTest")
         includeTestsMatching("dev.dropper.integration.BuildCommandTest")
         includeTestsMatching("dev.dropper.integration.CleanCommandE2ETest")
-        includeTestsMatching("dev.dropper.integration.CompleteWorkflowTest")
         includeTestsMatching("dev.dropper.integration.CreateCommandTest")
         includeTestsMatching("dev.dropper.integration.DevCommandTest")
-        includeTestsMatching("dev.dropper.integration.E2ETest")
         includeTestsMatching("dev.dropper.integration.ExportCommandE2ETest")
-        includeTestsMatching("dev.dropper.integration.FullCLIBuildTest")
         includeTestsMatching("dev.dropper.integration.FullWorkflowTest")
         includeTestsMatching("dev.dropper.integration.ImportCommandE2ETest")
         includeTestsMatching("dev.dropper.integration.ListCommandE2ETest")
         includeTestsMatching("dev.dropper.integration.ListCommandBasicTest")
         includeTestsMatching("dev.dropper.integration.MigrateCommandE2ETest")
         includeTestsMatching("dev.dropper.integration.MigrateCommandAdvancedE2ETest")
+        includeTestsMatching("dev.dropper.integration.ArchitecturyBuildTemplateTest")
     }
 
     enabled = !shouldExcludeTests && runIntegrationTests

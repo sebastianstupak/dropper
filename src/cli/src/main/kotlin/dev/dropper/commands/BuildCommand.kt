@@ -40,8 +40,13 @@ class BuildCommand : DropperCommand(
             }
             loader != null -> {
                 Logger.info("Building ${loader} for all versions...")
-                // TODO: Read versions from config
-                emptyList()
+                val versions = readVersionsFromConfig(configFile)
+                if (versions.isNotEmpty()) {
+                    versions.map { v -> "${v.replace(".", "_")}-${loader}" }
+                } else {
+                    Logger.warn("No versions found in config.yml, building all")
+                    emptyList()
+                }
             }
             all -> {
                 Logger.info("Building all versions and loaders...")
@@ -91,5 +96,29 @@ class BuildCommand : DropperCommand(
         } else {
             Logger.error("Build failed with exit code $exitCode")
         }
+    }
+
+    /**
+     * Read minecraft_versions from config.yml.
+     * Parses the YAML list format:
+     *   minecraft_versions:
+     *     - "1.20.1"
+     *     - "1.21.1"
+     */
+    private fun readVersionsFromConfig(configFile: File): List<String> {
+        val content = configFile.readText()
+        val versions = mutableListOf<String>()
+
+        val versionRegex = Regex("minecraft_versions:\\s*\\n((?:\\s+-\\s*\"?[^\"\\n]+\"?\\n?)+)")
+        val match = versionRegex.find(content)
+        if (match != null) {
+            val block = match.groupValues[1]
+            val itemRegex = Regex("-\\s*\"?([0-9][^\"\\n]+?)\"?\\s*$", RegexOption.MULTILINE)
+            itemRegex.findAll(block).forEach { itemMatch ->
+                versions.add(itemMatch.groupValues[1].trim())
+            }
+        }
+
+        return versions
     }
 }

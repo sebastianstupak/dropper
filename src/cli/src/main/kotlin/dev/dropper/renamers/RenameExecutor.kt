@@ -56,7 +56,12 @@ class RenameExecutor {
             throw IllegalStateException("File does not exist: ${operation.oldPath}")
         }
 
-        if (operation.newPath.exists()) {
+        // Check if this is a case-only rename (same path, different case)
+        val isCaseOnlyRename = operation.oldPath.absolutePath.equals(
+            operation.newPath.absolutePath, ignoreCase = true
+        ) && operation.oldPath.absolutePath != operation.newPath.absolutePath
+
+        if (operation.newPath.exists() && !isCaseOnlyRename) {
             throw IllegalStateException("Target file already exists: ${operation.newPath}")
         }
 
@@ -68,10 +73,26 @@ class RenameExecutor {
             backups[operation.oldPath] = operation.oldPath.readText()
         }
 
-        // Rename
-        val success = operation.oldPath.renameTo(operation.newPath)
-        if (!success) {
-            throw IllegalStateException("Failed to rename ${operation.oldPath} to ${operation.newPath}")
+        // For case-only renames on case-insensitive file systems (Windows),
+        // use a two-step rename via a temporary file
+        if (isCaseOnlyRename) {
+            val tempFile = File(operation.oldPath.parentFile, operation.oldPath.name + ".tmp_rename")
+            val step1 = operation.oldPath.renameTo(tempFile)
+            if (!step1) {
+                throw IllegalStateException("Failed to rename ${operation.oldPath} to temp file")
+            }
+            val step2 = tempFile.renameTo(operation.newPath)
+            if (!step2) {
+                // Try to restore
+                tempFile.renameTo(operation.oldPath)
+                throw IllegalStateException("Failed to rename temp file to ${operation.newPath}")
+            }
+        } else {
+            // Standard rename
+            val success = operation.oldPath.renameTo(operation.newPath)
+            if (!success) {
+                throw IllegalStateException("Failed to rename ${operation.oldPath} to ${operation.newPath}")
+            }
         }
     }
 

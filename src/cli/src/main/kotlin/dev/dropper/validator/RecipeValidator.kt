@@ -39,7 +39,8 @@ class RecipeValidator : Validator {
         val recipeFiles = mutableListOf<File>()
 
         versionsDir.walkTopDown().forEach { file ->
-            if (file.isFile && file.extension == "json" && file.path.contains("/recipe/")) {
+            val normalizedPath = file.path.replace("\\", "/")
+            if (file.isFile && file.extension == "json" && normalizedPath.contains("/recipe/")) {
                 recipeFiles.add(file)
             }
         }
@@ -358,7 +359,8 @@ class RecipeValidator : Validator {
                 @Suppress("UNCHECKED_CAST")
                 val resultMap = result as Map<String, Any>
 
-                val item = resultMap["item"] as? String
+                // Accept both "item" (1.20.x format) and "id" (1.21+ format)
+                val item = resultMap["item"] as? String ?: resultMap["id"] as? String
                 if (item == null) {
                     issues.add(
                         ValidationIssue(

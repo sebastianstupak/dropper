@@ -50,7 +50,7 @@ class BlockIndexer : ComponentIndexer {
         if (!configFile.exists()) return null
 
         val content = configFile.readText()
-        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
+        return Regex("id:\\s*([a-z0-9_-]+)").find(content)?.groupValues?.get(1)
     }
 
     private fun extractBlockName(file: File): String? {
@@ -75,7 +75,7 @@ class BlockIndexer : ComponentIndexer {
     }
 
     private fun hasLootTable(projectDir: File, modId: String, blockName: String): Boolean {
-        val lootTableFile = File(projectDir, "versions/shared/v1/data/$modId/loot_table/blocks/$blockName.json")
+        val lootTableFile = File(projectDir, "versions/shared/v1/data/$modId/loot_tables/blocks/$blockName.json")
         return lootTableFile.exists()
     }
 

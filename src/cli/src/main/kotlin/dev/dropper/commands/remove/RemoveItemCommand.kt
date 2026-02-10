@@ -82,8 +82,4 @@ class RemoveItemCommand : DropperCommand(
         }
     }
 
-    private fun extractModId(configFile: File): String? {
-        val content = configFile.readText()
-        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
-    }
 }

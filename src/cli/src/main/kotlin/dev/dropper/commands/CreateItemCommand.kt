@@ -5,6 +5,8 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import dev.dropper.util.FileUtil
 import dev.dropper.util.Logger
+import dev.dropper.util.MinecraftVersions
+import dev.dropper.util.StringUtil
 import dev.dropper.util.ValidationUtil
 import java.io.File
 
@@ -44,6 +46,10 @@ class CreateItemCommand : DropperCommand(
             return
         }
 
+        // Read minecraft versions from config for version-aware generation
+        val minecraftVersions = extractMinecraftVersions(configFile)
+        val primaryVersion = minecraftVersions.firstOrNull() ?: "1.20.1"
+
         // Sanitize mod ID for package names (remove hyphens and underscores)
         val sanitizedModId = FileUtil.sanitizeModId(modId)
 
@@ -62,41 +68,38 @@ class CreateItemCommand : DropperCommand(
 
         Logger.info("Creating item: $name")
 
-        // Generate common item code (shared across all loaders)
-        generateItemRegistration(projectDir, name, modId, sanitizedModId, type)
+        // Generate common item class (shared across all loaders)
+        generateItemRegistration(projectDir, name, modId, sanitizedModId, type, primaryVersion)
 
-        // Generate loader-specific registration
-        generateFabricRegistration(projectDir, name, modId, sanitizedModId)
-        generateForgeRegistration(projectDir, name, modId, sanitizedModId)
-        generateNeoForgeRegistration(projectDir, name, modId, sanitizedModId)
+        // Generate/update registry class using Architectury DeferredRegister
+        generateOrUpdateModItems(projectDir, name, modId, sanitizedModId, type)
+
+        // Update main mod class init() to call ModItems.init()
+        updateMainModInit(projectDir, sanitizedModId, "ModItems")
 
         // Generate assets
         generateItemAssets(projectDir, name, modId)
 
         // Generate recipe if requested
+        val recipeDir = MinecraftVersions.recipeDir(primaryVersion)
         if (recipe == "true") {
-            generateItemRecipe(projectDir, name, modId)
+            generateItemRecipe(projectDir, name, modId, recipeDir)
         }
 
         Logger.success("Item '$name' created successfully!")
         Logger.info("Next steps:")
         Logger.info("  1. Add texture: versions/shared/v1/assets/$modId/textures/item/$name.png")
-        Logger.info("  2. Customize recipe: versions/shared/v1/data/$modId/recipe/$name.json")
+        Logger.info("  2. Customize recipe: versions/shared/v1/data/$modId/$recipeDir/$name.json")
         Logger.info("  3. Build with: dropper build")
     }
 
-    private fun extractModId(configFile: File): String? {
-        val content = configFile.readText()
-        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
-    }
-
-    private fun generateItemRegistration(projectDir: File, itemName: String, modId: String, sanitizedModId: String, type: String) {
+    @Suppress("UNUSED_PARAMETER")
+    private fun generateItemRegistration(projectDir: File, itemName: String, modId: String, sanitizedModId: String, type: String, mcVersion: String) {
         val className = toClassName(itemName)
-        val packageName = "com.$sanitizedModId.items"
 
         val content = when (type) {
-            "tool" -> generateToolItem(className, itemName, sanitizedModId)
-            "food" -> generateFoodItem(className, itemName, sanitizedModId)
+            "tool" -> generateToolItem(className, itemName, sanitizedModId, mcVersion)
+            "food" -> generateFoodItem(className, itemName, sanitizedModId, mcVersion)
             else -> generateBasicItem(className, itemName, sanitizedModId)
         }
 
@@ -110,83 +113,164 @@ class CreateItemCommand : DropperCommand(
         return """
             package com.$sanitizedModId.items;
 
+            import net.minecraft.world.item.Item;
+
             /**
              * Custom item: $className
              *
-             * Registration pattern for multi-loader compatibility:
-             * - Fabric: Use FabricItemSettings or Item.Settings
-             * - Forge/NeoForge: Use Item.Properties
-             *
-             * This base class provides the shared logic.
+             * This base class provides the shared item definition.
              * Loader-specific registration happens in platform code.
              */
-            public class $className {
+            public class $className extends Item {
                 public static final String ID = "$itemName";
 
-                // TODO: Implement item logic
-                // Example:
-                // public static final Item INSTANCE = new Item(new Item.Settings());
-                //
-                // For tools:
-                // public static final Item INSTANCE = new SwordItem(
-                //     ToolMaterial.IRON, new Item.Settings().attributeModifiers(...)
-                // );
-                //
-                // For food:
-                // public static final Item INSTANCE = new Item(
-                //     new Item.Settings().food(new FoodComponent.Builder()
-                //         .nutrition(4).saturationModifier(0.3f).build())
-                // );
+                public $className(Properties properties) {
+                    super(properties);
+                }
+
+                public $className() {
+                    super(new Properties());
+                }
             }
         """.trimIndent()
     }
 
-    private fun generateToolItem(className: String, itemName: String, sanitizedModId: String): String {
+    private fun generateToolItem(className: String, itemName: String, sanitizedModId: String, mcVersion: String): String {
+        // 1.21+ uses SwordItem(Tier, Properties.attributes(...))
+        // 1.20.x uses SwordItem(Tier, int, float, Properties)
+        val defaultConstructor = if (MinecraftVersions.usesNewSwordConstructor(mcVersion)) {
+            """
+                public $className() {
+                    super(TIER, new Properties()
+                            .attributes(SwordItem.createAttributes(TIER, ATTACK_DAMAGE_BONUS, ATTACK_SPEED)));
+                }"""
+        } else {
+            """
+                public $className() {
+                    super(TIER, ATTACK_DAMAGE_BONUS, ATTACK_SPEED, new Properties());
+                }"""
+        }
+
         return """
             package com.$sanitizedModId.items;
+
+            import net.minecraft.world.item.SwordItem;
+            import net.minecraft.world.item.Tier;
+            import net.minecraft.world.item.Tiers;
 
             /**
              * Tool item: $className
              *
-             * TODO: Extend appropriate tool class (SwordItem, AxeItem, etc.)
-             * and implement tool-specific logic.
+             * Extends SwordItem with configurable tier and properties.
+             * Loader-specific registration happens in platform code.
              */
-            public class $className {
+            public class $className extends SwordItem {
                 public static final String ID = "$itemName";
+                public static final Tier TIER = Tiers.IRON;
+                public static final int ATTACK_DAMAGE_BONUS = 3;
+                public static final float ATTACK_SPEED = -2.4f;
 
-                // Example for sword:
-                // public static final Item INSTANCE = new SwordItem(
-                //     CustomToolMaterial.INSTANCE,
-                //     new Item.Settings().attributeModifiers(
-                //         SwordItem.createAttributeModifiers(
-                //             CustomToolMaterial.INSTANCE, 3, -2.4f
-                //         )
-                //     )
-                // );
+                public $className(Tier tier, Properties properties) {
+                    super(tier, properties);
+                }
+            $defaultConstructor
             }
         """.trimIndent()
     }
 
-    private fun generateFoodItem(className: String, itemName: String, sanitizedModId: String): String {
+    @Suppress("UNUSED_PARAMETER")
+    private fun generateFoodItem(className: String, itemName: String, sanitizedModId: String, mcVersion: String): String {
         return """
             package com.$sanitizedModId.items;
 
+            import net.minecraft.world.food.FoodProperties;
+            import net.minecraft.world.item.Item;
+
             /**
              * Food item: $className
+             *
+             * Provides configurable nutrition and saturation.
+             * Loader-specific registration happens in platform code.
              */
-            public class $className {
+            public class $className extends Item {
                 public static final String ID = "$itemName";
 
-                // Example:
-                // public static final Item INSTANCE = new Item(
-                //     new Item.Settings().food(new FoodComponent.Builder()
-                //         .nutrition(4)
-                //         .saturationModifier(0.3f)
-                //         .alwaysEdible()
-                //         .build())
-                // );
+                public static final FoodProperties FOOD_PROPERTIES = new FoodProperties.Builder()
+                        .nutrition(4)
+                        .saturationModifier(0.3f)
+                        .alwaysEdible()
+                        .build();
+
+                public $className(Properties properties) {
+                    super(properties);
+                }
+
+                public $className() {
+                    super(new Properties().food(FOOD_PROPERTIES));
+                }
             }
         """.trimIndent()
+    }
+
+    /**
+     * Generate or update the common ModItems registry class using Architectury DeferredRegister.
+     * This replaces per-loader registration files with a single cross-platform registry.
+     */
+    private fun generateOrUpdateModItems(
+        projectDir: File,
+        itemName: String,
+        modId: String,
+        sanitizedModId: String,
+        type: String
+    ) {
+        val className = toClassName(itemName)
+        val constantName = itemName.uppercase()
+        val registryFile = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/registry/ModItems.java")
+
+        if (registryFile.exists()) {
+            // Append new item to existing registry
+            val existingContent = registryFile.readText()
+
+            val newField = "    public static final RegistrySupplier<Item> $constantName = ITEMS.register(\"$itemName\", () -> new ${className}());"
+            val newImport = "import com.$sanitizedModId.items.$className;"
+
+            // Insert field before init() method
+            val updatedContent = existingContent
+                .replace("    public static void init()", "$newField\n\n    public static void init()")
+                .let { content ->
+                    // Add import if not present
+                    if (!content.contains(newImport)) {
+                        content.replace("import net.minecraft.world.item.Item;", "import net.minecraft.world.item.Item;\nimport com.$sanitizedModId.items.$className;")
+                    } else content
+                }
+
+            FileUtil.writeText(registryFile, updatedContent)
+            Logger.info("  ✓ Added $className to registry/ModItems.java")
+        } else {
+            // Create new registry file
+            val content = """
+                package com.$sanitizedModId.registry;
+
+                import com.$sanitizedModId.items.$className;
+                import dev.architectury.registry.registries.DeferredRegister;
+                import dev.architectury.registry.registries.RegistrySupplier;
+                import net.minecraft.core.registries.Registries;
+                import net.minecraft.world.item.Item;
+
+                public class ModItems {
+                    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create("$modId", Registries.ITEM);
+
+                    public static final RegistrySupplier<Item> $constantName = ITEMS.register("$itemName", () -> new ${className}());
+
+                    public static void init() {
+                        ITEMS.register();
+                    }
+                }
+            """.trimIndent()
+
+            FileUtil.writeText(registryFile, content)
+            Logger.info("  ✓ Created registry/ModItems.java with $className")
+        }
     }
 
     private fun generateItemAssets(projectDir: File, itemName: String, modId: String) {
@@ -212,7 +296,7 @@ class CreateItemCommand : DropperCommand(
         Logger.info("  ✓ Created placeholder texture: versions/shared/v1/assets/$modId/textures/item/$itemName.png")
     }
 
-    private fun generateItemRecipe(projectDir: File, itemName: String, modId: String) {
+    private fun generateItemRecipe(projectDir: File, itemName: String, modId: String, recipeDir: String) {
         val recipeContent = """
             {
               "type": "minecraft:crafting_shaped",
@@ -235,105 +319,11 @@ class CreateItemCommand : DropperCommand(
             }
         """.trimIndent()
 
-        val recipeFile = File(projectDir, "versions/shared/v1/data/$modId/recipe/$itemName.json")
+        val recipeFile = File(projectDir, "versions/shared/v1/data/$modId/$recipeDir/$itemName.json")
         FileUtil.writeText(recipeFile, recipeContent)
 
-        Logger.info("  ✓ Created recipe: versions/shared/v1/data/$modId/recipe/$itemName.json")
+        Logger.info("  ✓ Created recipe: versions/shared/v1/data/$modId/$recipeDir/$itemName.json")
     }
 
-    private fun generateFabricRegistration(projectDir: File, itemName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(itemName)
-        val content = """
-            package com.$sanitizedModId.platform.fabric;
-
-            import com.$sanitizedModId.items.$className;
-            import net.minecraft.item.Item;
-            import net.minecraft.registry.Registries;
-            import net.minecraft.registry.Registry;
-            import net.minecraft.util.Identifier;
-
-            /**
-             * Fabric-specific item registration for $className
-             */
-            public class ${className}Fabric {
-                public static void register() {
-                    // Example Fabric registration:
-                    // Registry.register(
-                    //     Registries.ITEM,
-                    //     Identifier.of("$modId", $className.ID),
-                    //     $className.INSTANCE
-                    // );
-                }
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created Fabric registration: shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
-    }
-
-    private fun generateForgeRegistration(projectDir: File, itemName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(itemName)
-        val content = """
-            package com.$sanitizedModId.platform.forge;
-
-            import com.$sanitizedModId.items.$className;
-            import net.minecraft.world.item.Item;
-            import net.minecraftforge.registries.DeferredRegister;
-            import net.minecraftforge.registries.ForgeRegistries;
-            import net.minecraftforge.registries.RegistryObject;
-
-            /**
-             * Forge-specific item registration for $className
-             */
-            public class ${className}Forge {
-                // Example Forge registration:
-                // public static final DeferredRegister<Item> ITEMS =
-                //     DeferredRegister.create(ForgeRegistries.ITEMS, "$modId");
-                //
-                // public static final RegistryObject<Item> ${itemName.uppercase()} =
-                //     ITEMS.register($className.ID, () -> $className.INSTANCE);
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created Forge registration: shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
-    }
-
-    private fun generateNeoForgeRegistration(projectDir: File, itemName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(itemName)
-        val content = """
-            package com.$sanitizedModId.platform.neoforge;
-
-            import com.$sanitizedModId.items.$className;
-            import net.minecraft.core.registries.Registries;
-            import net.minecraft.world.item.Item;
-            import net.neoforged.neoforge.registries.DeferredRegister;
-            import net.neoforged.neoforge.registries.DeferredItem;
-
-            /**
-             * NeoForge-specific item registration for $className
-             */
-            public class ${className}NeoForge {
-                // Example NeoForge registration:
-                // public static final DeferredRegister.Items ITEMS =
-                //     DeferredRegister.createItems("$modId");
-                //
-                // public static final DeferredItem<Item> ${itemName.uppercase()} =
-                //     ITEMS.register($className.ID, () -> $className.INSTANCE);
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created NeoForge registration: shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
-    }
-
-    private fun toClassName(snakeCase: String): String {
-        return snakeCase.split("_").joinToString("") { it.capitalize() }
-    }
+    private fun toClassName(snakeCase: String): String = StringUtil.toClassName(snakeCase)
 }

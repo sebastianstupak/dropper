@@ -49,8 +49,8 @@ class RefactorMigrator : Migrator {
                 )
 
                 // Calculate new file path
-                val oldPath = oldPackage.replace(".", "/")
-                val newPath = newPackage.replace(".", "/")
+                val oldPath = oldPackage.replace(".", File.separator)
+                val newPath = newPackage.replace(".", File.separator)
                 val currentPath = file.absolutePath
 
                 if (currentPath.contains(oldPath)) {

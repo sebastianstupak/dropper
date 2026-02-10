@@ -36,29 +36,29 @@ class ListCommand : DropperCommand(
 
         val formatter = FormatterFactory.getFormatter(format)
 
-        echo("\n" + "=".repeat(80))
-        echo("  PROJECT INVENTORY")
-        echo("=".repeat(80) + "\n")
+        println("\n" + "=".repeat(80))
+        println("  PROJECT INVENTORY")
+        println("=".repeat(80) + "\n")
 
         components.forEach { (type, items) ->
             if (items.isNotEmpty()) {
-                echo("  ${type.uppercase()}: ${items.size}")
+                println("  ${type.uppercase()}: ${items.size}")
             }
         }
 
-        echo("\n" + "-".repeat(80))
-        echo("Total components: ${components.values.sumOf { it.size }}")
-        echo("-".repeat(80) + "\n")
+        println("\n" + "-".repeat(80))
+        println("Total components: ${components.values.sumOf { it.size }}")
+        println("-".repeat(80) + "\n")
 
-        echo("Run 'dropper list <type>' for detailed listings:")
-        echo("  - dropper list items")
-        echo("  - dropper list blocks")
-        echo("  - dropper list entities")
-        echo("  - dropper list recipes")
-        echo("  - dropper list enchantments")
-        echo("  - dropper list biomes")
-        echo("  - dropper list tags")
-        echo("  - dropper list all\n")
+        println("Run 'dropper list <type>' for detailed listings:")
+        println("  - dropper list items")
+        println("  - dropper list blocks")
+        println("  - dropper list entities")
+        println("  - dropper list recipes")
+        println("  - dropper list enchantments")
+        println("  - dropper list biomes")
+        println("  - dropper list tags")
+        println("  - dropper list all\n")
     }
 
     private fun indexAllComponents(projectDir: File): Map<String, List<ComponentInfo>> {

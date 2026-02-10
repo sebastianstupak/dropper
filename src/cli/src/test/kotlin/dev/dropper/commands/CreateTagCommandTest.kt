@@ -130,11 +130,10 @@ class CreateTagCommandTest {
         val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/block/empty_tag.json")
         assertTrue(tagFile.exists(), "Tag file should exist")
 
-        // Verify content has placeholder comments
+        // Verify content is valid JSON with empty values array
         val content = FileUtil.readText(tagFile)
-        assertTrue(content.contains("// Add your values here"))
-        assertTrue(content.contains("// Examples:"))
-        assertTrue(content.contains("\"values\": ["))
+        assertTrue(content.contains("\"values\": []"), "Empty tag should have empty values array")
+        assertFalse(content.contains("//"), "JSON should not contain comments")
     }
 
     @Test
@@ -347,7 +346,7 @@ class CreateTagCommandTest {
     }
 
     @Test
-    fun `test item tag placeholder comments`() {
+    fun `test item tag without values creates valid empty JSON`() {
         val tagName = "empty_item_tag"
 
         executeTagCommand(tagName, "item", null)
@@ -355,13 +354,12 @@ class CreateTagCommandTest {
         val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/item/empty_item_tag.json")
         val content = FileUtil.readText(tagFile)
 
-        assertTrue(content.contains("\"minecraft:diamond\""))
-        assertTrue(content.contains("\"testmod:custom_item\""))
-        assertTrue(content.contains("\"#forge:ingots\""))
+        assertTrue(content.contains("\"values\": []"), "Empty item tag should have empty values array")
+        assertFalse(content.contains("//"), "JSON should not contain comments")
     }
 
     @Test
-    fun `test block tag placeholder comments`() {
+    fun `test block tag without values creates valid empty JSON`() {
         val tagName = "empty_block_tag"
 
         executeTagCommand(tagName, "block", null)
@@ -369,13 +367,12 @@ class CreateTagCommandTest {
         val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/block/empty_block_tag.json")
         val content = FileUtil.readText(tagFile)
 
-        assertTrue(content.contains("\"minecraft:stone\""))
-        assertTrue(content.contains("\"testmod:custom_block\""))
-        assertTrue(content.contains("\"#minecraft:logs\""))
+        assertTrue(content.contains("\"values\": []"), "Empty block tag should have empty values array")
+        assertFalse(content.contains("//"), "JSON should not contain comments")
     }
 
     @Test
-    fun `test entity_type tag placeholder comments`() {
+    fun `test entity_type tag without values creates valid empty JSON`() {
         val tagName = "empty_entity_tag"
 
         executeTagCommand(tagName, "entity_type", null)
@@ -383,12 +380,12 @@ class CreateTagCommandTest {
         val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/entity_type/empty_entity_tag.json")
         val content = FileUtil.readText(tagFile)
 
-        assertTrue(content.contains("\"minecraft:zombie\""))
-        assertTrue(content.contains("\"testmod:custom_entity\""))
+        assertTrue(content.contains("\"values\": []"), "Empty entity_type tag should have empty values array")
+        assertFalse(content.contains("//"), "JSON should not contain comments")
     }
 
     @Test
-    fun `test fluid tag placeholder comments`() {
+    fun `test fluid tag without values creates valid empty JSON`() {
         val tagName = "empty_fluid_tag"
 
         executeTagCommand(tagName, "fluid", null)
@@ -396,8 +393,8 @@ class CreateTagCommandTest {
         val tagFile = File(context.projectDir, "versions/shared/v1/data/testmod/tags/fluid/empty_fluid_tag.json")
         val content = FileUtil.readText(tagFile)
 
-        assertTrue(content.contains("\"minecraft:water\""))
-        assertTrue(content.contains("\"testmod:custom_fluid\""))
+        assertTrue(content.contains("\"values\": []"), "Empty fluid tag should have empty values array")
+        assertFalse(content.contains("//"), "JSON should not contain comments")
     }
 
     @Test

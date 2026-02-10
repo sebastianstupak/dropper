@@ -33,7 +33,7 @@ class BlockRemover : ComponentRemover {
         findBlockTextures(projectDir, componentName, modId, files)
 
         // Loot table
-        files.add(File(projectDir, "versions/shared/v1/data/$modId/loot_table/blocks/$componentName.json"))
+        files.add(File(projectDir, "versions/shared/v1/data/$modId/loot_tables/blocks/$componentName.json"))
 
         return files.filter { it.exists() }
     }
@@ -161,7 +161,10 @@ class BlockRemover : ComponentRemover {
 
         // Filter files if only removing code (keepAssets)
         val filesToRemove = if (options.keepAssets) {
-            relatedFiles.filter { !it.path.contains("/assets/") && !it.path.contains("/textures/") }
+            relatedFiles.filter {
+                val normalizedPath = it.path.replace('\\', '/')
+                !normalizedPath.contains("/assets/") && !normalizedPath.contains("/textures/")
+            }
         } else {
             relatedFiles
         }
@@ -195,7 +198,7 @@ class BlockRemover : ComponentRemover {
     }
 
     private fun toClassName(snakeCase: String): String {
-        return snakeCase.split("_").joinToString("") { it.capitalize() }
+        return snakeCase.split("_").joinToString("") { word -> word.replaceFirstChar { it.uppercase() } }
     }
 
     private fun createBackup(projectDir: File, componentName: String, files: List<File>) {

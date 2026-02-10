@@ -7,12 +7,16 @@ import java.nio.file.Files
 import java.nio.file.attribute.FileTime
 
 /**
- * Cache for component indexes to improve performance
+ * Cache for component indexes to improve performance.
+ * Uses both on-disk persistence and in-memory caching to minimize I/O.
  */
 object IndexCache {
 
     private val mapper = jacksonObjectMapper()
     private const val CACHE_FILE_NAME = ".dropper/cache/index.json"
+
+    /** In-memory cache keyed by project directory absolute path */
+    private val memoryCache = mutableMapOf<String, CacheEntry>()
 
     data class CacheEntry(
         val timestamp: Long,
@@ -20,9 +24,24 @@ object IndexCache {
     )
 
     /**
-     * Get cached index if valid
+     * Get cached index if valid.
+     * First checks in-memory cache (avoids disk read and JSON parse),
+     * then falls back to disk cache.
      */
     fun get(projectDir: File): Map<String, List<ComponentInfo>>? {
+        val key = projectDir.absolutePath
+
+        // Check in-memory cache first (avoids disk I/O and JSON deserialization)
+        val memoryCached = memoryCache[key]
+        if (memoryCached != null) {
+            if (isCacheValid(projectDir, memoryCached.timestamp)) {
+                return memoryCached.components
+            }
+            // Cache is stale, remove from memory
+            memoryCache.remove(key)
+        }
+
+        // Fall back to disk cache
         val cacheFile = File(projectDir, CACHE_FILE_NAME)
         if (!cacheFile.exists()) return null
 
@@ -31,6 +50,8 @@ object IndexCache {
 
             // Check if cache is still valid (no file modifications since cache creation)
             if (isCacheValid(projectDir, cacheEntry.timestamp)) {
+                // Store in memory for fast subsequent access
+                memoryCache[key] = cacheEntry
                 return cacheEntry.components
             }
         } catch (e: Exception) {
@@ -38,11 +59,13 @@ object IndexCache {
             cacheFile.delete()
         }
 
+        // Clear stale memory cache
+        memoryCache.remove(key)
         return null
     }
 
     /**
-     * Save index to cache
+     * Save index to cache (both disk and memory)
      */
     fun save(projectDir: File, components: Map<String, List<ComponentInfo>>) {
         val cacheFile = File(projectDir, CACHE_FILE_NAME)
@@ -53,6 +76,10 @@ object IndexCache {
             components = components
         )
 
+        // Save to memory cache
+        memoryCache[projectDir.absolutePath] = cacheEntry
+
+        // Save to disk cache
         try {
             mapper.writerWithDefaultPrettyPrinter().writeValue(cacheFile, cacheEntry)
         } catch (e: Exception) {
@@ -61,9 +88,10 @@ object IndexCache {
     }
 
     /**
-     * Invalidate cache
+     * Invalidate cache (both disk and memory)
      */
     fun invalidate(projectDir: File) {
+        memoryCache.remove(projectDir.absolutePath)
         val cacheFile = File(projectDir, CACHE_FILE_NAME)
         if (cacheFile.exists()) {
             cacheFile.delete()

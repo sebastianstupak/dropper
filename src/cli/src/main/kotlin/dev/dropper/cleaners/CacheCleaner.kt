@@ -53,4 +53,18 @@ class CacheCleaner : Cleaner() {
 
         return CleanReport(totalFiles, totalSize)
     }
+
+    /**
+     * Get the total size of a directory.
+     */
+    fun dirSize(directory: File): Long {
+        return calculateSize(directory)
+    }
+
+    /**
+     * Get the total file count of a directory.
+     */
+    fun dirFileCount(directory: File): Int {
+        return countFiles(directory)
+    }
 }

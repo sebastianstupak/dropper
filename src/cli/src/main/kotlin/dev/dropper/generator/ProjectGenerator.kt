@@ -6,6 +6,7 @@ import dev.dropper.template.TemplateContext
 import dev.dropper.template.TemplateEngine
 import dev.dropper.util.FileUtil
 import dev.dropper.util.Logger
+import dev.dropper.util.MinecraftVersions
 import java.io.File
 
 /**
@@ -58,6 +59,15 @@ class ProjectGenerator(
     }
 
     private fun generateRootFiles(projectDir: File, config: ModConfig) {
+        // Build YAML fragments for minecraft_versions and loaders
+        val mcVersionsYaml = if (config.minecraftVersions.isNotEmpty()) {
+            "minecraft_versions:\n" + config.minecraftVersions.joinToString("\n") { "  - \"$it\"" }
+        } else ""
+
+        val loadersYaml = if (config.loaders.isNotEmpty()) {
+            "loaders:\n" + config.loaders.joinToString("\n") { "  - \"$it\"" }
+        } else ""
+
         val context = TemplateContext.create()
             .put("modId", config.id)
             .put("modName", config.name)
@@ -65,6 +75,8 @@ class ProjectGenerator(
             .put("modDescription", config.description)
             .put("author", config.author)
             .put("license", config.license)
+            .put("minecraftVersionsYaml", mcVersionsYaml)
+            .put("loadersYaml", loadersYaml)
             .build()
 
         // config.yml
@@ -131,6 +143,49 @@ class ProjectGenerator(
         } else {
             Logger.warn("buildSrc resources not found, skipping")
         }
+
+        // Create build-logic directory (composite build structure)
+        createBuildLogic(projectDir)
+    }
+
+    private fun createBuildLogic(projectDir: File) {
+        val buildLogicDir = File(projectDir, "build-logic")
+        buildLogicDir.mkdirs()
+
+        // Create build.gradle.kts for build-logic
+        val buildGradleContent = """
+            plugins {
+                `kotlin-dsl`
+            }
+
+            repositories {
+                gradlePluginPortal()
+                mavenCentral()
+                maven("https://maven.fabricmc.net/") { name = "Fabric" }
+                maven("https://maven.neoforged.net/releases/") { name = "NeoForged" }
+                maven("https://maven.minecraftforge.net/") { name = "MinecraftForge" }
+                maven("https://maven.architectury.dev/") { name = "Architectury" }
+            }
+
+            dependencies {
+                implementation("org.yaml:snakeyaml:2.2")
+                implementation("com.fasterxml.jackson.core:jackson-databind:2.16.0")
+                implementation("dev.architectury:architectury-loom:${MinecraftVersions.architecturyLoomVersion()}")
+            }
+        """.trimIndent()
+
+        FileUtil.writeText(File(buildLogicDir, "build.gradle.kts"), buildGradleContent)
+
+        // Create settings.gradle.kts for build-logic
+        val settingsContent = """
+            rootProject.name = "build-logic"
+        """.trimIndent()
+
+        FileUtil.writeText(File(buildLogicDir, "settings.gradle.kts"), settingsContent)
+
+        // Create src/main/kotlin directory structure
+        val srcDir = File(buildLogicDir, "src/main/kotlin")
+        srcDir.mkdirs()
     }
 
     private fun copyBuildSrcFromResources(target: File) {
@@ -146,6 +201,7 @@ class ProjectGenerator(
                 maven("https://maven.fabricmc.net/") { name = "Fabric" }
                 maven("https://maven.neoforged.net/releases/") { name = "NeoForged" }
                 maven("https://maven.minecraftforge.net/") { name = "MinecraftForge" }
+                maven("https://maven.architectury.dev/") { name = "Architectury" }
             }
 
             dependencies {
@@ -153,15 +209,8 @@ class ProjectGenerator(
                 implementation("org.yaml:snakeyaml:2.2")
                 implementation("com.fasterxml.jackson.core:jackson-databind:2.16.0")
 
-                // Mod loader Gradle plugins
-                // Fabric Loom - support for MC 1.20.x and 1.21.x
-                implementation("net.fabricmc:fabric-loom:1.6-SNAPSHOT")
-
-                // ForgeGradle 6.x - compatible with Gradle 8.6+
-                implementation("net.minecraftforge.gradle:ForgeGradle:6.0.+")
-
-                // Note: NeoGradle requires Gradle 9.1+ for newer versions
-                // Users can add manually if needed
+                // Architectury Loom - unified build toolchain for all loaders
+                implementation("dev.architectury:architectury-loom:${MinecraftVersions.architecturyLoomVersion()}")
             }
         """.trimIndent()
 
@@ -210,65 +259,83 @@ class ProjectGenerator(
 
     private fun generateSharedCode(projectDir: File, config: ModConfig) {
         val basePackagePath = config.packagePath
-
-        // Generate platform helper interface
-        val platformHelperContent = """
-            package ${config.fullPackage}.platform;
-
-            /**
-             * Platform-specific helper interface
-             */
-            public interface PlatformHelper {
-                String getPlatformName();
-                boolean isModLoaded(String modId);
-            }
-        """.trimIndent()
-
-        val platformHelperFile = File(projectDir, "shared/common/src/main/java/$basePackagePath/platform/PlatformHelper.java")
-        FileUtil.writeText(platformHelperFile, platformHelperContent)
-
-        // Generate Services class
-        val servicesContent = """
-            package ${config.fullPackage};
-
-            import ${config.fullPackage}.platform.PlatformHelper;
-            import java.util.ServiceLoader;
-
-            /**
-             * Service loader for platform-specific implementations
-             */
-            public class Services {
-                public static final PlatformHelper PLATFORM = load(PlatformHelper.class);
-
-                private static <T> T load(Class<T> clazz) {
-                    return ServiceLoader.load(clazz).findFirst()
-                        .orElseThrow(() -> new NullPointerException("Failed to load " + clazz));
-                }
-            }
-        """.trimIndent()
-
-        val servicesFile = File(projectDir, "shared/common/src/main/java/$basePackagePath/Services.java")
-        FileUtil.writeText(servicesFile, servicesContent)
-
-        // Generate main mod class
         val modClassName = config.name.replace(" ", "").replace("-", "").replace("_", "")
+
+        // Generate main mod class (common, shared across all loaders)
         val modClassContent = """
             package ${config.fullPackage};
 
             /**
              * Main mod class for ${config.name}
+             *
+             * This common class is called from each loader's entry point.
+             * Registration uses Architectury API's DeferredRegister for cross-loader compat.
              */
             public class $modClassName {
                 public static final String MOD_ID = "${config.id}";
 
                 public static void init() {
-                    System.out.println("Initializing ${config.name} on " + Services.PLATFORM.getPlatformName());
+                    // Registries initialized here. 'dropper create' commands auto-update this method.
                 }
             }
         """.trimIndent()
 
         val modClassFile = File(projectDir, "shared/common/src/main/java/$basePackagePath/$modClassName.java")
         FileUtil.writeText(modClassFile, modClassContent)
+
+        // Generate Fabric entry point
+        val fabricEntryContent = """
+            package ${config.fullPackage}.platform.fabric;
+
+            import ${config.fullPackage}.$modClassName;
+            import net.fabricmc.api.ModInitializer;
+
+            public class ${modClassName}Fabric implements ModInitializer {
+                @Override
+                public void onInitialize() {
+                    $modClassName.init();
+                }
+            }
+        """.trimIndent()
+
+        val fabricEntryFile = File(projectDir, "shared/fabric/src/main/java/$basePackagePath/platform/fabric/${modClassName}Fabric.java")
+        FileUtil.writeText(fabricEntryFile, fabricEntryContent)
+
+        // Generate Forge entry point
+        val forgeEntryContent = """
+            package ${config.fullPackage}.platform.forge;
+
+            import ${config.fullPackage}.$modClassName;
+            import net.minecraftforge.fml.common.Mod;
+
+            @Mod($modClassName.MOD_ID)
+            public class ${modClassName}Forge {
+                public ${modClassName}Forge() {
+                    $modClassName.init();
+                }
+            }
+        """.trimIndent()
+
+        val forgeEntryFile = File(projectDir, "shared/forge/src/main/java/$basePackagePath/platform/forge/${modClassName}Forge.java")
+        FileUtil.writeText(forgeEntryFile, forgeEntryContent)
+
+        // Generate NeoForge entry point
+        val neoforgeEntryContent = """
+            package ${config.fullPackage}.platform.neoforge;
+
+            import ${config.fullPackage}.$modClassName;
+            import net.neoforged.fml.common.Mod;
+
+            @Mod($modClassName.MOD_ID)
+            public class ${modClassName}NeoForge {
+                public ${modClassName}NeoForge() {
+                    $modClassName.init();
+                }
+            }
+        """.trimIndent()
+
+        val neoforgeEntryFile = File(projectDir, "shared/neoforge/src/main/java/$basePackagePath/platform/neoforge/${modClassName}NeoForge.java")
+        FileUtil.writeText(neoforgeEntryFile, neoforgeEntryContent)
     }
 
     private fun generateVersions(projectDir: File, config: ModConfig) {
@@ -299,23 +366,23 @@ class ProjectGenerator(
         mcVersion: String,
         config: ModConfig
     ) {
-        // Determine appropriate Fabric API version based on MC version
-        val fabricApiVersion = when {
-            mcVersion.startsWith("1.20.1") -> "0.92.0+1.20.1"
-            mcVersion.startsWith("1.20.4") -> "0.96.0+1.20.4"
-            mcVersion.startsWith("1.21") -> "0.100.0+1.21"
-            else -> ""  // Unknown - user must specify manually
-        }
+        val javaVersion = MinecraftVersions.requiredJavaVersion(mcVersion)
+        val fabricApiVersion = MinecraftVersions.fabricApiVersion(mcVersion)
+        val fabricLoaderVersion = MinecraftVersions.fabricLoaderVersion(mcVersion)
+        val forgeVersion = MinecraftVersions.forgeVersion(mcVersion)
+        val neoforgeVersion = MinecraftVersions.neoforgeVersion(mcVersion)
+        val archApiVersion = MinecraftVersions.architecturyApiVersion(mcVersion)
 
         val versionConfig = """
             minecraft_version: "$mcVersion"
             asset_pack: "v1"
             loaders: [${config.loaders.joinToString(", ")}]
-            java_version: 21
-            neoforge_version: "21.1.0"
-            forge_version: "51.0.0"
-            fabric_loader_version: "0.16.9"
-            ${if (fabricApiVersion.isNotEmpty()) "fabric_api_version: \"$fabricApiVersion\"" else "# fabric_api_version: \"\" # Specify Fabric API version for this MC version"}
+            java_version: $javaVersion
+            neoforge_version: "$neoforgeVersion"
+            forge_version: "$forgeVersion"
+            fabric_loader_version: "$fabricLoaderVersion"
+            fabric_api_version: "$fabricApiVersion"
+            architectury_api_version: "$archApiVersion"
         """.trimIndent()
 
         val versionPath = File(projectDir, "versions/$versionDir")

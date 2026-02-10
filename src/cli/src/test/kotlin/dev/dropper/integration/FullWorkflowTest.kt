@@ -1,8 +1,12 @@
 package dev.dropper.integration
 
+import dev.dropper.commands.CreateItemCommand
+import dev.dropper.commands.CreateBlockCommand
+import dev.dropper.commands.CreateEntityCommand
 import dev.dropper.config.ModConfig
 import dev.dropper.util.FileUtil
 import dev.dropper.util.TestProjectContext
+import dev.dropper.util.TestValidationUtils
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -161,10 +165,8 @@ class FullWorkflowTest {
             )
         }
 
-        // Generated Java files
+        // Generated Java files (Architectury: no Services.java or PlatformHelper.java)
         val javaFiles = listOf(
-            "shared/common/src/main/java/com/testmod/Services.java",
-            "shared/common/src/main/java/com/testmod/platform/PlatformHelper.java",
             "shared/common/src/main/java/com/testmod/TestMod.java"
         )
 
@@ -269,23 +271,6 @@ class FullWorkflowTest {
     fun `verify generated project has valid package structure`() {
         generateTestProject()
 
-        // Verify Services.java has correct package and content
-        val servicesFile = context.file( "shared/common/src/main/java/com/testmod/Services.java")
-        val servicesContent = servicesFile.readText()
-
-        assertTrue(servicesContent.contains("package com.testmod;"), "Should have correct package")
-        assertTrue(servicesContent.contains("class Services"), "Should have Services class")
-        assertTrue(servicesContent.contains("ServiceLoader"), "Should use ServiceLoader")
-        assertTrue(servicesContent.contains("PlatformHelper"), "Should reference PlatformHelper")
-
-        // Verify PlatformHelper.java
-        val platformHelperFile = context.file( "shared/common/src/main/java/com/testmod/platform/PlatformHelper.java")
-        val platformHelperContent = platformHelperFile.readText()
-
-        assertTrue(platformHelperContent.contains("package com.testmod.platform;"), "Should have correct package")
-        assertTrue(platformHelperContent.contains("interface PlatformHelper"), "Should have PlatformHelper interface")
-        assertTrue(platformHelperContent.contains("getPlatformName"), "Should have getPlatformName method")
-
         // Verify main mod class
         val modClassFile = context.file( "shared/common/src/main/java/com/testmod/TestMod.java")
         val modClassContent = modClassFile.readText()
@@ -293,6 +278,16 @@ class FullWorkflowTest {
         assertTrue(modClassContent.contains("package com.testmod;"), "Should have correct package")
         assertTrue(modClassContent.contains("class TestMod"), "Should have TestMod class")
         assertTrue(modClassContent.contains("MOD_ID"), "Should have MOD_ID constant")
+
+        // Verify per-loader entry points exist (Architectury replaces Services/PlatformHelper)
+        assertTrue(
+            context.file("shared/fabric/src/main/java/com/testmod/platform").exists(),
+            "Fabric platform directory should exist"
+        )
+        assertTrue(
+            context.file("shared/neoforge/src/main/java/com/testmod/platform").exists(),
+            "NeoForge platform directory should exist"
+        )
     }
 
     @Test
@@ -306,5 +301,152 @@ class FullWorkflowTest {
         assertTrue(content.contains("asset_pack:"), "Should have asset_pack section")
         assertTrue(content.contains("version: \"v1\""), "Should have version")
         assertTrue(content.contains("1.20.1"), "Should include MC version")
+    }
+
+    @Test
+    fun `verify complete file tree after generating items blocks and entities`() {
+        generateTestProject()
+
+        // Generate components
+        CreateItemCommand().parse(arrayOf("ruby_gem"))
+        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        CreateEntityCommand().parse(arrayOf("ruby_golem"))
+
+        // Verify item files exist (Architectury: registry in common)
+        assertTrue(
+            context.file("shared/common/src/main/java/com/testmod/items/RubyGem.java").exists(),
+            "Common item class should exist"
+        )
+        assertTrue(
+            context.file("shared/common/src/main/java/com/testmod/registry/ModItems.java").exists(),
+            "ModItems registry should exist"
+        )
+
+        // Verify block files
+        assertTrue(
+            context.file("shared/common/src/main/java/com/testmod/blocks/RubyOre.java").exists(),
+            "Common block class should exist"
+        )
+        assertTrue(
+            context.file("shared/common/src/main/java/com/testmod/registry/ModBlocks.java").exists(),
+            "ModBlocks registry should exist"
+        )
+
+        // Verify entity files
+        assertTrue(
+            context.file("shared/common/src/main/java/com/testmod/entities/RubyGolem.java").exists(),
+            "Common entity class should exist"
+        )
+        assertTrue(
+            context.file("shared/common/src/main/java/com/testmod/registry/ModEntities.java").exists(),
+            "ModEntities registry should exist"
+        )
+
+        // Verify assets
+        assertTrue(
+            context.file("versions/shared/v1/assets/testmod/models/item/ruby_gem.json").exists(),
+            "Item model should exist"
+        )
+        assertTrue(
+            context.file("versions/shared/v1/assets/testmod/blockstates/ruby_ore.json").exists(),
+            "Block blockstate should exist"
+        )
+        assertTrue(
+            context.file("versions/shared/v1/data/testmod/loot_tables/blocks/ruby_ore.json").exists(),
+            "Block loot table should exist"
+        )
+
+        // Validate all generated Java files
+        val javaCount = TestValidationUtils.validateAllJavaFiles(context.projectDir)
+        assertTrue(javaCount > 0, "Should have validated Java files")
+
+        // Validate all generated JSON files
+        val jsonCount = TestValidationUtils.validateAllJsonFiles(context.projectDir)
+        assertTrue(jsonCount > 0, "Should have validated JSON files")
+
+        println("Verified complete file tree: $javaCount Java files, $jsonCount JSON files")
+    }
+
+    @Test
+    fun `verify build gradle has proper Architectury Loom configuration`() {
+        generateTestProject()
+
+        // Root build.gradle.kts
+        val rootBuildGradle = context.file("build.gradle.kts").readText()
+        assertTrue(
+            rootBuildGradle.contains("maven.architectury.dev"),
+            "Root build.gradle.kts should reference Architectury Maven"
+        )
+        assertTrue(
+            rootBuildGradle.contains("subprojects"),
+            "Root build.gradle.kts should configure subprojects"
+        )
+
+        // build-logic has Architectury Loom as a dependency
+        val buildLogicGradle = context.file("build-logic/build.gradle.kts").readText()
+        assertTrue(
+            buildLogicGradle.contains("architectury-loom"),
+            "build-logic should have Architectury Loom dependency"
+        )
+        assertTrue(
+            buildLogicGradle.contains("maven.architectury.dev"),
+            "build-logic should have Architectury Maven repository"
+        )
+    }
+
+    @Test
+    fun `verify settings gradle discovers version-loader subprojects`() {
+        generateTestProject()
+
+        val settingsContent = context.file("settings.gradle.kts").readText()
+
+        // settings.gradle.kts should dynamically include subprojects
+        assertTrue(
+            settingsContent.contains("rootProject.name"),
+            "settings.gradle.kts should set rootProject.name"
+        )
+        assertTrue(
+            settingsContent.contains("\"testmod\""),
+            "rootProject.name should be set to the mod ID"
+        )
+        assertTrue(
+            settingsContent.contains("versionsDir") || settingsContent.contains("versions"),
+            "settings.gradle.kts should reference versions directory"
+        )
+        assertTrue(
+            settingsContent.contains("include("),
+            "settings.gradle.kts should include subprojects dynamically"
+        )
+        assertTrue(
+            settingsContent.contains("loaders") || settingsContent.contains("fabric"),
+            "settings.gradle.kts should reference loaders"
+        )
+    }
+
+    @Test
+    fun `verify all generated Java files pass syntax validation`() {
+        generateTestProject()
+
+        // Generate items and blocks to have more files to validate
+        CreateItemCommand().parse(arrayOf("test_sword", "--type", "tool"))
+        CreateBlockCommand().parse(arrayOf("test_block"))
+
+        val javaFiles = context.projectDir.walkTopDown()
+            .filter { it.isFile && it.extension == "java" }
+            .toList()
+
+        assertTrue(javaFiles.size >= 5, "Should have at least 5 Java files")
+
+        javaFiles.forEach { file ->
+            val content = file.readText()
+            val relativePath = file.relativeTo(context.projectDir).path
+
+            // Syntax validation
+            TestValidationUtils.assertValidJavaSyntax(content, relativePath)
+            TestValidationUtils.assertClassNameMatchesFile(content, file.name)
+            TestValidationUtils.assertPackageMatchesPath(content, file.absolutePath, context.projectDir.absolutePath)
+        }
+
+        println("All ${javaFiles.size} Java files pass syntax validation")
     }
 }

@@ -281,7 +281,7 @@ class CleanCommandE2ETest {
             command.parse(arrayOf("--temp"))
         }
 
-        assertFalse(tempFile.exists() || true, "Temp files should be removed")
+        assertFalse(tempFile.exists(), "Temp files should be removed")
     }
 
     @Test
@@ -296,7 +296,7 @@ class CleanCommandE2ETest {
             command.parse(arrayOf("--logs"))
         }
 
-        assertFalse(logFile.exists() || true, "Log files should be removed")
+        assertFalse(logFile.exists(), "Log files should be removed")
     }
 
     @Test
@@ -311,7 +311,7 @@ class CleanCommandE2ETest {
             command.parse(arrayOf("--ide"))
         }
 
-        assertFalse(ideaDir.exists() || true, "IDE metadata should be removed")
+        assertFalse(ideaDir.exists(), "IDE metadata should be removed")
     }
 
     @Test
@@ -348,7 +348,7 @@ class CleanCommandE2ETest {
             command.parse(arrayOf("--min-size", "5M"))
         }
 
-        assertFalse(largeFile.exists() || true, "Large files should be removed")
+        assertFalse(largeFile.exists(), "Large files should be removed")
     }
 
     @Test

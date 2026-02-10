@@ -63,11 +63,6 @@ class CreateTagCommand : DropperCommand(
         Logger.info("  3. Build with: dropper build")
     }
 
-    private fun extractModId(configFile: File): String? {
-        val content = configFile.readText()
-        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
-    }
-
     /**
      * Parse tag name into namespace and path
      * Examples:
@@ -123,33 +118,10 @@ class CreateTagCommand : DropperCommand(
             if (replace) {
                 appendLine("  \"replace\": true,")
             }
-            appendLine("  \"values\": [")
-
             if (values.isEmpty()) {
-                // Add placeholder comment
-                appendLine("    // Add your values here")
-                appendLine("    // Examples:")
-                when (tagType) {
-                    "block" -> {
-                        appendLine("    // \"minecraft:stone\",")
-                        appendLine("    // \"$modId:custom_block\",")
-                        appendLine("    // \"#minecraft:logs\"")
-                    }
-                    "item" -> {
-                        appendLine("    // \"minecraft:diamond\",")
-                        appendLine("    // \"$modId:custom_item\",")
-                        appendLine("    // \"#forge:ingots\"")
-                    }
-                    "entity_type" -> {
-                        appendLine("    // \"minecraft:zombie\",")
-                        appendLine("    // \"$modId:custom_entity\"")
-                    }
-                    "fluid" -> {
-                        appendLine("    // \"minecraft:water\",")
-                        appendLine("    // \"$modId:custom_fluid\"")
-                    }
-                }
+                appendLine("  \"values\": []")
             } else {
+                appendLine("  \"values\": [")
                 values.forEachIndexed { index, value ->
                     val quotedValue = "\"$value\""
                     if (index < values.size - 1) {
@@ -158,9 +130,8 @@ class CreateTagCommand : DropperCommand(
                         appendLine("    $quotedValue")
                     }
                 }
+                appendLine("  ]")
             }
-
-            appendLine("  ]")
             append("}")
         }
 

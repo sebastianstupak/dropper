@@ -63,7 +63,7 @@ class ListTagsCommand : DropperCommand(
             FileUtil.writeText(exportFile, output)
             Logger.success("Exported ${tags.size} tags to ${exportFile.absolutePath}")
         } else {
-            echo(output)
+            println(output)
         }
     }
 }

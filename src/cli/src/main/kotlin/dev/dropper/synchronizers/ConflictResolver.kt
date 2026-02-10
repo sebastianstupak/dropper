@@ -1,11 +1,17 @@
 package dev.dropper.synchronizers
 
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import com.google.gson.JsonSyntaxException
 import java.io.File
 
 /**
  * Handles conflict resolution during sync
  */
 object ConflictResolver {
+
+    private val gson = GsonBuilder().setPrettyPrinting().create()
 
     /**
      * Resolve conflicts between source and target files
@@ -32,58 +38,72 @@ object ConflictResolver {
 
     /**
      * Merge two lang files, combining all keys
+     * Target values always take precedence for existing keys.
+     * If no new keys are added, returns the original target content unchanged.
      *
      * @param sourceFile Source lang file
      * @param targetFile Target lang file
      * @return Merged JSON content
      */
     fun mergeLangFiles(sourceFile: File, targetFile: File): String {
-        val sourceLines = sourceFile.readLines()
-        val targetLines = targetFile.readLines()
+        val sourceContent = sourceFile.readText()
+        val originalTargetContent = targetFile.readText()
 
-        // Parse JSON manually (simple key-value parser)
-        val sourceEntries = parseLangJson(sourceLines)
-        val targetEntries = parseLangJson(targetLines)
+        val sourceEntries = parseLangJson(sourceContent)
+        val targetEntries = parseLangJson(originalTargetContent)
 
         // Merge: target takes precedence for existing keys
-        val merged = sourceEntries.toMutableMap()
+        val merged = linkedMapOf<String, String>()
+        // Start with target entries to preserve their order
         merged.putAll(targetEntries)
+        // Add source entries that are missing from target
+        sourceEntries.forEach { (key, value) ->
+            if (!merged.containsKey(key)) {
+                merged[key] = value
+            }
+        }
+
+        // If no new keys were added from source, return original target content unchanged
+        if (merged.size == targetEntries.size && merged.keys == targetEntries.keys) {
+            return originalTargetContent
+        }
 
         // Format back to JSON
         return formatLangJson(merged)
     }
 
     /**
-     * Parse lang JSON into map
+     * Parse lang JSON into ordered map using Gson for robust handling
+     * of escaped characters, unicode, and edge cases.
      */
-    private fun parseLangJson(lines: List<String>): Map<String, String> {
-        val entries = mutableMapOf<String, String>()
-        lines.forEach { line ->
-            val trimmed = line.trim()
-            if (trimmed.startsWith("\"") && trimmed.contains(":")) {
-                val parts = trimmed.split(":", limit = 2)
-                if (parts.size == 2) {
-                    val key = parts[0].trim().removeSurrounding("\"")
-                    val value = parts[1].trim().removeSuffix(",").trim().removeSurrounding("\"")
-                    entries[key] = value
-                }
+    private fun parseLangJson(content: String): Map<String, String> {
+        val entries = linkedMapOf<String, String>()
+        try {
+            val jsonObject = JsonParser.parseString(content).asJsonObject
+            for ((key, value) in jsonObject.entrySet()) {
+                entries[key] = if (value.isJsonPrimitive) value.asString else value.toString()
             }
+        } catch (e: JsonSyntaxException) {
+            // Fallback: try regex for malformed JSON (best effort)
+            val entryPattern = Regex(""""([^"\\]*(?:\\.[^"\\]*)*)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""")
+            entryPattern.findAll(content).forEach { match ->
+                entries[match.groupValues[1]] = match.groupValues[2]
+            }
+        } catch (e: Exception) {
+            // Return empty map if parsing completely fails
         }
         return entries
     }
 
     /**
-     * Format map back to lang JSON
+     * Format map back to lang JSON using Gson for proper escaping
      */
     private fun formatLangJson(entries: Map<String, String>): String {
-        val lines = mutableListOf<String>()
-        lines.add("{")
-        entries.entries.forEachIndexed { index, (key, value) ->
-            val comma = if (index < entries.size - 1) "," else ""
-            lines.add("  \"$key\": \"$value\"$comma")
+        val jsonObject = JsonObject()
+        entries.forEach { (key, value) ->
+            jsonObject.addProperty(key, value)
         }
-        lines.add("}")
-        return lines.joinToString("\n")
+        return gson.toJson(jsonObject)
     }
 }
 

@@ -63,7 +63,7 @@ class ListItemsCommand : DropperCommand(
             FileUtil.writeText(exportFile, output)
             Logger.success("Exported ${items.size} items to ${exportFile.absolutePath}")
         } else {
-            echo(output)
+            println(output)
         }
     }
 }

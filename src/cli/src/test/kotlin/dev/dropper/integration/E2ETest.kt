@@ -62,9 +62,7 @@ class E2ETest {
         assertTrue(context.file("shared/neoforge/src/main/java/com/testmod/platform").exists(), "NeoForge platform should exist")
         assertTrue(context.file("shared/fabric/src/main/java/com/testmod/platform").exists(), "Fabric platform should exist")
 
-        // Verify generated Java files
-        assertTrue(context.file("shared/common/src/main/java/com/testmod/Services.java").exists(), "Services.java should exist")
-        assertTrue(context.file("shared/common/src/main/java/com/testmod/platform/PlatformHelper.java").exists(), "PlatformHelper.java should exist")
+        // Verify generated Java files (Architectury - no Services.java/PlatformHelper.java)
         assertTrue(context.file("shared/common/src/main/java/com/testmod/TestMod.java").exists(), "Main mod class should exist")
 
         // Verify version structure
@@ -111,7 +109,7 @@ class E2ETest {
             "Item texture placeholder should exist"
         )
         assertTrue(
-            context.file("versions/shared/v1/data/itemmod/recipes/ruby_sword.json").exists(),
+            context.file("versions/shared/v1/data/itemmod/recipe/ruby_sword.json").exists(),
             "Item recipe should exist"
         )
 
@@ -126,7 +124,7 @@ class E2ETest {
         assertTrue(modelContent.contains("itemmod:item/ruby_sword"), "Model should reference correct texture")
 
         // Verify recipe content
-        val recipeContent = context.file("versions/shared/v1/data/itemmod/recipes/ruby_sword.json").readText()
+        val recipeContent = context.file("versions/shared/v1/data/itemmod/recipe/ruby_sword.json").readText()
         assertTrue(recipeContent.contains("minecraft:crafting_shaped"), "Recipe should be shaped crafting")
         assertTrue(recipeContent.contains("itemmod:ruby_sword"), "Recipe should produce correct item")
     }

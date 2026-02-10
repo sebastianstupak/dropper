@@ -3,7 +3,6 @@ package dev.dropper.commands
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.types.choice
-import dev.dropper.generator.ItemGenerator
 import dev.dropper.util.Logger
 import java.io.File
 
@@ -45,14 +44,19 @@ class GenerateCommand : CliktCommand(
 
         when (type) {
             "item" -> {
-                val generator = ItemGenerator()
-                generator.generate(projectDir, name, packageName, modId)
+                Logger.info("Generating item via create command: $name")
+                val command = CreateItemCommand()
+                command.parse(arrayOf(name))
             }
             "block" -> {
-                Logger.warn("Block generation not yet implemented")
+                Logger.info("Generating block via create command: $name")
+                val command = CreateBlockCommand()
+                command.parse(arrayOf(name))
             }
             "entity" -> {
-                Logger.warn("Entity generation not yet implemented")
+                Logger.info("Generating entity via create command: $name")
+                val command = CreateEntityCommand()
+                command.parse(arrayOf(name))
             }
         }
     }

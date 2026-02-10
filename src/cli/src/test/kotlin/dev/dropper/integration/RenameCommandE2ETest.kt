@@ -140,8 +140,8 @@ class RenameCommandE2ETest {
     }
 
     @Test
-    fun `test 03 - rename item updates fabric registration`() {
-        println("\n[TEST 03] Rename item - verify Fabric registration updated")
+    fun `test 03 - rename item updates common registration`() {
+        println("\n[TEST 03] Rename item - verify common class updated (Architectury pattern)")
 
         context.withProjectDir {
             CreateItemCommand().parse(arrayOf("old_item"))
@@ -162,20 +162,20 @@ class RenameCommandE2ETest {
         val executor = RenameExecutor()
         executor.execute(operations, dryRun = false)
 
-        val fabricFile = context.file( "shared/fabric/src/main/java/com/testrename/platform/fabric/NewItemFabric.java")
-        assertTrue(fabricFile.exists(), "New Fabric file should exist")
+        // With Architectury, items use common DeferredRegister instead of per-loader files
+        val commonFile = context.file( "shared/common/src/main/java/com/testrename/items/NewItem.java")
+        assertTrue(commonFile.exists(), "New common item file should exist")
 
-        val content = fabricFile.readText()
-        assertTrue(content.contains("class NewItemFabric"), "Should have new class name")
-        assertTrue(content.contains("import com.testrename.items.NewItem"), "Should have new import")
+        val content = commonFile.readText()
+        assertTrue(content.contains("class NewItem"), "Should have new class name")
         assertFalse(content.contains("OldItem"), "Should not contain old class name")
 
-        println("  ✓ Fabric registration updated")
+        println("  ✓ Common registration updated")
     }
 
     @Test
-    fun `test 04 - rename item updates forge registration`() {
-        println("\n[TEST 04] Rename item - verify Forge registration updated")
+    fun `test 04 - rename item updates model file references`() {
+        println("\n[TEST 04] Rename item - verify model file updated (Architectury pattern)")
 
         context.withProjectDir {
             CreateItemCommand().parse(arrayOf("old_item"))
@@ -196,19 +196,20 @@ class RenameCommandE2ETest {
         val executor = RenameExecutor()
         executor.execute(operations, dryRun = false)
 
-        val forgeFile = context.file( "shared/forge/src/main/java/com/testrename/platform/forge/NewItemForge.java")
-        assertTrue(forgeFile.exists(), "New Forge file should exist")
+        // Verify model was renamed and updated
+        val newModel = context.file( "versions/shared/v1/assets/testrename/models/item/new_item.json")
+        assertTrue(newModel.exists(), "New model file should exist")
 
-        val content = forgeFile.readText()
-        assertTrue(content.contains("class NewItemForge"), "Should have new class name")
-        assertTrue(content.contains("import com.testrename.items.NewItem"), "Should have new import")
+        val content = newModel.readText()
+        assertTrue(content.contains("testrename:item/new_item"), "Should reference new texture path")
+        assertFalse(content.contains("old_item"), "Should not reference old name")
 
-        println("  ✓ Forge registration updated")
+        println("  ✓ Model file references updated")
     }
 
     @Test
-    fun `test 05 - rename item updates neoforge registration`() {
-        println("\n[TEST 05] Rename item - verify NeoForge registration updated")
+    fun `test 05 - rename item updates texture file`() {
+        println("\n[TEST 05] Rename item - verify texture renamed (Architectury pattern)")
 
         context.withProjectDir {
             CreateItemCommand().parse(arrayOf("old_item"))
@@ -229,14 +230,14 @@ class RenameCommandE2ETest {
         val executor = RenameExecutor()
         executor.execute(operations, dryRun = false)
 
-        val neoforgeFile = context.file( "shared/neoforge/src/main/java/com/testrename/platform/neoforge/NewItemNeoForge.java")
-        assertTrue(neoforgeFile.exists(), "New NeoForge file should exist")
+        // Verify texture was renamed
+        val newTexture = context.file( "versions/shared/v1/assets/testrename/textures/item/new_item.png")
+        assertTrue(newTexture.exists(), "New texture file should exist")
 
-        val content = neoforgeFile.readText()
-        assertTrue(content.contains("class NewItemNeoForge"), "Should have new class name")
-        assertTrue(content.contains("import com.testrename.items.NewItem"), "Should have new import")
+        val oldTexture = context.file( "versions/shared/v1/assets/testrename/textures/item/old_item.png")
+        assertFalse(oldTexture.exists(), "Old texture file should not exist")
 
-        println("  ✓ NeoForge registration updated")
+        println("  ✓ Texture file renamed")
     }
 
     // ========================================================================
@@ -472,7 +473,7 @@ class RenameCommandE2ETest {
         val executor = RenameExecutor()
         executor.execute(operations, dryRun = false)
 
-        val newLootTable = context.file( "versions/shared/v1/data/testrename/loot_table/blocks/new_block.json")
+        val newLootTable = context.file( "versions/shared/v1/data/testrename/loot_tables/blocks/new_block.json")
         assertTrue(newLootTable.exists(), "New loot table should exist")
 
         val content = newLootTable.readText()
@@ -501,8 +502,8 @@ class RenameCommandE2ETest {
         val renamer = ItemRenamer()
         val discovered = renamer.discover(renameContext)
 
-        // Should find: common class, 3 loader registrations, model, texture, recipe
-        assertTrue(discovered.size >= 7, "Should discover at least 7 files")
+        // With Architectury pattern: common class, model, texture, recipe (no per-loader files)
+        assertTrue(discovered.size >= 4, "Should discover at least 4 files (common class + model + texture + recipe)")
 
         // Verify we found the common class
         assertTrue(
@@ -510,10 +511,10 @@ class RenameCommandE2ETest {
             "Should discover common class"
         )
 
-        // Verify we found loader registrations
+        // Verify we found the model
         assertTrue(
-            discovered.any { it.name.contains("Fabric") },
-            "Should discover Fabric registration"
+            discovered.any { it.name == "test_item.json" },
+            "Should discover model file"
         )
 
         println("  ✓ Discovered ${discovered.size} files")
@@ -1013,8 +1014,8 @@ class RenameCommandE2ETest {
     }
 
     @Test
-    fun `test 29 - rename block updates all three loader registrations`() {
-        println("\n[TEST 29] Loaders - verify all three updated for block")
+    fun `test 29 - rename block updates common class and all assets`() {
+        println("\n[TEST 29] Block - verify common class and assets updated (Architectury pattern)")
 
         context.withProjectDir {
             CreateBlockCommand().parse(arrayOf("test_block"))
@@ -1035,16 +1036,17 @@ class RenameCommandE2ETest {
         val executor = RenameExecutor()
         executor.execute(operations, dryRun = false)
 
-        // Verify all three loaders
-        val fabricFile = context.file( "shared/fabric/src/main/java/com/testrename/platform/fabric/RenamedBlockFabric.java")
-        val forgeFile = context.file( "shared/forge/src/main/java/com/testrename/platform/forge/RenamedBlockForge.java")
-        val neoforgeFile = context.file( "shared/neoforge/src/main/java/com/testrename/platform/neoforge/RenamedBlockNeoForge.java")
+        // With Architectury, verify common class and assets are updated
+        val commonFile = context.file( "shared/common/src/main/java/com/testrename/blocks/RenamedBlock.java")
+        assertTrue(commonFile.exists(), "Common block class should exist")
 
-        assertTrue(fabricFile.exists(), "Fabric registration should exist")
-        assertTrue(forgeFile.exists(), "Forge registration should exist")
-        assertTrue(neoforgeFile.exists(), "NeoForge registration should exist")
+        val blockstate = context.file( "versions/shared/v1/assets/testrename/blockstates/renamed_block.json")
+        assertTrue(blockstate.exists(), "Blockstate should exist")
 
-        println("  ✓ All three loaders updated")
+        val blockModel = context.file( "versions/shared/v1/assets/testrename/models/block/renamed_block.json")
+        assertTrue(blockModel.exists(), "Block model should exist")
+
+        println("  ✓ Common class and assets updated")
     }
 
     @Test
@@ -1067,13 +1069,12 @@ class RenameCommandE2ETest {
         val renamer = ItemRenamer()
         val operations = renamer.planRename(renameContext)
 
-        // Should have operations for:
-        // - Rename common class + update content (2)
-        // - Rename 3 loader files + update content (6)
+        // With Architectury pattern (no per-loader files), should have operations for:
+        // - Rename common class + update content (4: rename + class name + ID + remaining refs)
         // - Rename model + update content (2)
         // - Rename texture (1)
         // - Update recipe references (varies)
-        assertTrue(operations.size >= 10, "Should have at least 10 operations, got ${operations.size}")
+        assertTrue(operations.size >= 5, "Should have at least 5 operations, got ${operations.size}")
 
         println("  ✓ Operation count correct: ${operations.size}")
     }
@@ -1248,14 +1249,14 @@ class RenameCommandE2ETest {
         val renamer = ItemRenamer()
         val discovered = renamer.discover(renameContext)
 
-        // Should find files in shared/common, shared/fabric, etc.
+        // Should find files in shared/common and versions/ subdirectories
         assertTrue(
             discovered.any { it.path.contains("shared${File.separator}common") },
             "Should find files in shared/common"
         )
         assertTrue(
-            discovered.any { it.path.contains("shared${File.separator}fabric") },
-            "Should find files in shared/fabric"
+            discovered.any { it.path.contains("versions") },
+            "Should find files in versions directory"
         )
 
         println("  ✓ Subdirectories searched: ${discovered.size} files")
@@ -1315,8 +1316,8 @@ class RenameCommandE2ETest {
     }
 
     @Test
-    fun `test 39 - rename updates import statements`() {
-        println("\n[TEST 39] Code - import statements")
+    fun `test 39 - rename updates class name and ID in common file`() {
+        println("\n[TEST 39] Code - class name and ID updates")
 
         context.withProjectDir {
             CreateItemCommand().parse(arrayOf("test_item"))
@@ -1337,19 +1338,20 @@ class RenameCommandE2ETest {
         val executor = RenameExecutor()
         executor.execute(operations, dryRun = false)
 
-        // Check that loader files have updated imports
-        val fabricFile = context.file( "shared/fabric/src/main/java/com/testrename/platform/fabric/NewItemFabric.java")
-        val content = fabricFile.readText()
+        // With Architectury, check the common class has updated class name and ID
+        val commonFile = context.file( "shared/common/src/main/java/com/testrename/items/NewItem.java")
+        val content = commonFile.readText()
 
-        assertTrue(content.contains("import com.testrename.items.NewItem"), "Should have updated import")
-        assertFalse(content.contains("import com.testrename.items.TestItem"), "Should not have old import")
+        assertTrue(content.contains("class NewItem"), "Should have updated class name")
+        assertTrue(content.contains("\"new_item\""), "Should have updated ID constant")
+        assertFalse(content.contains("TestItem"), "Should not contain old class name")
 
-        println("  ✓ Import statements updated")
+        println("  ✓ Class name and ID updated")
     }
 
     @Test
-    fun `test 40 - rename updates constant references`() {
-        println("\n[TEST 40] Code - constant references")
+    fun `test 40 - rename updates ID constant value`() {
+        println("\n[TEST 40] Code - ID constant value")
 
         context.withProjectDir {
             CreateItemCommand().parse(arrayOf("test_item"))
@@ -1370,12 +1372,14 @@ class RenameCommandE2ETest {
         val executor = RenameExecutor()
         executor.execute(operations, dryRun = false)
 
-        val fabricFile = context.file( "shared/fabric/src/main/java/com/testrename/platform/fabric/NewItemFabric.java")
-        val content = fabricFile.readText()
+        // With Architectury, check that the common class has updated ID constant
+        val commonFile = context.file( "shared/common/src/main/java/com/testrename/items/NewItem.java")
+        val content = commonFile.readText()
 
-        assertTrue(content.contains("NewItem.ID"), "Should reference new class constant")
+        assertTrue(content.contains("public static final String ID = \"new_item\""), "Should have updated ID constant")
+        assertFalse(content.contains("\"test_item\""), "Should not contain old ID value")
 
-        println("  ✓ Constant references updated")
+        println("  ✓ ID constant value updated")
     }
 
     @Test
@@ -1419,7 +1423,7 @@ class RenameCommandE2ETest {
             "Texture should exist"
         )
         assertTrue(
-            context.file( "versions/shared/v1/data/testrename/loot_table/blocks/new_block.json").exists(),
+            context.file( "versions/shared/v1/data/testrename/loot_tables/blocks/new_block.json").exists(),
             "Loot table should exist"
         )
 

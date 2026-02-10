@@ -6,6 +6,8 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import dev.dropper.util.FileUtil
 import dev.dropper.util.Logger
+import dev.dropper.util.StringUtil
+import dev.dropper.util.ValidationUtil
 import java.io.File
 
 /**
@@ -23,6 +25,13 @@ class CreateEnchantmentCommand : DropperCommand(
     private val treasure by option("--treasure", help = "Treasure-only enchantment (not available in enchanting table)").flag(default = false)
 
     override fun run() {
+        // Validate enchantment name
+        val nameValidation = ValidationUtil.validateName(name, "enchantment")
+        if (!nameValidation.isValid) {
+            ValidationUtil.exitWithError(nameValidation)
+            return
+        }
+
         val configFile = getConfigFile()
 
         if (!configFile.exists()) {
@@ -61,26 +70,20 @@ class CreateEnchantmentCommand : DropperCommand(
         Logger.info("Creating enchantment: $name")
 
         // Generate common enchantment code (shared across all loaders)
-        generateEnchantmentClass(projectDir, name, modId, sanitizedModId, maxLevelInt, rarity, category, treasure)
+        generateEnchantmentClass(projectDir, name, modId, sanitizedModId, maxLevelInt, treasure)
 
-        // Generate loader-specific registration
-        generateFabricRegistration(projectDir, name, modId, sanitizedModId)
-        generateForgeRegistration(projectDir, name, modId, sanitizedModId)
-        generateNeoForgeRegistration(projectDir, name, modId, sanitizedModId)
+        // Generate enchantment data JSON
+        generateEnchantmentJson(projectDir, name, modId, maxLevelInt, rarity, category)
 
         // Generate lang entries
         generateLangEntries(projectDir, name, modId)
 
         Logger.success("Enchantment '$name' created successfully!")
         Logger.info("Next steps:")
-        Logger.info("  1. Customize enchantment logic in shared/common/src/main/java/com/$sanitizedModId/enchantments/${toClassName(name)}.java")
-        Logger.info("  2. Update lang entry in versions/shared/v1/assets/$modId/lang/en_us.json")
-        Logger.info("  3. Build with: dropper build")
-    }
-
-    private fun extractModId(configFile: File): String? {
-        val content = configFile.readText()
-        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
+        Logger.info("  1. Customize enchantment constants in shared/common/src/main/java/com/$sanitizedModId/enchantments/${toClassName(name)}.java")
+        Logger.info("  2. Customize enchantment JSON in versions/shared/v1/data/$modId/enchantment/$name.json")
+        Logger.info("  3. Update lang entry in versions/shared/v1/assets/$modId/lang/en_us.json")
+        Logger.info("  4. Build with: dropper build")
     }
 
     private fun isValidRarity(rarity: String): Boolean {
@@ -101,8 +104,6 @@ class CreateEnchantmentCommand : DropperCommand(
         modId: String,
         sanitizedModId: String,
         maxLevel: Int,
-        rarity: String,
-        category: String,
         treasure: Boolean
     ) {
         val className = toClassName(enchantmentName)
@@ -112,103 +113,36 @@ class CreateEnchantmentCommand : DropperCommand(
             package $packageName;
 
             /**
-             * Custom enchantment: $className
+             * Enchantment definition: $className
              *
-             * Registration pattern for multi-loader compatibility:
-             * - Fabric: Use Enchantment class with custom properties
-             * - Forge/NeoForge: Use Enchantment class with properties
+             * Holds configuration constants for the custom enchantment.
+             * In modern Minecraft (1.20+), enchantments are data-driven.
+             * The actual enchantment is defined in:
+             *   data/$modId/enchantment/$enchantmentName.json
              *
-             * This base class provides the shared logic.
-             * Loader-specific registration happens in platform code.
+             * Loader-specific registration is handled via platform code.
              */
             public class $className {
                 public static final String ID = "$enchantmentName";
 
                 // Enchantment configuration
                 public static final int MAX_LEVEL = $maxLevel;
-                public static final Rarity RARITY = Rarity.${rarity.uppercase()};
-                public static final Category CATEGORY = Category.${category.uppercase()};
                 public static final boolean IS_TREASURE = $treasure;
-                public static final boolean IS_CURSE = false;
                 public static final boolean IS_TRADEABLE = ${!treasure};
                 public static final boolean IS_DISCOVERABLE = ${!treasure};
 
-                // TODO: Implement enchantment logic
-                // Example for Fabric:
-                // public static final Enchantment INSTANCE = new Enchantment(
-                //     Enchantment.definition(
-                //         RegistryKey.of(RegistryKeys.ITEM, new Identifier("$modId", ID)),
-                //         EnchantmentTarget.$category,
-                //         RARITY,
-                //         MAX_LEVEL,
-                //         Enchantment.constantCost(1),
-                //         Enchantment.constantCost(50),
-                //         1
-                //     )
-                // ) {
-                //     @Override
-                //     public boolean canApplyAtEnchantingTable(ItemStack stack) {
-                //         return !IS_TREASURE && super.canApplyAtEnchantingTable(stack);
-                //     }
-                // };
-                //
-                // Example for Forge/NeoForge:
-                // public static final Enchantment INSTANCE = new Enchantment(
-                //     RARITY,
-                //     EnchantmentCategory.$category,
-                //     EquipmentSlot.values()
-                // ) {
-                //     @Override
-                //     public int getMaxLevel() {
-                //         return MAX_LEVEL;
-                //     }
-                //
-                //     @Override
-                //     public boolean isTreasureOnly() {
-                //         return IS_TREASURE;
-                //     }
-                //
-                //     @Override
-                //     public boolean isTradeable() {
-                //         return IS_TRADEABLE;
-                //     }
-                //
-                //     @Override
-                //     public boolean isDiscoverable() {
-                //         return IS_DISCOVERABLE;
-                //     }
-                // };
-
                 /**
-                 * Enchantment rarity levels
-                 * Maps to Minecraft's enchantment rarity system
+                 * Minimum XP cost for this enchantment at the given level.
                  */
-                public enum Rarity {
-                    COMMON,
-                    UNCOMMON,
-                    RARE,
-                    VERY_RARE
+                public static int getMinCost(int level) {
+                    return 1 + (level - 1) * 10;
                 }
 
                 /**
-                 * Enchantment categories (what items can be enchanted)
-                 * Maps to Minecraft's enchantment target system
+                 * Maximum XP cost for this enchantment at the given level.
                  */
-                public enum Category {
-                    ARMOR,
-                    ARMOR_FEET,
-                    ARMOR_LEGS,
-                    ARMOR_CHEST,
-                    ARMOR_HEAD,
-                    WEAPON,
-                    DIGGER,
-                    FISHING_ROD,
-                    TRIDENT,
-                    BREAKABLE,
-                    BOW,
-                    WEARABLE,
-                    CROSSBOW,
-                    VANISHABLE
+                public static int getMaxCost(int level) {
+                    return getMinCost(level) + 50;
                 }
             }
         """.trimIndent()
@@ -219,102 +153,76 @@ class CreateEnchantmentCommand : DropperCommand(
         Logger.info("  ✓ Created enchantment: shared/common/src/main/java/com/$sanitizedModId/enchantments/$className.java")
     }
 
-    private fun generateFabricRegistration(projectDir: File, enchantmentName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(enchantmentName)
-        val content = """
-            package com.$sanitizedModId.platform.fabric;
-
-            import com.$sanitizedModId.enchantments.$className;
-            import net.minecraft.enchantment.Enchantment;
-            import net.minecraft.registry.Registries;
-            import net.minecraft.registry.Registry;
-            import net.minecraft.util.Identifier;
-
-            /**
-             * Fabric-specific enchantment registration for $className
-             */
-            public class ${className}Fabric {
-                public static void register() {
-                    // Example Fabric registration:
-                    // Registry.register(
-                    //     Registries.ENCHANTMENT,
-                    //     Identifier.of("$modId", $className.ID),
-                    //     $className.INSTANCE
-                    // );
-                }
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created Fabric registration: shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
+    private fun rarityToWeight(rarity: String): Int {
+        return when (rarity) {
+            "common" -> 10
+            "uncommon" -> 5
+            "rare" -> 2
+            "very_rare" -> 1
+            else -> 10
+        }
     }
 
-    private fun generateForgeRegistration(projectDir: File, enchantmentName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(enchantmentName)
+    private fun generateEnchantmentJson(
+        projectDir: File,
+        enchantmentName: String,
+        modId: String,
+        maxLevel: Int,
+        rarity: String,
+        category: String
+    ) {
+        val weight = rarityToWeight(rarity)
+        val slots = when (category) {
+            "armor" -> """["head", "chest", "legs", "feet"]"""
+            "armor_feet" -> """["feet"]"""
+            "armor_legs" -> """["legs"]"""
+            "armor_chest" -> """["chest"]"""
+            "armor_head" -> """["head"]"""
+            "weapon" -> """["mainhand"]"""
+            "digger" -> """["mainhand"]"""
+            "fishing_rod" -> """["mainhand"]"""
+            "trident" -> """["mainhand"]"""
+            "bow" -> """["mainhand"]"""
+            "crossbow" -> """["mainhand"]"""
+            else -> """["any"]"""
+        }
+        val supportedItems = when (category) {
+            "armor", "armor_feet", "armor_legs", "armor_chest", "armor_head" -> "#minecraft:enchantable/armor"
+            "weapon" -> "#minecraft:enchantable/weapon"
+            "digger" -> "#minecraft:enchantable/mining"
+            "fishing_rod" -> "#minecraft:enchantable/fishing"
+            "trident" -> "#minecraft:enchantable/trident"
+            "bow" -> "#minecraft:enchantable/bow"
+            "crossbow" -> "#minecraft:enchantable/crossbow"
+            else -> "#minecraft:enchantable/durability"
+        }
+
         val content = """
-            package com.$sanitizedModId.platform.forge;
-
-            import com.$sanitizedModId.enchantments.$className;
-            import net.minecraft.world.item.enchantment.Enchantment;
-            import net.minecraftforge.registries.DeferredRegister;
-            import net.minecraftforge.registries.ForgeRegistries;
-            import net.minecraftforge.registries.RegistryObject;
-
-            /**
-             * Forge-specific enchantment registration for $className
-             */
-            public class ${className}Forge {
-                // Example Forge registration:
-                // public static final DeferredRegister<Enchantment> ENCHANTMENTS =
-                //     DeferredRegister.create(ForgeRegistries.ENCHANTMENTS, "$modId");
-                //
-                // public static final RegistryObject<Enchantment> ${enchantmentName.uppercase()} =
-                //     ENCHANTMENTS.register($className.ID, () -> $className.INSTANCE);
+            {
+              "supported_items": "$supportedItems",
+              "weight": $weight,
+              "max_level": $maxLevel,
+              "min_cost": {
+                "base": 1,
+                "per_level_above_first": 10
+              },
+              "max_cost": {
+                "base": 51,
+                "per_level_above_first": 10
+              },
+              "slots": $slots
             }
         """.trimIndent()
 
-        val file = File(projectDir, "shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
-        FileUtil.writeText(file, content)
+        val jsonFile = File(projectDir, "versions/shared/v1/data/$modId/enchantment/$enchantmentName.json")
+        FileUtil.writeText(jsonFile, content)
 
-        Logger.info("  ✓ Created Forge registration: shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
-    }
-
-    private fun generateNeoForgeRegistration(projectDir: File, enchantmentName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(enchantmentName)
-        val content = """
-            package com.$sanitizedModId.platform.neoforge;
-
-            import com.$sanitizedModId.enchantments.$className;
-            import net.minecraft.core.registries.Registries;
-            import net.minecraft.world.item.enchantment.Enchantment;
-            import net.neoforged.neoforge.registries.DeferredRegister;
-            import net.neoforged.neoforge.registries.DeferredHolder;
-
-            /**
-             * NeoForge-specific enchantment registration for $className
-             */
-            public class ${className}NeoForge {
-                // Example NeoForge registration:
-                // public static final DeferredRegister<Enchantment> ENCHANTMENTS =
-                //     DeferredRegister.create(Registries.ENCHANTMENT, "$modId");
-                //
-                // public static final DeferredHolder<Enchantment, Enchantment> ${enchantmentName.uppercase()} =
-                //     ENCHANTMENTS.register($className.ID, () -> $className.INSTANCE);
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created NeoForge registration: shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
+        Logger.info("  ✓ Created enchantment JSON: versions/shared/v1/data/$modId/enchantment/$enchantmentName.json")
     }
 
     private fun generateLangEntries(projectDir: File, enchantmentName: String, modId: String) {
         val langFile = File(projectDir, "versions/shared/v1/assets/$modId/lang/en_us.json")
-        val className = toClassName(enchantmentName)
-        val displayName = enchantmentName.split("_").joinToString(" ") { it.capitalize() }
+        val displayName = enchantmentName.split("_").joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
 
         // Create or update lang file
         val existingContent = if (langFile.exists()) {
@@ -363,7 +271,5 @@ class CreateEnchantmentCommand : DropperCommand(
         }
     }
 
-    private fun toClassName(snakeCase: String): String {
-        return snakeCase.split("_").joinToString("") { it.capitalize() }
-    }
+    private fun toClassName(snakeCase: String): String = StringUtil.toClassName(snakeCase)
 }

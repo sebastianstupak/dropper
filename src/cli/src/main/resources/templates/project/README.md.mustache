@@ -12,9 +12,15 @@ Output JARs will be in `build/` directory.
 
 ## Project Structure
 
-- `shared/` - Cross-loader code
+- `shared/common/` - Cross-loader code (Mojang mappings, remapped by Architectury Loom)
+- `shared/fabric/`, `shared/forge/`, `shared/neoforge/` - Loader entry points
 - `versions/` - Version-specific code and assets
-- `build-logic/` - Gradle build system
+- `buildSrc/` - Gradle build system (Architectury Loom + ModLoaderPlugin)
+
+## Dependencies
+
+- [Architectury API](https://github.com/architectury/architectury-api) - Cross-loader abstractions
+- [Architectury Loom](https://github.com/architectury/architectury-loom) - Unified build toolchain
 
 ## Generated with Dropper
 

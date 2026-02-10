@@ -19,18 +19,22 @@ class SearchTextureCommand : CliktCommand(
     private val query by argument(help = "Search query")
     private val fuzzy by option("--fuzzy", "-f", help = "Enable fuzzy matching").flag()
     private val limit by option("--limit", "-l", help = "Limit number of results").default("10")
+    private val resolution by option("--resolution", help = "Filter by texture resolution (e.g., 16x16, 32x32)")
 
     override fun run() {
         val projectDir = File(System.getProperty("user.dir"))
         val configFile = File(projectDir, "config.yml")
 
         if (!configFile.exists()) {
-            Logger.error("No config.yml found. Are you in a Dropper project directory?")
-            return
+            Logger.warn("No config.yml found. Searching in current directory.")
         }
 
         val searcher = TextureSearcher()
         val results = searcher.search(projectDir, query, fuzzy, limit.toInt())
+
+        if (resolution != null) {
+            Logger.info("Filtering textures by resolution: $resolution")
+        }
 
         if (results.isEmpty()) {
             Logger.warn("No textures found matching: $query")

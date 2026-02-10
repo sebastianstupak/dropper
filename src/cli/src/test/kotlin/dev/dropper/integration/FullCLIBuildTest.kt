@@ -3,6 +3,7 @@ package dev.dropper.integration
 import dev.dropper.commands.*
 import dev.dropper.config.ModConfig
 import dev.dropper.util.TestProjectContext
+import dev.dropper.util.TestValidationUtils
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -325,6 +326,16 @@ class FullCLIBuildTest {
         assertTrue(javaFiles.isNotEmpty(), "Should have generated Java files")
         assertTrue(assetFiles.isNotEmpty(), "Should have generated asset files")
         assertTrue(context.file("config.yml").exists(), "Should have config.yml")
+
+        // Validate all generated Java files have valid syntax
+        val javaValidationCount = TestValidationUtils.validateAllJavaFiles(context.projectDir)
+        println("Validated $javaValidationCount Java files with syntax checking")
+        assertTrue(javaValidationCount > 0, "Should have validated at least one Java file")
+
+        // Validate all generated JSON files parse correctly
+        val jsonValidationCount = TestValidationUtils.validateAllJsonFiles(context.projectDir)
+        println("Validated $jsonValidationCount JSON files with Gson parser")
+        assertTrue(jsonValidationCount > 0, "Should have validated at least one JSON file")
 
         // Verify the project directory still exists after test
         assertTrue(context.projectDir.exists(), "Project directory should still exist at: ${context.projectDir.absolutePath}")

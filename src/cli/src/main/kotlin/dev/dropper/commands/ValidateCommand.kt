@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import dev.dropper.commands.validate.*
+import dev.dropper.util.ValidationException
 import dev.dropper.validator.*
 import java.io.File
 
@@ -74,17 +75,70 @@ class ValidateCommand : CliktCommand(
         val combined = CombinedValidationResult(results)
 
         if (options.format == OutputFormat.JSON) {
-            // TODO: Print JSON output
-            echo("\nJSON output not yet implemented")
+            echo(formatResultsAsJson(combined))
         } else {
             combined.printSummary()
         }
 
         // Exit with error code if validation failed
         if (strict && combined.hasWarnings) {
-            throw Exception("Validation failed (strict mode)")
+            throw ValidationException("Validation failed (strict mode)")
         } else if (combined.hasErrors) {
-            throw Exception("Validation failed")
+            throw ValidationException("Validation failed")
         }
+    }
+
+    /**
+     * Format validation results as JSON output
+     */
+    private fun formatResultsAsJson(combined: CombinedValidationResult): String {
+        val sb = StringBuilder()
+        sb.appendLine("{")
+        sb.appendLine("  \"valid\": ${combined.isValid},")
+        sb.appendLine("  \"totalErrors\": ${combined.totalErrors},")
+        sb.appendLine("  \"totalWarnings\": ${combined.totalWarnings},")
+        sb.appendLine("  \"validators\": [")
+
+        combined.results.forEachIndexed { index, result ->
+            sb.appendLine("    {")
+            sb.appendLine("      \"name\": ${jsonString(result.validatorName)},")
+            sb.appendLine("      \"filesScanned\": ${result.filesScanned},")
+            sb.appendLine("      \"timeMs\": ${result.timeMs},")
+            sb.appendLine("      \"errors\": ${result.errorCount},")
+            sb.appendLine("      \"warnings\": ${result.warningCount},")
+            sb.appendLine("      \"issues\": [")
+
+            result.issues.forEachIndexed { issueIndex, issue ->
+                sb.appendLine("        {")
+                sb.appendLine("          \"severity\": ${jsonString(issue.severity.name)},")
+                sb.appendLine("          \"message\": ${jsonString(issue.message)},")
+                sb.appendLine("          \"file\": ${if (issue.file != null) jsonString(issue.file.path) else "null"},")
+                sb.appendLine("          \"line\": ${issue.line ?: "null"},")
+                sb.appendLine("          \"suggestion\": ${if (issue.suggestion != null) jsonString(issue.suggestion) else "null"}")
+                sb.append("        }")
+                if (issueIndex < result.issues.size - 1) sb.appendLine(",") else sb.appendLine()
+            }
+
+            sb.appendLine("      ]")
+            sb.append("    }")
+            if (index < combined.results.size - 1) sb.appendLine(",") else sb.appendLine()
+        }
+
+        sb.appendLine("  ]")
+        sb.append("}")
+        return sb.toString()
+    }
+
+    /**
+     * Escape a string for JSON output
+     */
+    private fun jsonString(value: String): String {
+        val escaped = value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+        return "\"$escaped\""
     }
 }

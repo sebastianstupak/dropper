@@ -13,7 +13,7 @@ class ItemGenerator {
         Logger.info("Generating item: $itemName")
 
         val className = itemName.split("_")
-            .joinToString("") { it.capitalize() }
+            .joinToString("") { word -> word.replaceFirstChar { it.uppercase() } }
 
         // Generate Java class
         generateItemClass(projectDir, className, packageName, modId)
@@ -32,20 +32,29 @@ class ItemGenerator {
     }
 
     private fun generateItemClass(projectDir: File, className: String, packageName: String, modId: String) {
+        val itemName = className.replace(Regex("([a-z])([A-Z])"), "$1_$2").lowercase()
+
         val content = """
             package $packageName.items;
 
+            import net.minecraft.world.item.Item;
+
             /**
              * Custom item: $className
+             *
+             * This base class provides the shared item definition.
+             * Loader-specific registration happens in platform code.
              */
-            public class $className {
-                // TODO: Implement item logic
-                // Example for Minecraft items:
-                // public class $className extends Item {
-                //     public $className() {
-                //         super(new Properties());
-                //     }
-                // }
+            public class $className extends Item {
+                public static final String ID = "$itemName";
+
+                public $className(Properties properties) {
+                    super(properties);
+                }
+
+                public $className() {
+                    super(new Properties());
+                }
             }
         """.trimIndent()
 
@@ -95,12 +104,12 @@ class ItemGenerator {
                 }
               },
               "result": {
-                "item": "$modId:$itemName"
+                "id": "$modId:$itemName"
               }
             }
         """.trimIndent()
 
-        val file = File(projectDir, "versions/shared/v1/data/$modId/recipes/$itemName.json")
+        val file = File(projectDir, "versions/shared/v1/data/$modId/recipe/$itemName.json")
         FileUtil.writeText(file, content)
     }
 }

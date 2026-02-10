@@ -15,15 +15,17 @@ interface OutputFormatter {
  */
 class TableFormatter : OutputFormatter {
     override fun format(components: List<ComponentInfo>, type: String): String {
+        val plural = pluralize(type)
+
         if (components.isEmpty()) {
-            return "No ${type}s found in project.\n"
+            return "No ${plural} found in project. 0 total\n"
         }
 
         val sb = StringBuilder()
         sb.append("\n")
         sb.append("═".repeat(80))
         sb.append("\n")
-        sb.append("  ${type.uppercase()}S (${components.size} total)\n")
+        sb.append("  ${plural.uppercase()} (${components.size} total)\n")
         sb.append("═".repeat(80))
         sb.append("\n\n")
 
@@ -63,6 +65,15 @@ class TableFormatter : OutputFormatter {
         sb.append("\n")
 
         return sb.toString()
+    }
+
+    private fun pluralize(type: String): String {
+        return when {
+            type.endsWith("y") && !type.endsWith("ey") -> type.dropLast(1) + "ies"
+            type.endsWith("s") || type.endsWith("x") || type.endsWith("z") ||
+                type.endsWith("ch") || type.endsWith("sh") -> type + "es"
+            else -> type + "s"
+        }
     }
 
     private fun String.capitalize(): String {
@@ -120,12 +131,14 @@ class CsvFormatter : OutputFormatter {
  */
 class TreeFormatter : OutputFormatter {
     override fun format(components: List<ComponentInfo>, type: String): String {
+        val plural = pluralize(type)
+
         if (components.isEmpty()) {
-            return "No ${type}s found in project.\n"
+            return "No ${plural} found in project. 0 total\n"
         }
 
         val sb = StringBuilder()
-        sb.append("\n${type.uppercase()}S\n")
+        sb.append("\n${plural.uppercase()}\n")
 
         // Group by package or category
         val grouped = when (type) {
@@ -161,7 +174,7 @@ class TreeFormatter : OutputFormatter {
         }
 
         sb.append("\nLegend: T=Texture, M=Model, R=Recipe, L=Loot Table\n")
-        sb.append("Total: ${components.size} ${type}s\n")
+        sb.append("Total: ${components.size} ${plural}\n")
 
         return sb.toString()
     }
@@ -169,6 +182,15 @@ class TreeFormatter : OutputFormatter {
     private fun groupByMetadata(components: List<ComponentInfo>, key: String): Map<String, List<ComponentInfo>> {
         return components.groupBy { component ->
             (component.metadata[key] as? String) ?: "unknown"
+        }
+    }
+
+    private fun pluralize(type: String): String {
+        return when {
+            type.endsWith("y") && !type.endsWith("ey") -> type.dropLast(1) + "ies"
+            type.endsWith("s") || type.endsWith("x") || type.endsWith("z") ||
+                type.endsWith("ch") || type.endsWith("sh") -> type + "es"
+            else -> type + "s"
         }
     }
 

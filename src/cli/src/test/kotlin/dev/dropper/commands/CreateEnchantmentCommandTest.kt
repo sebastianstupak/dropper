@@ -46,24 +46,73 @@ class CreateEnchantmentCommandTest {
         // Verify files exist
         assertEnchantmentFilesExist(enchantmentName, listOf(
             "shared/common/src/main/java/com/testmod/enchantments/TestEnchantment.java",
-            "shared/fabric/src/main/java/com/testmod/platform/fabric/TestEnchantmentFabric.java",
-            "shared/forge/src/main/java/com/testmod/platform/forge/TestEnchantmentForge.java",
-            "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestEnchantmentNeoForge.java",
-            "versions/shared/v1/assets/testmod/lang/en_us.json"
+            "versions/shared/v1/assets/testmod/lang/en_us.json",
+            "versions/shared/v1/data/testmod/enchantment/test_enchantment.json"
         ))
 
         // Verify enchantment class content
         val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchantment.java"))
-        assertTrue(enchantmentClass.contains("public class TestEnchantment"))
+        assertTrue(enchantmentClass.contains("public class TestEnchantment {"))
         assertTrue(enchantmentClass.contains("public static final String ID = \"test_enchantment\""))
         assertTrue(enchantmentClass.contains("public static final int MAX_LEVEL = 1"))
-        assertTrue(enchantmentClass.contains("public static final Rarity RARITY = Rarity.COMMON"))
-        assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.BREAKABLE"))
         assertTrue(enchantmentClass.contains("public static final boolean IS_TREASURE = false"))
+        assertTrue(enchantmentClass.contains("public static final boolean IS_TRADEABLE = true"))
+        assertTrue(enchantmentClass.contains("public static final boolean IS_DISCOVERABLE = true"))
+
+        // Verify class does NOT extend Enchantment
+        assertFalse(enchantmentClass.contains("extends Enchantment"), "Class should not extend Enchantment")
 
         // Verify lang entry
         val langFile = FileUtil.readText(File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json"))
         assertTrue(langFile.contains("\"enchantment.testmod.test_enchantment\": \"Test Enchantment\""))
+    }
+
+    @Test
+    fun `test common class does not extend Enchantment`() {
+        val enchantmentName = "test_enchant"
+
+        executeEnchantmentCommand(enchantmentName)
+
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchant.java"))
+
+        // Must NOT contain extends Enchantment
+        assertFalse(enchantmentClass.contains("extends Enchantment"), "Should not subclass Enchantment")
+
+        // Must NOT contain inner enums
+        assertFalse(enchantmentClass.contains("public enum Rarity"), "Should not have inner Rarity enum")
+        assertFalse(enchantmentClass.contains("public enum Category"), "Should not have inner Category enum")
+
+        // Must NOT contain old imports
+        assertFalse(enchantmentClass.contains("import net.minecraft.world.item.enchantment.EnchantmentCategory"), "Should not import EnchantmentCategory")
+        assertFalse(enchantmentClass.contains("import net.minecraft.world.entity.EquipmentSlot"), "Should not import EquipmentSlot")
+        assertFalse(enchantmentClass.contains("import net.minecraft.world.item.ItemStack"), "Should not import ItemStack")
+    }
+
+    @Test
+    fun `test common class has required constants`() {
+        val enchantmentName = "test_enchant"
+
+        executeEnchantmentCommand(enchantmentName)
+
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchant.java"))
+
+        assertTrue(enchantmentClass.contains("public static final String ID"), "Should have ID constant")
+        assertTrue(enchantmentClass.contains("public static final int MAX_LEVEL"), "Should have MAX_LEVEL constant")
+        assertTrue(enchantmentClass.contains("public static final boolean IS_TREASURE"), "Should have IS_TREASURE constant")
+        assertTrue(enchantmentClass.contains("public static final boolean IS_TRADEABLE"), "Should have IS_TRADEABLE constant")
+        assertTrue(enchantmentClass.contains("public static final boolean IS_DISCOVERABLE"), "Should have IS_DISCOVERABLE constant")
+    }
+
+    @Test
+    fun `test common class has cost methods`() {
+        val enchantmentName = "test_enchant"
+
+        executeEnchantmentCommand(enchantmentName)
+
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchant.java"))
+
+        assertTrue(enchantmentClass.contains("public static int getMinCost(int level)"), "Should have getMinCost method")
+        assertTrue(enchantmentClass.contains("public static int getMaxCost(int level)"), "Should have getMaxCost method")
     }
 
     @Test
@@ -74,85 +123,29 @@ class CreateEnchantmentCommandTest {
 
         val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/PowerStrike.java"))
         assertTrue(enchantmentClass.contains("public static final int MAX_LEVEL = 5"))
+
+        // Also verify enchantment JSON has matching max_level
+        val jsonFile = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/power_strike.json"))
+        assertTrue(jsonFile.contains("\"max_level\": 5"))
     }
 
     @Test
     fun `test enchantment creation with different rarities`() {
-        val rarities = listOf("common", "uncommon", "rare", "very_rare")
+        val rarityWeights = mapOf(
+            "common" to 10,
+            "uncommon" to 5,
+            "rare" to 2,
+            "very_rare" to 1
+        )
 
-        rarities.forEach { rarity ->
+        rarityWeights.forEach { (rarity, expectedWeight) ->
             val enchantmentName = "${rarity}_enchantment"
             executeEnchantmentCommand(enchantmentName, mapOf("--rarity" to rarity))
 
-            val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
-            assertTrue(enchantmentClass.contains("public static final Rarity RARITY = Rarity.${rarity.uppercase()}"))
+            // Verify enchantment JSON has correct weight for rarity
+            val jsonFile = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/$enchantmentName.json"))
+            assertTrue(jsonFile.contains("\"weight\": $expectedWeight"), "Rarity $rarity should map to weight $expectedWeight")
         }
-    }
-
-    @Test
-    fun `test enchantment creation with weapon category`() {
-        val enchantmentName = "sharpness"
-
-        executeEnchantmentCommand(enchantmentName, mapOf("--category" to "weapon"))
-
-        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/Sharpness.java"))
-        assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.WEAPON"))
-    }
-
-    @Test
-    fun `test enchantment creation with armor category`() {
-        val enchantmentName = "protection"
-
-        executeEnchantmentCommand(enchantmentName, mapOf("--category" to "armor"))
-
-        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/Protection.java"))
-        assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.ARMOR"))
-    }
-
-    @Test
-    fun `test enchantment creation with armor piece categories`() {
-        val categories = listOf("armor_feet", "armor_legs", "armor_chest", "armor_head")
-
-        categories.forEach { category ->
-            val enchantmentName = "${category.replace("_", "")}_enchant"
-            executeEnchantmentCommand(enchantmentName, mapOf("--category" to category))
-
-            val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
-            assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.${category.uppercase()}"))
-        }
-    }
-
-    @Test
-    fun `test enchantment creation with tool categories`() {
-        val categories = listOf("digger", "fishing_rod", "trident", "bow", "crossbow")
-
-        categories.forEach { category ->
-            val enchantmentName = "${category.replace("_", "")}_enchant"
-            executeEnchantmentCommand(enchantmentName, mapOf("--category" to category))
-
-            val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
-            assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.${category.uppercase()}"))
-        }
-    }
-
-    @Test
-    fun `test enchantment creation with wearable category`() {
-        val enchantmentName = "frost_walker"
-
-        executeEnchantmentCommand(enchantmentName, mapOf("--category" to "wearable"))
-
-        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/FrostWalker.java"))
-        assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.WEARABLE"))
-    }
-
-    @Test
-    fun `test enchantment creation with vanishable category`() {
-        val enchantmentName = "vanishing_curse"
-
-        executeEnchantmentCommand(enchantmentName, mapOf("--category" to "vanishable"))
-
-        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/VanishingCurse.java"))
-        assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.VANISHABLE"))
     }
 
     @Test
@@ -192,85 +185,91 @@ class CreateEnchantmentCommandTest {
 
         val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/CustomStrike.java"))
         assertTrue(enchantmentClass.contains("public static final int MAX_LEVEL = 10"))
-        assertTrue(enchantmentClass.contains("public static final Rarity RARITY = Rarity.VERY_RARE"))
-        assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.WEAPON"))
         assertTrue(enchantmentClass.contains("public static final boolean IS_TREASURE = true"))
+
+        // Verify enchantment JSON
+        val jsonFile = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/custom_strike.json"))
+        assertTrue(jsonFile.contains("\"max_level\": 10"))
+        assertTrue(jsonFile.contains("\"weight\": 1")) // very_rare = 1
+        assertTrue(jsonFile.contains("#minecraft:enchantable/weapon"))
     }
 
     @Test
-    fun `test enchantment enums are defined`() {
-        val enchantmentName = "test_enchant"
-
-        executeEnchantmentCommand(enchantmentName)
-
-        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchant.java"))
-
-        // Check Rarity enum
-        assertTrue(enchantmentClass.contains("public enum Rarity {"))
-        assertTrue(enchantmentClass.contains("COMMON,"))
-        assertTrue(enchantmentClass.contains("UNCOMMON,"))
-        assertTrue(enchantmentClass.contains("RARE,"))
-        assertTrue(enchantmentClass.contains("VERY_RARE"))
-
-        // Check Category enum
-        assertTrue(enchantmentClass.contains("public enum Category {"))
-        assertTrue(enchantmentClass.contains("ARMOR,"))
-        assertTrue(enchantmentClass.contains("WEAPON,"))
-        assertTrue(enchantmentClass.contains("DIGGER,"))
-        assertTrue(enchantmentClass.contains("BREAKABLE,"))
-    }
-
-    @Test
-    fun `test fabric registration content`() {
+    fun `test enchantment JSON file exists`() {
         val enchantmentName = "fire_aspect"
 
         executeEnchantmentCommand(enchantmentName)
 
+        val jsonFile = File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/fire_aspect.json")
+        assertTrue(jsonFile.exists(), "Enchantment JSON file should exist")
+    }
+
+    @Test
+    fun `test enchantment JSON has required keys`() {
+        val enchantmentName = "fire_aspect"
+
+        executeEnchantmentCommand(enchantmentName)
+
+        val jsonContent = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/fire_aspect.json"))
+        assertTrue(jsonContent.contains("\"max_level\""), "JSON should have max_level key")
+        assertTrue(jsonContent.contains("\"weight\""), "JSON should have weight key")
+        assertTrue(jsonContent.contains("\"min_cost\""), "JSON should have min_cost key")
+        assertTrue(jsonContent.contains("\"max_cost\""), "JSON should have max_cost key")
+        assertTrue(jsonContent.contains("\"supported_items\""), "JSON should have supported_items key")
+        assertTrue(jsonContent.contains("\"slots\""), "JSON should have slots key")
+    }
+
+    @Test
+    fun `test enchantment JSON cost structure`() {
+        val enchantmentName = "sharpness"
+
+        executeEnchantmentCommand(enchantmentName)
+
+        val jsonContent = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/sharpness.json"))
+        assertTrue(jsonContent.contains("\"base\": 1"), "min_cost should have base: 1")
+        assertTrue(jsonContent.contains("\"per_level_above_first\": 10"), "Should have per_level_above_first: 10")
+        assertTrue(jsonContent.contains("\"base\": 51"), "max_cost should have base: 51")
+    }
+
+    @Test
+    fun `test enchantment JSON weapon category uses weapon supported items`() {
+        val enchantmentName = "sharpness"
+
+        executeEnchantmentCommand(enchantmentName, mapOf("--category" to "weapon"))
+
+        val jsonContent = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/sharpness.json"))
+        assertTrue(jsonContent.contains("#minecraft:enchantable/weapon"), "Weapon category should use weapon supported items")
+        assertTrue(jsonContent.contains("\"mainhand\""), "Weapon category should use mainhand slot")
+    }
+
+    @Test
+    fun `test enchantment JSON armor category uses armor supported items`() {
+        val enchantmentName = "protection"
+
+        executeEnchantmentCommand(enchantmentName, mapOf("--category" to "armor"))
+
+        val jsonContent = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/protection.json"))
+        assertTrue(jsonContent.contains("#minecraft:enchantable/armor"), "Armor category should use armor supported items")
+    }
+
+    @Test
+    fun `test enchantment is data-driven only`() {
+        val enchantmentName = "fire_aspect"
+
+        executeEnchantmentCommand(enchantmentName)
+
+        // Enchantments in Architectury are data-driven, no per-loader registration files
+        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/FireAspect.java"))
+        assertTrue(enchantmentClass.contains("public class FireAspect"))
+        assertTrue(enchantmentClass.contains("data-driven"), "Should mention data-driven approach")
+
+        // Per-loader files should NOT exist
         val fabricFile = File(context.projectDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/FireAspectFabric.java")
-        assertTrue(fabricFile.exists())
-
-        val fabricContent = FileUtil.readText(fabricFile)
-        assertTrue(fabricContent.contains("import com.testmod.enchantments.FireAspect"))
-        assertTrue(fabricContent.contains("import net.minecraft.enchantment.Enchantment"))
-        assertTrue(fabricContent.contains("import net.minecraft.registry.Registries"))
-        assertTrue(fabricContent.contains("import net.minecraft.registry.Registry"))
-        assertTrue(fabricContent.contains("public class FireAspectFabric"))
-        assertTrue(fabricContent.contains("public static void register()"))
-    }
-
-    @Test
-    fun `test forge registration content`() {
-        val enchantmentName = "smite"
-
-        executeEnchantmentCommand(enchantmentName)
-
-        val forgeFile = File(context.projectDir, "shared/forge/src/main/java/com/testmod/platform/forge/SmiteForge.java")
-        assertTrue(forgeFile.exists())
-
-        val forgeContent = FileUtil.readText(forgeFile)
-        assertTrue(forgeContent.contains("import com.testmod.enchantments.Smite"))
-        assertTrue(forgeContent.contains("import net.minecraft.world.item.enchantment.Enchantment"))
-        assertTrue(forgeContent.contains("import net.minecraftforge.registries.DeferredRegister"))
-        assertTrue(forgeContent.contains("import net.minecraftforge.registries.ForgeRegistries"))
-        assertTrue(forgeContent.contains("public class SmiteForge"))
-    }
-
-    @Test
-    fun `test neoforge registration content`() {
-        val enchantmentName = "looting"
-
-        executeEnchantmentCommand(enchantmentName)
-
-        val neoforgeFile = File(context.projectDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/LootingNeoForge.java")
-        assertTrue(neoforgeFile.exists())
-
-        val neoforgeContent = FileUtil.readText(neoforgeFile)
-        assertTrue(neoforgeContent.contains("import com.testmod.enchantments.Looting"))
-        assertTrue(neoforgeContent.contains("import net.minecraft.core.registries.Registries"))
-        assertTrue(neoforgeContent.contains("import net.minecraft.world.item.enchantment.Enchantment"))
-        assertTrue(neoforgeContent.contains("import net.neoforged.neoforge.registries.DeferredRegister"))
-        assertTrue(neoforgeContent.contains("import net.neoforged.neoforge.registries.DeferredHolder"))
-        assertTrue(neoforgeContent.contains("public class LootingNeoForge"))
+        assertFalse(fabricFile.exists(), "Per-loader enchantment file should not exist")
+        val forgeFile = File(context.projectDir, "shared/forge/src/main/java/com/testmod/platform/forge/FireAspectForge.java")
+        assertFalse(forgeFile.exists(), "Per-loader enchantment file should not exist")
+        val neoforgeFile = File(context.projectDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/FireAspectNeoForge.java")
+        assertFalse(neoforgeFile.exists(), "Per-loader enchantment file should not exist")
     }
 
     @Test
@@ -353,39 +352,14 @@ class CreateEnchantmentCommandTest {
     }
 
     @Test
-    fun `test all loader registrations have correct package structure`() {
+    fun `test enchantment common class has correct package structure`() {
         val enchantmentName = "test_enchant"
 
         executeEnchantmentCommand(enchantmentName)
 
-        // Check Fabric
-        val fabricContent = FileUtil.readText(File(context.projectDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/TestEnchantFabric.java"))
-        assertTrue(fabricContent.startsWith("package com.testmod.platform.fabric;"))
-
-        // Check Forge
-        val forgeContent = FileUtil.readText(File(context.projectDir, "shared/forge/src/main/java/com/testmod/platform/forge/TestEnchantForge.java"))
-        assertTrue(forgeContent.startsWith("package com.testmod.platform.forge;"))
-
-        // Check NeoForge
-        val neoforgeContent = FileUtil.readText(File(context.projectDir, "shared/neoforge/src/main/java/com/testmod/platform/neoforge/TestEnchantNeoForge.java"))
-        assertTrue(neoforgeContent.startsWith("package com.testmod.platform.neoforge;"))
-    }
-
-    @Test
-    fun `test enchantment with all categories`() {
-        val categories = listOf(
-            "armor", "armor_feet", "armor_legs", "armor_chest", "armor_head",
-            "weapon", "digger", "fishing_rod", "trident", "breakable",
-            "bow", "wearable", "crossbow", "vanishable"
-        )
-
-        categories.forEach { category ->
-            val enchantmentName = "test_${category.replace("_", "")}"
-            executeEnchantmentCommand(enchantmentName, mapOf("--category" to category))
-
-            val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/${toClassName(enchantmentName)}.java"))
-            assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.${category.uppercase()}"))
-        }
+        // Enchantments are data-driven; only common class exists
+        val commonContent = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestEnchant.java"))
+        assertTrue(commonContent.startsWith("package com.testmod.enchantments;"))
     }
 
     @Test
@@ -398,20 +372,9 @@ class CreateEnchantmentCommandTest {
 
         // Check for documentation
         assertTrue(enchantmentClass.contains("/**"))
-        assertTrue(enchantmentClass.contains("* Custom enchantment: TestEnchant"))
-        assertTrue(enchantmentClass.contains("* Registration pattern for multi-loader compatibility"))
-        assertTrue(enchantmentClass.contains("* Enchantment rarity levels"))
-        assertTrue(enchantmentClass.contains("* Enchantment categories"))
-    }
-
-    @Test
-    fun `test enchantment with breakable category default`() {
-        val enchantmentName = "mending"
-
-        executeEnchantmentCommand(enchantmentName)
-
-        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/Mending.java"))
-        assertTrue(enchantmentClass.contains("public static final Category CATEGORY = Category.BREAKABLE"))
+        assertTrue(enchantmentClass.contains("Enchantment definition: TestEnchant"))
+        assertTrue(enchantmentClass.contains("Holds configuration constants"))
+        assertTrue(enchantmentClass.contains("data-driven"))
     }
 
     @Test
@@ -422,6 +385,9 @@ class CreateEnchantmentCommandTest {
 
         val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/UltraPower.java"))
         assertTrue(enchantmentClass.contains("public static final int MAX_LEVEL = 255"))
+
+        val jsonContent = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/ultra_power.json"))
+        assertTrue(jsonContent.contains("\"max_level\": 255"))
     }
 
     @Test
@@ -435,13 +401,26 @@ class CreateEnchantmentCommandTest {
     }
 
     @Test
-    fun `test curse flag is always false`() {
-        val enchantmentName = "test_curse"
+    fun `test enchantment JSON rarity weight mapping`() {
+        // common = 10
+        executeEnchantmentCommand("common_ench", mapOf("--rarity" to "common"))
+        val commonJson = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/common_ench.json"))
+        assertTrue(commonJson.contains("\"weight\": 10"), "common rarity should have weight 10")
 
-        executeEnchantmentCommand(enchantmentName)
+        // uncommon = 5
+        executeEnchantmentCommand("uncommon_ench", mapOf("--rarity" to "uncommon"))
+        val uncommonJson = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/uncommon_ench.json"))
+        assertTrue(uncommonJson.contains("\"weight\": 5"), "uncommon rarity should have weight 5")
 
-        val enchantmentClass = FileUtil.readText(File(context.projectDir, "shared/common/src/main/java/com/testmod/enchantments/TestCurse.java"))
-        assertTrue(enchantmentClass.contains("public static final boolean IS_CURSE = false"))
+        // rare = 2
+        executeEnchantmentCommand("rare_ench", mapOf("--rarity" to "rare"))
+        val rareJson = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/rare_ench.json"))
+        assertTrue(rareJson.contains("\"weight\": 2"), "rare rarity should have weight 2")
+
+        // very_rare = 1
+        executeEnchantmentCommand("very_rare_ench", mapOf("--rarity" to "very_rare"))
+        val veryRareJson = FileUtil.readText(File(context.projectDir, "versions/shared/v1/data/testmod/enchantment/very_rare_ench.json"))
+        assertTrue(veryRareJson.contains("\"weight\": 1"), "very_rare rarity should have weight 1")
     }
 
     // Helper methods
@@ -479,6 +458,6 @@ class CreateEnchantmentCommandTest {
     }
 
     private fun toClassName(snakeCase: String): String {
-        return snakeCase.split("_").joinToString("") { it.capitalize() }
+        return snakeCase.split("_").joinToString("") { word -> word.replaceFirstChar { it.uppercase() } }
     }
 }

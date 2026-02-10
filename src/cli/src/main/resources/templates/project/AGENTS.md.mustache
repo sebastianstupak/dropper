@@ -94,26 +94,37 @@ For a specific version-loader (e.g., `1_20_1-neoforge`), sources are layered:
    dropper create block ruby_block --type basic
    ```
 
-### Platform Abstraction Pattern
+### Registration Pattern (Architectury API)
 
-Use **Java ServiceLoader** for platform-specific code:
+Use **Architectury DeferredRegister** for cross-loader registration:
 
 ```java
-// shared/common - Interface
-public interface PlatformHelper {
-    String getPlatformName();
-    boolean isModLoaded(String modId);
-}
+// shared/common/registry/ModItems.java
+import dev.architectury.registry.registries.DeferredRegister;
+import dev.architectury.registry.registries.RegistrySupplier;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.world.item.Item;
 
-// shared/neoforge - NeoForge implementation
-public class NeoForgePlatformHelper implements PlatformHelper {
-    @Override
-    public String getPlatformName() { return "NeoForge"; }
-}
+public class ModItems {
+    public static final DeferredRegister<Item> ITEMS =
+        DeferredRegister.create("{{modId}}", Registries.ITEM);
 
-// Access via Services
-Services.PLATFORM.getPlatformName();
+    public static final RegistrySupplier<Item> MY_ITEM =
+        ITEMS.register("my_item", () -> new MyItem());
+
+    public static void init() { ITEMS.register(); }
+}
 ```
+
+Common code uses **Mojang mappings** (e.g., `net.minecraft.world.item.Item`).
+Architectury Loom automatically remaps for Fabric at compile time.
+
+### Loader Entry Points
+
+Each loader has its own entry point that calls the common `init()`:
+- **Fabric**: `shared/fabric/.../<ModName>Fabric.java` implements `ModInitializer`
+- **Forge**: `shared/forge/.../<ModName>Forge.java` annotated with `@Mod`
+- **NeoForge**: `shared/neoforge/.../<ModName>NeoForge.java` annotated with `@Mod`
 
 ## Build Commands
 
@@ -165,15 +176,14 @@ dropper create asset-pack v2 --inherits v1 --mc-versions "1.21.1"
 
 ### Registering Items
 ```java
-// shared/common/items/MyItem.java
+// shared/common/items/MyItem.java - Mojang mappings
 public class MyItem extends Item {
-    public MyItem() {
-        super(new Properties());
-    }
+    public MyItem() { super(new Properties()); }
 }
 
-// shared/<loader>/ModItems.java
-// Loader-specific registration
+// shared/common/registry/ModItems.java - Architectury DeferredRegister
+public static final RegistrySupplier<Item> MY_ITEM =
+    ITEMS.register("my_item", () -> new MyItem());
 ```
 
 ### Adding Assets
@@ -185,7 +195,7 @@ versions/shared/v1/assets/{{modId}}/textures/item/my_item.png
 versions/shared/v1/assets/{{modId}}/models/item/my_item.json
 
 # Recipes
-versions/shared/v1/data/{{modId}}/recipes/my_item.json
+versions/shared/v1/data/{{modId}}/recipe/my_item.json
 ```
 
 ## Metadata Management

@@ -18,7 +18,8 @@ class ItemRenamer : ComponentRenamer {
 
         // Loader-specific registration files
         listOf("fabric", "forge", "neoforge").forEach { loader ->
-            val loaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${oldClassName}${loader.capitalize()}.java")
+            val loaderSuffix = RenamerUtil.loaderClassName(loader)
+            val loaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${oldClassName}${loaderSuffix}.java")
             if (loaderFile.exists()) files.add(loaderFile)
         }
 
@@ -163,21 +164,32 @@ class ItemRenamer : ComponentRenamer {
                     description = "Update ID constant"
                 )
             )
+
+            // Update any remaining references to the old class name
+            operations.add(
+                RenameOperation.ContentReplace(
+                    file = newFile,
+                    oldContent = oldClassName,
+                    newContent = newClassName,
+                    description = "Update all remaining class name references"
+                )
+            )
         }
 
         // 2. Rename loader-specific files
         listOf("fabric", "forge", "neoforge").forEach { loader ->
-            val oldLoaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${oldClassName}${loader.capitalize()}.java")
+            val loaderSuffix = RenamerUtil.loaderClassName(loader)
+            val oldLoaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${oldClassName}${loaderSuffix}.java")
             if (oldLoaderFile.exists()) {
-                val newLoaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${newClassName}${loader.capitalize()}.java")
+                val newLoaderFile = File(context.projectDir, "shared/$loader/src/main/java/$packagePath/platform/$loader/${newClassName}${loaderSuffix}.java")
                 operations.add(RenameOperation.FileRename(oldLoaderFile, newLoaderFile))
 
                 // Update class name
                 operations.add(
                     RenameOperation.ContentReplace(
                         file = newLoaderFile,
-                        oldContent = "class ${oldClassName}${loader.capitalize()}",
-                        newContent = "class ${newClassName}${loader.capitalize()}",
+                        oldContent = "class ${oldClassName}${loaderSuffix}",
+                        newContent = "class ${newClassName}${loaderSuffix}",
                         description = "Update loader class name"
                     )
                 )
@@ -199,6 +211,16 @@ class ItemRenamer : ComponentRenamer {
                         oldContent = "$oldClassName.ID",
                         newContent = "$newClassName.ID",
                         description = "Update class references"
+                    )
+                )
+
+                // Update any remaining references to the old class name
+                operations.add(
+                    RenameOperation.ContentReplace(
+                        file = newLoaderFile,
+                        oldContent = oldClassName,
+                        newContent = newClassName,
+                        description = "Update all remaining class name references"
                     )
                 )
             }

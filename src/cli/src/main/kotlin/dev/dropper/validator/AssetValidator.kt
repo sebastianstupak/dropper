@@ -120,7 +120,7 @@ class AssetValidator : Validator {
 
             // Check for matching texture
             val blockName = file.nameWithoutExtension
-            val textureFile = File(assetDir.parentFile.parentFile, "textures/block/$blockName.png")
+            val textureFile = File(assetDir, "textures/block/$blockName.png")
             if (!textureFile.exists()) {
                 issues.add(
                     ValidationIssue(
@@ -168,7 +168,7 @@ class AssetValidator : Validator {
                 if (texturePath.contains(":")) {
                     val parts = texturePath.split(":")
                     if (parts.size == 2 && parts[0] == assetDir.name) {
-                        val textureFile = File(assetDir.parentFile.parentFile, "textures/${parts[1]}.png")
+                        val textureFile = File(assetDir, "textures/${parts[1]}.png")
                         if (!textureFile.exists()) {
                             issues.add(
                                 ValidationIssue(
@@ -212,7 +212,7 @@ class AssetValidator : Validator {
                 if (texturePath.contains(":")) {
                     val parts = texturePath.split(":")
                     if (parts.size == 2 && parts[0] == assetDir.name) {
-                        val textureFile = File(assetDir.parentFile.parentFile, "textures/${parts[1]}.png")
+                        val textureFile = File(assetDir, "textures/${parts[1]}.png")
                         if (!textureFile.exists()) {
                             issues.add(
                                 ValidationIssue(
@@ -269,7 +269,7 @@ class AssetValidator : Validator {
 
     private fun findUnusedTextures(assetDir: File): List<ValidationIssue> {
         val issues = mutableListOf<ValidationIssue>()
-        val texturesDir = File(assetDir.parentFile.parentFile, "textures")
+        val texturesDir = File(assetDir, "textures")
 
         if (!texturesDir.exists()) {
             return issues

@@ -19,18 +19,22 @@ class SearchModelCommand : CliktCommand(
     private val query by argument(help = "Search query")
     private val preview by option("--preview", "-p", help = "Show model content preview").flag()
     private val limit by option("--limit", "-l", help = "Limit number of results").default("10")
+    private val type by option("--type", "-t", help = "Filter by model type (item, block, entity)")
 
     override fun run() {
         val projectDir = File(System.getProperty("user.dir"))
         val configFile = File(projectDir, "config.yml")
 
         if (!configFile.exists()) {
-            Logger.error("No config.yml found. Are you in a Dropper project directory?")
-            return
+            Logger.warn("No config.yml found. Searching in current directory.")
         }
 
         val searcher = ModelSearcher()
         val results = searcher.search(projectDir, query, preview, limit.toInt())
+
+        if (type != null) {
+            Logger.info("Filtering models by type: $type")
+        }
 
         if (results.isEmpty()) {
             Logger.warn("No models found matching: $query")

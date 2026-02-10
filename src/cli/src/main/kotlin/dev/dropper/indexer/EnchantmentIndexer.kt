@@ -47,7 +47,7 @@ class EnchantmentIndexer : ComponentIndexer {
         if (!configFile.exists()) return null
 
         val content = configFile.readText()
-        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
+        return Regex("id:\\s*([a-z0-9_-]+)").find(content)?.groupValues?.get(1)
     }
 
     private fun extractEnchantmentName(file: File): String? {

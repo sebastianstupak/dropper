@@ -20,6 +20,8 @@ class SyncLangCommand : CliktCommand(
     private val from by option("--from", help = "Source version or asset pack").required()
     private val to by option("--to", help = "Target version or asset pack").required()
     private val dryRun by option("--dry-run", help = "Preview changes without applying them").flag()
+    private val force by option("--force", help = "Overwrite existing files in conflicts").flag()
+    private val bidirectional by option("--bidirectional", help = "Sync both directions").flag()
     private val exclude by option("--exclude", help = "Exclude files matching pattern").multiple()
 
     override fun run() {
@@ -38,6 +40,8 @@ class SyncLangCommand : CliktCommand(
 
         val options = SyncOptions(
             dryRun = dryRun,
+            force = force,
+            bidirectional = bidirectional,
             excludePatterns = exclude
         )
 

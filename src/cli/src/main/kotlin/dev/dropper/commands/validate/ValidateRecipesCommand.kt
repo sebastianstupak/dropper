@@ -3,6 +3,7 @@ package dev.dropper.commands.validate
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.util.ValidationException
 import dev.dropper.validator.*
 import java.io.File
 
@@ -44,9 +45,9 @@ class ValidateRecipesCommand : CliktCommand(
         result.printSummary()
 
         if (strict && result.hasWarnings) {
-            throw Exception("Validation failed (strict mode)")
+            throw ValidationException("Validation failed (strict mode)")
         } else if (result.hasErrors) {
-            throw Exception("Validation failed")
+            throw ValidationException("Validation failed")
         }
     }
 }

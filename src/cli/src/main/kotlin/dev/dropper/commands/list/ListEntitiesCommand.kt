@@ -63,7 +63,7 @@ class ListEntitiesCommand : DropperCommand(
             FileUtil.writeText(exportFile, output)
             Logger.success("Exported ${entities.size} entities to ${exportFile.absolutePath}")
         } else {
-            echo(output)
+            println(output)
         }
     }
 }

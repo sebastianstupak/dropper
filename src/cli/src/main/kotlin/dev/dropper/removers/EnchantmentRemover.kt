@@ -93,7 +93,7 @@ class EnchantmentRemover : ComponentRemover {
     }
 
     private fun toClassName(snakeCase: String): String {
-        return snakeCase.split("_").joinToString("") { it.capitalize() }
+        return snakeCase.split("_").joinToString("") { word -> word.replaceFirstChar { it.uppercase() } }
     }
 
     private fun createBackup(projectDir: File, componentName: String, files: List<File>) {

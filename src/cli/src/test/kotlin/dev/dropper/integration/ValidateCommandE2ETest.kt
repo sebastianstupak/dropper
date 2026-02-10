@@ -42,7 +42,8 @@ class ValidateCommandE2ETest {
         )
 
         val generator = ProjectGenerator()
-        context.createProject(config)    }
+        context.createProject(config)
+    }
 
     @AfterEach
     fun cleanup() {
@@ -58,7 +59,9 @@ class ValidateCommandE2ETest {
         println("\n[TEST] Valid project passes all validations")
 
         // Create a valid item
-        CreateItemCommand().parse(arrayOf("test_item", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("test_item", "--type", "basic"))
+        }
 
         // Run validation
         context.withProjectDir {
@@ -66,25 +69,28 @@ class ValidateCommandE2ETest {
             command.parse(emptyArray())
         }
 
-
         // Should not throw
-        println("✓ Valid project passed validation")
+        println("OK Valid project passed validation")
     }
 
     @Test
     fun `each validator individually on valid project`() {
         println("\n[TEST] Each validator individually on valid project")
 
-        CreateItemCommand().parse(arrayOf("test_item", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("test_item", "--type", "basic"))
+        }
 
         // Test each validator
-        ValidateAssetsCommand().parse(emptyArray())
-        ValidateMetadataCommand().parse(emptyArray())
-        ValidateStructureCommand().parse(emptyArray())
-        ValidateRecipesCommand().parse(emptyArray())
-        ValidateLangCommand().parse(emptyArray())
+        context.withProjectDir {
+            ValidateAssetsCommand().parse(emptyArray())
+            ValidateMetadataCommand().parse(emptyArray())
+            ValidateStructureCommand().parse(emptyArray())
+            ValidateRecipesCommand().parse(emptyArray())
+            ValidateLangCommand().parse(emptyArray())
+        }
 
-        println("✓ All individual validators passed")
+        println("OK All individual validators passed")
     }
 
     // =================================================================
@@ -96,7 +102,9 @@ class ValidateCommandE2ETest {
         println("\n[TEST] Missing item texture is detected")
 
         // Create item
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         // Delete texture
         val textureFile = File(context.projectDir, "versions/shared/v1/assets/testmod/textures/item/ruby.png")
@@ -107,7 +115,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Missing texture") })
-        println("✓ Missing texture detected")
+        println("OK Missing texture detected")
     }
 
     @Test
@@ -115,7 +123,9 @@ class ValidateCommandE2ETest {
         println("\n[TEST] Missing blockstate is detected")
 
         // Create block
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        context.withProjectDir {
+            CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        }
 
         // Delete blockstate
         val blockstateFile = File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/ruby_ore.json")
@@ -130,14 +140,16 @@ class ValidateCommandE2ETest {
 
         // Should have issues (missing blockstate means the block model can't find proper reference)
         assertTrue(result.filesScanned > 0)
-        println("✓ Missing blockstate scenario handled")
+        println("OK Missing blockstate scenario handled")
     }
 
     @Test
     fun `invalid blockstate JSON is detected`() {
         println("\n[TEST] Invalid blockstate JSON is detected")
 
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        context.withProjectDir {
+            CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        }
 
         // Corrupt blockstate JSON
         val blockstateFile = File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/ruby_ore.json")
@@ -147,14 +159,16 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Invalid JSON") })
-        println("✓ Invalid JSON detected")
+        println("OK Invalid JSON detected")
     }
 
     @Test
     fun `broken model reference in blockstate is detected`() {
         println("\n[TEST] Broken model reference in blockstate is detected")
 
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        context.withProjectDir {
+            CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        }
 
         // Modify blockstate to reference non-existent model
         val blockstateFile = File(context.projectDir, "versions/shared/v1/assets/testmod/blockstates/ruby_ore.json")
@@ -170,14 +184,16 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("does not exist") })
-        println("✓ Broken model reference detected")
+        println("OK Broken model reference detected")
     }
 
     @Test
     fun `missing texture in model is detected`() {
         println("\n[TEST] Missing texture in model is detected")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         // Delete texture
         val textureFile = File(context.projectDir, "versions/shared/v1/assets/testmod/textures/item/ruby.png")
@@ -187,14 +203,16 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Missing texture") })
-        println("✓ Missing texture in model detected")
+        println("OK Missing texture in model detected")
     }
 
     @Test
     fun `unused textures generate warnings`() {
         println("\n[TEST] Unused textures generate warnings")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         // Create unused texture
         val unusedTexture = File(context.projectDir, "versions/shared/v1/assets/testmod/textures/item/unused.png")
@@ -205,7 +223,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Unused texture") && it.severity == ValidationSeverity.WARNING })
-        println("✓ Unused texture warning generated")
+        println("OK Unused texture warning generated")
     }
 
     // =================================================================
@@ -223,7 +241,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Missing config.yml") })
-        println("✓ Missing config.yml detected")
+        println("OK Missing config.yml detected")
     }
 
     @Test
@@ -240,7 +258,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Missing or empty required field") })
-        println("✓ Missing required fields detected")
+        println("OK Missing required fields detected")
     }
 
     @Test
@@ -262,7 +280,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Invalid mod ID format") })
-        println("✓ Invalid mod ID format detected")
+        println("OK Invalid mod ID format detected")
     }
 
     @Test
@@ -284,7 +302,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("does not follow semantic versioning") })
-        println("✓ Invalid version format warning generated")
+        println("OK Invalid version format warning generated")
     }
 
     @Test
@@ -308,7 +326,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Unknown Minecraft version") })
-        println("✓ Unknown Minecraft version warning generated")
+        println("OK Unknown Minecraft version warning generated")
     }
 
     @Test
@@ -332,7 +350,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Invalid loader") })
-        println("✓ Invalid loader detected")
+        println("OK Invalid loader detected")
     }
 
     @Test
@@ -359,7 +377,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Circular dependency") })
-        println("✓ Circular dependency detected")
+        println("OK Circular dependency detected")
     }
 
     // =================================================================
@@ -377,14 +395,16 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Missing required directory") })
-        println("✓ Missing required directory detected")
+        println("OK Missing required directory detected")
     }
 
     @Test
     fun `wrong package declaration is detected`() {
         println("\n[TEST] Wrong package declaration is detected")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         // Find and modify a Java file
         val javaFile = File(context.projectDir, "shared/common/src/main/java/com/testmod/items/Ruby.java")
@@ -396,7 +416,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Package declaration") && it.message.contains("does not match") })
-        println("✓ Wrong package declaration detected")
+        println("OK Wrong package declaration detected")
     }
 
     @Test
@@ -413,14 +433,16 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Java file in versions directory") })
-        println("✓ Java file in wrong location detected")
+        println("OK Java file in wrong location detected")
     }
 
     @Test
     fun `missing package declaration is detected`() {
         println("\n[TEST] Missing package declaration is detected")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         val javaFile = File(context.projectDir, "shared/common/src/main/java/com/testmod/items/Ruby.java")
         val content = javaFile.readText()
@@ -431,7 +453,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Missing package declaration") })
-        println("✓ Missing package declaration detected")
+        println("OK Missing package declaration detected")
     }
 
     @Test
@@ -445,7 +467,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("invalid characters") })
-        println("✓ Invalid directory name warning generated")
+        println("OK Invalid directory name warning generated")
     }
 
     // =================================================================
@@ -464,7 +486,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Invalid JSON") })
-        println("✓ Invalid recipe JSON detected")
+        println("OK Invalid recipe JSON detected")
     }
 
     @Test
@@ -484,7 +506,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Unknown recipe type") })
-        println("✓ Unknown recipe type detected")
+        println("OK Unknown recipe type detected")
     }
 
     @Test
@@ -505,7 +527,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("missing 'pattern'") })
-        println("✓ Missing pattern detected")
+        println("OK Missing pattern detected")
     }
 
     @Test
@@ -525,7 +547,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("missing 'ingredients'") })
-        println("✓ Missing ingredients detected")
+        println("OK Missing ingredients detected")
     }
 
     @Test
@@ -545,7 +567,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("missing 'result'") })
-        println("✓ Missing result detected")
+        println("OK Missing result detected")
     }
 
     @Test
@@ -576,7 +598,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Duplicate recipe ID") })
-        println("✓ Duplicate recipe ID detected")
+        println("OK Duplicate recipe ID detected")
     }
 
     // =================================================================
@@ -587,7 +609,9 @@ class ValidateCommandE2ETest {
     fun `missing item translation is detected`() {
         println("\n[TEST] Missing item translation is detected")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         // Create empty lang file
         val langFile = File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json")
@@ -598,14 +622,16 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Missing translation for item") })
-        println("✓ Missing item translation detected")
+        println("OK Missing item translation detected")
     }
 
     @Test
     fun `missing block translation is detected`() {
         println("\n[TEST] Missing block translation is detected")
 
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        context.withProjectDir {
+            CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        }
 
         val langFile = File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json")
         langFile.parentFile.mkdirs()
@@ -615,14 +641,16 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Missing translation for block") })
-        println("✓ Missing block translation detected")
+        println("OK Missing block translation detected")
     }
 
     @Test
     fun `empty translation value generates warning`() {
         println("\n[TEST] Empty translation value generates warning")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         val langFile = File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json")
         langFile.parentFile.mkdirs()
@@ -636,14 +664,16 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Empty translation value") })
-        println("✓ Empty translation value warning generated")
+        println("OK Empty translation value warning generated")
     }
 
     @Test
     fun `no lang file warning when items exist`() {
         println("\n[TEST] No lang file warning when items exist")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         // Don't create lang file
 
@@ -651,7 +681,7 @@ class ValidateCommandE2ETest {
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("No language files found") })
-        println("✓ No lang file warning generated")
+        println("OK No lang file warning generated")
     }
 
     // =================================================================
@@ -662,7 +692,9 @@ class ValidateCommandE2ETest {
     fun `auto-fix repairs package declarations`() {
         println("\n[TEST] Auto-fix repairs package declarations")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         val javaFile = File(context.projectDir, "shared/common/src/main/java/com/testmod/items/Ruby.java")
         val content = javaFile.readText()
@@ -678,14 +710,16 @@ class ValidateCommandE2ETest {
 
         val fixedContent = javaFile.readText()
         assertTrue(fixedContent.contains("package com.testmod.items;"))
-        println("✓ Package declaration auto-fixed")
+        println("OK Package declaration auto-fixed")
     }
 
     @Test
     fun `auto-fix adds missing lang entries`() {
         println("\n[TEST] Auto-fix adds missing lang entries")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         val langFile = File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json")
         langFile.parentFile.mkdirs()
@@ -700,7 +734,7 @@ class ValidateCommandE2ETest {
 
         val langContent = langFile.readText()
         assertTrue(langContent.contains("item.testmod.ruby"))
-        println("✓ Missing lang entries auto-fixed")
+        println("OK Missing lang entries auto-fixed")
     }
 
     // =================================================================
@@ -711,7 +745,9 @@ class ValidateCommandE2ETest {
     fun `project with multiple issues reports all`() {
         println("\n[TEST] Project with multiple issues reports all")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         // Create multiple issues
         val configFile = File(context.projectDir, "config.yml")
@@ -724,37 +760,45 @@ class ValidateCommandE2ETest {
         val textureFile = File(context.projectDir, "versions/shared/v1/assets/testmod/textures/item/ruby.png")
         textureFile.delete()
 
-        val command = ValidateCommand()
-        assertThrows<Exception> {
-            command.parse(emptyArray())
+        context.withProjectDir {
+            val command = ValidateCommand()
+            assertThrows<Exception> {
+                command.parse(emptyArray())
+            }
         }
 
-        println("✓ Multiple issues detected and reported")
+        println("OK Multiple issues detected and reported")
     }
 
     @Test
     fun `strict mode fails on warnings`() {
         println("\n[TEST] Strict mode fails on warnings")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         // Create unused texture (warning only)
         val unusedTexture = File(context.projectDir, "versions/shared/v1/assets/testmod/textures/item/unused.png")
         unusedTexture.writeText("fake")
 
-        val command = ValidateCommand()
-        assertThrows<Exception> {
-            command.parse(arrayOf("--strict"))
+        context.withProjectDir {
+            val command = ValidateCommand()
+            assertThrows<Exception> {
+                command.parse(arrayOf("--strict"))
+            }
         }
 
-        println("✓ Strict mode correctly fails on warnings")
+        println("OK Strict mode correctly fails on warnings")
     }
 
     @Test
     fun `validate specific version only`() {
         println("\n[TEST] Validate specific version only")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         // Create version-specific asset
         val versionSpecificModel = File(context.projectDir, "versions/1_20_1/assets/testmod/models/item/version_specific.json")
@@ -773,14 +817,16 @@ class ValidateCommandE2ETest {
 
         // Should find the missing texture in version-specific model
         assertTrue(result.filesScanned > 0)
-        println("✓ Version-specific validation works")
+        println("OK Version-specific validation works")
     }
 
     @Test
     fun `validation with no issues returns clean result`() {
         println("\n[TEST] Validation with no issues returns clean result")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
         // Create lang file
         val langFile = File(context.projectDir, "versions/shared/v1/assets/testmod/lang/en_us.json")
@@ -796,16 +842,17 @@ class ValidateCommandE2ETest {
             command.parse(emptyArray())
         }
 
-
-        println("✓ Clean validation completed successfully")
+        println("OK Clean validation completed successfully")
     }
 
     @Test
     fun `combined validation reports summary correctly`() {
         println("\n[TEST] Combined validation reports summary correctly")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
-        CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+            CreateBlockCommand().parse(arrayOf("ruby_ore", "--type", "ore"))
+        }
 
         // Create some issues
         val textureFile = File(context.projectDir, "versions/shared/v1/assets/testmod/textures/item/ruby.png")
@@ -816,27 +863,30 @@ class ValidateCommandE2ETest {
 
         assertTrue(result.errorCount > 0)
         assertTrue(result.filesScanned > 0)
-        println("✓ Combined validation summary correct")
+        println("OK Combined validation summary correct")
     }
 
     @Test
     fun `validation detects issues across all loaders`() {
-        println("\n[TEST] Validation detects issues across all loaders")
+        println("\n[TEST] Validation detects issues in common code")
 
-        CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        context.withProjectDir {
+            CreateItemCommand().parse(arrayOf("ruby", "--type", "basic"))
+        }
 
-        // Modify Fabric loader file to have wrong package
-        val fabricFile = File(context.projectDir, "shared/fabric/src/main/java/com/testmod/platform/fabric/RubyFabric.java")
-        if (fabricFile.exists()) {
-            val content = fabricFile.readText()
-            val modified = content.replace("package com.testmod.platform.fabric;", "package com.wrongpackage;")
-            fabricFile.writeText(modified)
+        // With Architectury, items use common classes instead of per-loader files
+        // Modify the common item class to have wrong package
+        val commonFile = File(context.projectDir, "shared/common/src/main/java/com/testmod/items/Ruby.java")
+        if (commonFile.exists()) {
+            val content = commonFile.readText()
+            val modified = content.replace("package com.testmod.items;", "package com.wrongpackage;")
+            commonFile.writeText(modified)
         }
 
         val validator = StructureValidator()
         val result = validator.validate(context.projectDir, ValidationOptions())
 
         assertTrue(result.issues.any { it.message.contains("Package declaration") })
-        println("✓ Issues detected across loaders")
+        println("OK Issues detected in common code")
     }
 }

@@ -4,27 +4,21 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
-import dev.dropper.commands.AddAssetPackCommand
-import dev.dropper.commands.AddVersionCommand
-import dev.dropper.commands.BuildCommand
-import dev.dropper.commands.CreateCommand
-import dev.dropper.commands.CreateItemCommand
-import dev.dropper.commands.CreateBlockCommand
-import dev.dropper.commands.CreateRecipeCommand
-import dev.dropper.commands.CreateTagCommand
-import dev.dropper.commands.DevCommand
-import dev.dropper.commands.DocsCommand
-import dev.dropper.commands.InitCommand
-import dev.dropper.commands.ListCommand
-import dev.dropper.commands.createMigrateCommand
-import dev.dropper.commands.createPublishCommand
-import dev.dropper.commands.ImportCommand
-import dev.dropper.commands.UpdateCommand
+import dev.dropper.commands.*
+import dev.dropper.commands.clean.*
 import dev.dropper.commands.dev.*
+import dev.dropper.commands.export.*
 import dev.dropper.commands.import_.*
 import dev.dropper.commands.list.*
+import dev.dropper.commands.package_.*
 import dev.dropper.commands.publish.*
+import dev.dropper.commands.remove.*
+import dev.dropper.commands.rename.*
+import dev.dropper.commands.search.*
+import dev.dropper.commands.sync.*
+import dev.dropper.commands.template.*
 import dev.dropper.commands.update.*
+import dev.dropper.commands.validate.*
 
 /**
  * Main CLI class for Dropper - Multi-loader Minecraft mod development tool
@@ -56,6 +50,9 @@ fun main(args: Array<String>) = DropperCLI()
         CreateCommand().subcommands(
             CreateItemCommand(),
             CreateBlockCommand(),
+            CreateEntityCommand(),
+            CreateEnchantmentCommand(),
+            CreateBiomeCommand(),
             CreateRecipeCommand(),
             CreateTagCommand(),
             AddVersionCommand(),
@@ -70,6 +67,59 @@ fun main(args: Array<String>) = DropperCLI()
             ListBiomesCommand(),
             ListTagsCommand(),
             ListAllCommand()
+        ),
+        ValidateCommand().subcommands(
+            ValidateStructureCommand(),
+            ValidateAssetsCommand(),
+            ValidateMetadataCommand(),
+            ValidateRecipesCommand(),
+            ValidateLangCommand()
+        ),
+        RemoveCommand().subcommands(
+            RemoveItemCommand(),
+            RemoveBlockCommand(),
+            RemoveEntityCommand(),
+            RemoveRecipeCommand(),
+            RemoveEnchantmentCommand(),
+            RemoveBiomeCommand(),
+            RemoveTagCommand()
+        ),
+        createRenameCommand(),
+        SyncCommand().subcommands(
+            SyncLangCommand(),
+            SyncAssetsCommand(),
+            SyncRecipesCommand(),
+            SyncTexturesCommand(),
+            SyncModelsCommand(),
+            SyncBlockstatesCommand()
+        ),
+        ExportCommand().subcommands(
+            ExportDatapackCommand(),
+            ExportResourcepackCommand(),
+            ExportAssetsCommand()
+        ),
+        SearchCommand().subcommands(
+            SearchCodeCommand(),
+            SearchModelCommand(),
+            SearchRecipeCommand(),
+            SearchTextureCommand()
+        ),
+        TemplateCommand().subcommands(
+            TemplateListCommand(),
+            TemplateCreateCommand(),
+            TemplateAddCommand()
+        ),
+        CleanCommand().subcommands(
+            CleanAllCommand(),
+            CleanBuildCommand(),
+            CleanCacheCommand(),
+            CleanGeneratedCommand()
+        ),
+        PackageCommand().subcommands(
+            PackageModrinthCommand(),
+            PackageCurseForgeCommand(),
+            PackageBundleCommand(),
+            PackageUniversalCommand()
         ),
         createMigrateCommand(),
         createPublishCommand(),

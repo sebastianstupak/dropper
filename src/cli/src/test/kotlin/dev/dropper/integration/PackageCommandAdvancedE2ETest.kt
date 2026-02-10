@@ -337,17 +337,24 @@ class PackageCommandAdvancedE2ETest {
 
     @Test
     fun `ZIP uses optimal compression level`() {
+        // Create larger JAR files so compression is meaningful
+        val buildDir = context.file("build/1_20_1/fabric/libs")
+        buildDir.mkdirs()
+        // Write a large repetitive file that compresses well
+        val largeJar = File(buildDir, "advancedtest-2.0.0-fabric-large.jar")
+        largeJar.writeText("repetitive content for compression test ".repeat(5000))
+
         context.withProjectDir {
             val command = PackageModrinthCommand()
             command.parse(emptyArray())
         }
 
-        val packageFile = context.file( "build/packages/modrinth/advancedtest-2.0.0-modrinth.zip")
-        val uncompressedSize = context.file( "build/1_20_1/fabric/libs").walkTopDown()
-            .filter { it.isFile }
-            .sumOf { it.length() }
+        val packageFile = context.file("build/packages/modrinth/advancedtest-2.0.0-modrinth.zip")
+        assertTrue(packageFile.exists(), "ZIP package should exist")
 
+        // Verify the ZIP is actually compressed by checking it's smaller than the large input
         val compressedSize = packageFile.length()
+        val uncompressedSize = largeJar.length()
 
         assertTrue(compressedSize < uncompressedSize, "ZIP should be compressed")
         println("✓ Compression ratio: ${(compressedSize.toDouble() / uncompressedSize * 100).toInt()}%")

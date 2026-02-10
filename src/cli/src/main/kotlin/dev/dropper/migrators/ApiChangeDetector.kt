@@ -39,6 +39,9 @@ class ApiChangeDetector {
                 autoFixable = true,
                 autoFix = { content ->
                     content.replace(
+                        "net.minecraft.world.item.CreativeModeTab",
+                        "net.minecraft.world.item.CreativeModeTabs"
+                    ).replace(
                         "CreativeModeTab.",
                         "CreativeModeTabs."
                     )

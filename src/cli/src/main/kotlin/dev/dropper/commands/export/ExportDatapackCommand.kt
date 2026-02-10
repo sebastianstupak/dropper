@@ -30,6 +30,7 @@ class ExportDatapackCommand : DropperCommand(
         Logger.info("Exporting datapack for version $version...")
 
         val exporter = DatapackExporter()
+        packFormat?.let { exporter.packFormat = it.toIntOrNull() }
         val outputFile = exporter.export(projectDir, version, File(output))
 
         if (outputFile != null) {

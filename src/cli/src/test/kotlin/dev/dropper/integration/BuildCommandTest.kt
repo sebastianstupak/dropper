@@ -55,19 +55,20 @@ class BuildCommandTest {
         assertTrue(context.file("build.gradle.kts").exists(), "Root build.gradle.kts should exist")
         assertTrue(context.file("settings.gradle.kts").exists(), "settings.gradle.kts should exist")
         assertTrue(context.file("gradle.properties").exists(), "gradle.properties should exist")
-        assertTrue(context.file("build-logic").exists(), "build-logic should exist")
+        assertTrue(context.file("buildSrc").exists() || context.file("build-logic").exists(),
+            "buildSrc or build-logic should exist")
 
         println("  ✓ Gradle files present")
-        println("  ✓ Build-logic directory exists")
+        println("  ✓ Build system directory exists")
 
-        // Verify settings.gradle.kts includes version-loader modules
+        // Verify settings.gradle.kts has proper content
         val settingsContent = context.file("settings.gradle.kts").readText()
         assertTrue(
-            settingsContent.contains("includeBuild(\"build-logic\")"),
-            "settings.gradle.kts should include build-logic"
+            settingsContent.contains("rootProject.name"),
+            "settings.gradle.kts should set root project name"
         )
 
-        println("  ✓ Settings configured for composite build")
+        println("  ✓ Settings properly configured")
         println("\n✅ Gradle structure test passed!\n")
     }
 
@@ -219,7 +220,7 @@ class BuildCommandTest {
         loaders.forEach { loader ->
             println("\nVerifying $loader structure...")
 
-            // Check shared loader directory
+            // Check shared loader directory (entry points)
             val sharedLoaderDir = context.file("shared/$loader/src/main/java/com/multiloader/platform/$loader")
             assertTrue(sharedLoaderDir.exists(), "$loader should have shared platform directory")
             println("  ✓ shared/$loader structure")
@@ -228,12 +229,12 @@ class BuildCommandTest {
             val versionLoaderDir = context.file("versions/1_20_1/$loader")
             assertTrue(versionLoaderDir.exists(), "versions/1_20_1/$loader should exist")
             println("  ✓ versions/1_20_1/$loader structure")
-
-            // Check loader-specific registration file
-            val regFile = File(sharedLoaderDir, "TestItem${loader.replaceFirstChar { it.uppercase() }}.java")
-            assertTrue(regFile.exists(), "$loader registration file should exist")
-            println("  ✓ $loader registration file")
         }
+
+        // Verify Architectury common registry (replaces per-loader registration files)
+        val registryFile = context.file("shared/common/src/main/java/com/multiloader/registry/ModItems.java")
+        assertTrue(registryFile.exists(), "Common ModItems registry should exist")
+        println("  ✓ Common Architectury registry")
 
         println("\n  ✓ All 3 loaders have correct structure")
         println("\n✅ Multi-loader test passed!\n")

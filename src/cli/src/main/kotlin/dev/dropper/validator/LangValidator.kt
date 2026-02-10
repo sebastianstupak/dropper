@@ -28,16 +28,19 @@ class LangValidator : Validator {
 
         val langFiles = mutableListOf<File>()
         versionsDir.walkTopDown().forEach { file ->
-            if (file.isFile && file.extension == "json" && file.path.contains("/lang/")) {
+            val normalizedPath = file.path.replace("\\", "/")
+            if (file.isFile && file.extension == "json" && normalizedPath.contains("/lang/")) {
                 langFiles.add(file)
             }
         }
 
-        if (langFiles.isEmpty() && registeredIds.isNotEmpty()) {
+        val totalRegistered = registeredIds.values.sumOf { it.size }
+
+        if (langFiles.isEmpty() && totalRegistered > 0) {
             issues.add(
                 ValidationIssue(
                     ValidationSeverity.WARNING,
-                    "No language files found but project has ${registeredIds.size} registered items/blocks",
+                    "No language files found but project has $totalRegistered registered items/blocks",
                     versionsDir,
                     null,
                     "Create en_us.json in versions/shared/v1/assets/<modid>/lang/"
@@ -55,25 +58,27 @@ class LangValidator : Validator {
                 val translationKeys = translations.keys
 
                 // Check for missing translations
-                registeredIds.forEach { (type, id) ->
-                    val key = when (type) {
-                        "item" -> "item.${getModIdFromLangPath(langFile)}.$id"
-                        "block" -> "block.${getModIdFromLangPath(langFile)}.$id"
-                        "entity" -> "entity.${getModIdFromLangPath(langFile)}.$id"
-                        "enchantment" -> "enchantment.${getModIdFromLangPath(langFile)}.$id"
-                        else -> null
-                    }
+                registeredIds.forEach { (type, ids) ->
+                    ids.forEach { id ->
+                        val key = when (type) {
+                            "item" -> "item.${getModIdFromLangPath(langFile)}.$id"
+                            "block" -> "block.${getModIdFromLangPath(langFile)}.$id"
+                            "entity" -> "entity.${getModIdFromLangPath(langFile)}.$id"
+                            "enchantment" -> "enchantment.${getModIdFromLangPath(langFile)}.$id"
+                            else -> null
+                        }
 
-                    if (key != null && !translationKeys.contains(key)) {
-                        issues.add(
-                            ValidationIssue(
-                                ValidationSeverity.WARNING,
-                                "Missing translation for $type '$id'",
-                                langFile,
-                                null,
-                                "Add key '$key' to ${langFile.name}"
+                        if (key != null && !translationKeys.contains(key)) {
+                            issues.add(
+                                ValidationIssue(
+                                    ValidationSeverity.WARNING,
+                                    "Missing translation for $type '$id'",
+                                    langFile,
+                                    null,
+                                    "Add key '$key' to ${langFile.name}"
+                                )
                             )
-                        )
+                        }
                     }
                 }
 
@@ -120,14 +125,16 @@ class LangValidator : Validator {
         if (versionsDir.exists()) {
             // Find item models
             versionsDir.walkTopDown().forEach { file ->
-                if (file.isFile && file.extension == "json" && file.path.contains("/models/item/")) {
+                val normalizedPath = file.path.replace("\\", "/")
+                if (file.isFile && file.extension == "json" && normalizedPath.contains("/models/item/")) {
                     items.add(file.nameWithoutExtension)
                 }
             }
 
             // Find block models
             versionsDir.walkTopDown().forEach { file ->
-                if (file.isFile && file.extension == "json" && file.path.contains("/models/block/")) {
+                val normalizedPath = file.path.replace("\\", "/")
+                if (file.isFile && file.extension == "json" && normalizedPath.contains("/models/block/")) {
                     blocks.add(file.nameWithoutExtension)
                 }
             }
@@ -143,12 +150,13 @@ class LangValidator : Validator {
                     // Look for ID constants
                     val idPattern = Regex("""public\s+static\s+final\s+String\s+ID\s*=\s*"([^"]+)"""")
                     val matches = idPattern.findAll(content)
+                    val normalizedFilePath = file.path.replace("\\", "/")
                     matches.forEach { match ->
                         val id = match.groupValues[1]
 
                         when {
-                            file.path.contains("/entities/") -> entities.add(id)
-                            file.path.contains("/enchantments/") -> enchantments.add(id)
+                            normalizedFilePath.contains("/entities/") -> entities.add(id)
+                            normalizedFilePath.contains("/enchantments/") -> enchantments.add(id)
                         }
                     }
                 }
@@ -198,7 +206,7 @@ class LangValidator : Validator {
                             val key = keyMatch.groupValues[1]
                             val displayName = key.split(".").last()
                                 .split("_")
-                                .joinToString(" ") { it.capitalize() }
+                                .joinToString(" ") { it.replaceFirstChar { c -> if (c.isLowerCase()) c.titlecase() else c.toString() } }
                             translations[key] = displayName
                             fixed++
                         }

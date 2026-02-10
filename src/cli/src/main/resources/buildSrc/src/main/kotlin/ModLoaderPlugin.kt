@@ -157,6 +157,10 @@ class ModLoaderPlugin : Plugin<Project> {
                 name = "Minecraft"
                 url = project.uri("https://libraries.minecraft.net/")
             }
+            maven {
+                name = "Architectury"
+                url = project.uri("https://maven.architectury.dev/")
+            }
         }
 
         // Configure dependencies based on loader
@@ -174,60 +178,75 @@ class ModLoaderPlugin : Plugin<Project> {
     }
 
     private fun applyLoaderPlugin(project: Project, loader: String, versionConfig: config.VersionConfig) {
+        // Architectury Loom handles all three loaders via a single plugin
+        project.plugins.apply("dev.architectury.loom")
+
         when (loader) {
             "fabric" -> {
-                project.plugins.apply("fabric-loom")
-                project.logger.lifecycle("Applied Fabric Loom plugin")
+                project.logger.lifecycle("Applied Architectury Loom (Fabric mode)")
             }
             "forge" -> {
-                // ForgeGradle requires complex configuration - skip for now
-                project.logger.warn("ForgeGradle requires additional configuration")
-                project.logger.warn("Manual setup required - see https://docs.minecraftforge.net/")
-                project.logger.warn("For now, use Fabric which is fully configured")
-                // TODO: Add full ForgeGradle configuration with minecraft{} block
+                // Architectury Loom configures Forge mode automatically when forge dependency is added
+                project.logger.lifecycle("Applied Architectury Loom (Forge mode)")
             }
             "neoforge" -> {
-                project.logger.warn("NeoGradle requires Gradle 9.1+ - manual setup required")
-                project.logger.warn("See: https://docs.neoforged.net/")
-                project.logger.warn("Consider upgrading Gradle or using Fabric/Forge instead")
+                // Architectury Loom configures NeoForge mode automatically when neoForge dependency is added
+                project.logger.lifecycle("Applied Architectury Loom (NeoForge mode)")
             }
             else -> {
-                project.logger.warn("Unknown loader: $loader - no plugin applied")
+                project.logger.warn("Unknown loader: $loader - using default Architectury Loom config")
             }
         }
     }
 
     private fun configureDependencies(project: Project, loader: String, versionConfig: config.VersionConfig) {
         project.dependencies.apply {
+            // Minecraft dependency (common to all loaders via Architectury Loom)
+            add("minecraft", "com.mojang:minecraft:${versionConfig.minecraft_version}")
+
+            // Use Mojang official mappings — Architectury Loom automatically remaps for Fabric
+            add("mappings", project.extensions.getByType(
+                net.fabricmc.loom.api.LoomGradleExtensionAPI::class.java
+            ).officialMojangMappings())
+
+            // Architectury API for cross-loader abstractions
+            val archApiVersion = versionConfig.architectury_api_version
+            if (archApiVersion != null && archApiVersion.isNotEmpty()) {
+                val archSuffix = when (loader) {
+                    "fabric" -> "fabric"
+                    "forge" -> "forge"
+                    "neoforge" -> "neoforge"
+                    else -> "fabric"
+                }
+                add("modApi", "dev.architectury:architectury-$archSuffix:$archApiVersion")
+            }
+
             when (loader) {
                 "fabric" -> {
-                    // Minecraft dependency
-                    add("minecraft", "com.mojang:minecraft:${versionConfig.minecraft_version}")
-
-                    // Mappings - use Yarn mappings (deobfuscated Minecraft)
-                    add("mappings", "net.fabricmc:yarn:${versionConfig.minecraft_version}+build.+:v2")
-
                     // Fabric Loader
                     val fabricLoaderVersion = versionConfig.fabric_loader_version ?: "0.15.0"
                     add("modImplementation", "net.fabricmc:fabric-loader:$fabricLoaderVersion")
 
-                    // Fabric API - only add if version is specified in config
+                    // Fabric API
                     val fabricApiVersion = versionConfig.fabric_api_version
                     if (fabricApiVersion != null && fabricApiVersion.isNotEmpty()) {
                         add("modImplementation", "net.fabricmc.fabric-api:fabric-api:$fabricApiVersion")
-                        project.logger.lifecycle("Configured Fabric dependencies for Minecraft ${versionConfig.minecraft_version}")
-                    } else {
-                        project.logger.warn("Fabric API version not specified for ${versionConfig.minecraft_version} - add fabric_api_version to config.yml")
-                        project.logger.warn("Find versions at: https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/")
                     }
+                    project.logger.lifecycle("Configured Fabric dependencies for Minecraft ${versionConfig.minecraft_version}")
                 }
                 "forge" -> {
-                    project.logger.warn("Forge dependencies not auto-configured - manual setup required")
-                    project.logger.warn("See: https://docs.minecraftforge.net/")
+                    val forgeVersion = versionConfig.forge_version
+                    if (forgeVersion != null && forgeVersion.isNotEmpty()) {
+                        add("forge", "net.minecraftforge:forge:$forgeVersion")
+                    }
+                    project.logger.lifecycle("Configured Forge dependencies for Minecraft ${versionConfig.minecraft_version}")
                 }
                 "neoforge" -> {
-                    project.logger.warn("NeoForge dependencies not auto-configured - requires Gradle 9.1+")
-                    project.logger.warn("Manual setup required - see https://docs.neoforged.net/")
+                    val neoforgeVersion = versionConfig.neoforge_version
+                    if (neoforgeVersion != null && neoforgeVersion.isNotEmpty()) {
+                        add("neoForge", "net.neoforged:neoforge:$neoforgeVersion")
+                    }
+                    project.logger.lifecycle("Configured NeoForge dependencies for Minecraft ${versionConfig.minecraft_version}")
                 }
             }
 

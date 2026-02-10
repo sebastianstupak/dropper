@@ -110,11 +110,6 @@ class RenameBlockCommand : DropperCommand(
         }
     }
 
-    private fun extractModId(configFile: File): String? {
-        val content = configFile.readText()
-        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
-    }
-
     private fun extractPackageName(configFile: File): String? {
         val modId = extractModId(configFile)
         return modId?.let { "com.$it" }

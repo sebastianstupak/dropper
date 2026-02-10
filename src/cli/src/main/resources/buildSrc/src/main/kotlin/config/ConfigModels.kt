@@ -30,6 +30,7 @@ class VersionConfig {
     var forge_version: String? = null
     var fabric_loader_version: String? = null
     var fabric_api_version: String? = null
+    var architectury_api_version: String? = null
 }
 
 /**

@@ -1,15 +1,14 @@
 package dev.dropper.commands.remove
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import dev.dropper.commands.DropperCommand
 import dev.dropper.removers.EntityRemover
 import dev.dropper.removers.RemovalOptions
 import dev.dropper.util.Logger
-import java.io.File
 
-class RemoveEntityCommand : CliktCommand(
+class RemoveEntityCommand : DropperCommand(
     name = "entity",
     help = "Remove an entity and all associated files"
 ) {
@@ -19,8 +18,7 @@ class RemoveEntityCommand : CliktCommand(
     private val keepAssets by option("--keep-assets", help = "Remove code but keep textures/models").flag()
 
     override fun run() {
-        val projectDir = File(System.getProperty("user.dir"))
-        val configFile = File(projectDir, "config.yml")
+        val configFile = getConfigFile()
 
         if (!configFile.exists()) {
             Logger.error("No config.yml found. Are you in a Dropper project directory?")
@@ -54,6 +52,4 @@ class RemoveEntityCommand : CliktCommand(
         result.warnings.forEach { Logger.warn(it) }
     }
 
-    private fun extractModId(configFile: File): String? =
-        Regex("id:\\s*([a-z0-9-]+)").find(configFile.readText())?.groupValues?.get(1)
 }

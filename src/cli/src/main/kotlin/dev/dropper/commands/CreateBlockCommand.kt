@@ -5,6 +5,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import dev.dropper.util.FileUtil
 import dev.dropper.util.Logger
+import dev.dropper.util.StringUtil
 import dev.dropper.util.ValidationUtil
 import java.io.File
 
@@ -65,10 +66,11 @@ class CreateBlockCommand : DropperCommand(
         // Generate common block code (shared across all loaders)
         generateBlockRegistration(projectDir, name, sanitizedModId, type)
 
-        // Generate loader-specific registration
-        generateFabricRegistration(projectDir, name, modId, sanitizedModId)
-        generateForgeRegistration(projectDir, name, modId, sanitizedModId)
-        generateNeoForgeRegistration(projectDir, name, modId, sanitizedModId)
+        // Generate/update registry class using Architectury DeferredRegister
+        generateOrUpdateModBlocks(projectDir, name, modId, sanitizedModId)
+
+        // Update main mod class init() to call ModBlocks.init()
+        updateMainModInit(projectDir, sanitizedModId, "ModBlocks")
 
         // Generate blockstates
         generateBlockState(projectDir, name, modId, type)
@@ -81,7 +83,7 @@ class CreateBlockCommand : DropperCommand(
 
         // Generate loot table if drops self
         if (dropsSelf == "true") {
-            generateLootTable(projectDir, name, modId)
+            generateLootTable(projectDir, name, modId, type)
         }
 
         Logger.success("Block '$name' created successfully!")
@@ -91,44 +93,177 @@ class CreateBlockCommand : DropperCommand(
         Logger.info("  3. Build with: dropper build")
     }
 
-    private fun extractModId(configFile: File): String? {
-        val content = configFile.readText()
-        return Regex("id:\\s*([a-z0-9-]+)").find(content)?.groupValues?.get(1)
-    }
-
     private fun generateBlockRegistration(projectDir: File, blockName: String, sanitizedModId: String, type: String) {
         val className = toClassName(blockName)
+
+        val (imports, extendsClause, constructorBody) = when (type) {
+            "ore" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.Block",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour"
+                ),
+                "Block",
+                """BlockBehaviour.Properties.of()
+            .strength(3.0f, 3.0f)
+            .requiresCorrectToolForDrops()
+            .sound(SoundType.STONE)"""
+            )
+            "pillar" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.RotatedPillarBlock",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour"
+                ),
+                "RotatedPillarBlock",
+                """BlockBehaviour.Properties.of()
+            .strength(2.0f, 2.0f)
+            .sound(SoundType.WOOD)"""
+            )
+            "slab" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.SlabBlock",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour"
+                ),
+                "SlabBlock",
+                """BlockBehaviour.Properties.of()
+            .strength(2.0f, 6.0f)
+            .sound(SoundType.STONE)"""
+            )
+            "stairs" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.Block",
+                    "net.minecraft.world.level.block.Blocks",
+                    "net.minecraft.world.level.block.StairBlock",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour"
+                ),
+                "StairBlock",
+                """Blocks.STONE.defaultBlockState(), BlockBehaviour.Properties.of()
+            .strength(2.0f, 6.0f)
+            .sound(SoundType.STONE)"""
+            )
+            "fence" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.FenceBlock",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour"
+                ),
+                "FenceBlock",
+                """BlockBehaviour.Properties.of()
+            .strength(2.0f, 3.0f)
+            .sound(SoundType.WOOD)"""
+            )
+            "wall" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.WallBlock",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour"
+                ),
+                "WallBlock",
+                """BlockBehaviour.Properties.of()
+            .strength(2.0f, 6.0f)
+            .sound(SoundType.STONE)"""
+            )
+            "door" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.DoorBlock",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour",
+                    "net.minecraft.world.level.block.state.properties.BlockSetType"
+                ),
+                "DoorBlock",
+                """BlockSetType.OAK, BlockBehaviour.Properties.of()
+            .strength(3.0f)
+            .sound(SoundType.WOOD)
+            .noOcclusion()"""
+            )
+            "trapdoor" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.TrapDoorBlock",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour",
+                    "net.minecraft.world.level.block.state.properties.BlockSetType"
+                ),
+                "TrapDoorBlock",
+                """BlockSetType.OAK, BlockBehaviour.Properties.of()
+            .strength(3.0f)
+            .sound(SoundType.WOOD)
+            .noOcclusion()"""
+            )
+            "button" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.ButtonBlock",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour",
+                    "net.minecraft.world.level.block.state.properties.BlockSetType"
+                ),
+                "ButtonBlock",
+                """BlockSetType.STONE, 20, BlockBehaviour.Properties.of()
+            .strength(0.5f)
+            .sound(SoundType.STONE)
+            .noCollission()"""
+            )
+            "pressure_plate" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.PressurePlateBlock",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour",
+                    "net.minecraft.world.level.block.state.properties.BlockSetType"
+                ),
+                "PressurePlateBlock",
+                """BlockSetType.STONE, BlockBehaviour.Properties.of()
+            .strength(0.5f)
+            .sound(SoundType.STONE)
+            .noCollission()"""
+            )
+            "crop" -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.CropBlock",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour"
+                ),
+                "CropBlock",
+                """BlockBehaviour.Properties.of()
+            .noCollission()
+            .randomTicks()
+            .instabreak()
+            .sound(SoundType.CROP)"""
+            )
+            else -> Triple(
+                listOf(
+                    "net.minecraft.world.level.block.Block",
+                    "net.minecraft.world.level.block.SoundType",
+                    "net.minecraft.world.level.block.state.BlockBehaviour"
+                ),
+                "Block",
+                """BlockBehaviour.Properties.of()
+            .strength(2.0f, 6.0f)
+            .sound(SoundType.STONE)"""
+            )
+        }
+
+        val importLines = imports.joinToString("\n") { "import $it;" }
+
         val content = """
             package com.$sanitizedModId.blocks;
+
+            $importLines
 
             /**
              * Custom block: $className
              *
-             * Registration pattern for multi-loader compatibility:
-             * - Fabric: Use FabricBlockSettings or AbstractBlock.Settings
-             * - Forge/NeoForge: Use BlockBehaviour.Properties
-             *
-             * This base class provides the shared logic.
              * Loader-specific registration happens in platform code.
              */
-            public class $className {
+            public class $className extends $extendsClause {
                 public static final String ID = "$blockName";
 
-                // TODO: Implement block logic
-                // Example for basic block:
-                // public static final Block INSTANCE = new Block(
-                //     AbstractBlock.Settings.create()
-                //         .strength(3.0f, 3.0f)
-                //         .sounds(BlockSoundGroup.STONE)
-                // );
-                //
-                // For ore blocks:
-                // public static final Block INSTANCE = new Block(
-                //     AbstractBlock.Settings.create()
-                //         .strength(3.0f, 3.0f)
-                //         .requiresTool()
-                //         .sounds(BlockSoundGroup.STONE)
-                // );
+                public static final $className INSTANCE = new $className();
+
+                public $className() {
+                    super($constructorBody);
+                }
             }
         """.trimIndent()
 
@@ -496,8 +631,11 @@ class CreateBlockCommand : DropperCommand(
         Logger.info("  ✓ Created item model: versions/shared/v1/assets/$modId/models/item/$blockName.json")
     }
 
-    private fun generateLootTable(projectDir: File, blockName: String, modId: String) {
-        val content = """
+    private fun generateLootTable(projectDir: File, blockName: String, modId: String, blockType: String = "basic") {
+        val content = if (blockType == "ore") {
+            generateOreLootTable(blockName, modId)
+        } else {
+            """
             {
               "type": "minecraft:block",
               "pools": [
@@ -517,134 +655,129 @@ class CreateBlockCommand : DropperCommand(
                 }
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
+        }
 
-        val lootTableFile = File(projectDir, "versions/shared/v1/data/$modId/loot_table/blocks/$blockName.json")
+        val lootTableFile = File(projectDir, "versions/shared/v1/data/$modId/loot_tables/blocks/$blockName.json")
         FileUtil.writeText(lootTableFile, content)
 
-        Logger.info("  ✓ Created loot table: versions/shared/v1/data/$modId/loot_table/blocks/$blockName.json")
+        Logger.info("  ✓ Created loot table: versions/shared/v1/data/$modId/loot_tables/blocks/$blockName.json")
     }
 
-    private fun generateFabricRegistration(projectDir: File, blockName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(blockName)
-        val content = """
-            package com.$sanitizedModId.platform.fabric;
-
-            import com.$sanitizedModId.blocks.$className;
-            import net.minecraft.block.Block;
-            import net.minecraft.item.BlockItem;
-            import net.minecraft.item.Item;
-            import net.minecraft.registry.Registries;
-            import net.minecraft.registry.Registry;
-            import net.minecraft.util.Identifier;
-
-            /**
-             * Fabric-specific block registration for $className
-             */
-            public class ${className}Fabric {
-                public static void register() {
-                    // Example Fabric registration:
-                    // Block block = Registry.register(
-                    //     Registries.BLOCK,
-                    //     Identifier.of("$modId", $className.ID),
-                    //     $className.INSTANCE
-                    // );
-                    //
-                    // Registry.register(
-                    //     Registries.ITEM,
-                    //     Identifier.of("$modId", $className.ID),
-                    //     new BlockItem(block, new Item.Settings())
-                    // );
+    private fun generateOreLootTable(blockName: String, modId: String): String = """
+        {
+          "type": "minecraft:block",
+          "pools": [
+            {
+              "rolls": 1,
+              "bonus_rolls": 0,
+              "entries": [
+                {
+                  "type": "minecraft:alternatives",
+                  "children": [
+                    {
+                      "type": "minecraft:item",
+                      "conditions": [
+                        {
+                          "condition": "minecraft:match_tool",
+                          "predicate": {
+                            "enchantments": [
+                              {
+                                "enchantment": "minecraft:silk_touch",
+                                "levels": {
+                                  "min": 1
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "name": "$modId:$blockName"
+                    },
+                    {
+                      "type": "minecraft:item",
+                      "functions": [
+                        {
+                          "function": "minecraft:apply_bonus",
+                          "enchantment": "minecraft:fortune",
+                          "formula": "minecraft:ore_drops"
+                        },
+                        {
+                          "function": "minecraft:explosion_decay"
+                        }
+                      ],
+                      "name": "$modId:$blockName"
+                    }
+                  ]
                 }
+              ]
             }
-        """.trimIndent()
+          ]
+        }
+    """.trimIndent()
 
-        val file = File(projectDir, "shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created Fabric registration: shared/fabric/src/main/java/com/$sanitizedModId/platform/fabric/${className}Fabric.java")
-    }
-
-    private fun generateForgeRegistration(projectDir: File, blockName: String, modId: String, sanitizedModId: String) {
+    /**
+     * Generate or update the common ModBlocks registry class using Architectury DeferredRegister.
+     */
+    private fun generateOrUpdateModBlocks(
+        projectDir: File,
+        blockName: String,
+        modId: String,
+        sanitizedModId: String
+    ) {
         val className = toClassName(blockName)
-        val content = """
-            package com.$sanitizedModId.platform.forge;
+        val constantName = blockName.uppercase()
+        val registryFile = File(projectDir, "shared/common/src/main/java/com/$sanitizedModId/registry/ModBlocks.java")
 
-            import com.$sanitizedModId.blocks.$className;
-            import net.minecraft.world.item.BlockItem;
-            import net.minecraft.world.item.Item;
-            import net.minecraft.world.level.block.Block;
-            import net.minecraftforge.registries.DeferredRegister;
-            import net.minecraftforge.registries.ForgeRegistries;
-            import net.minecraftforge.registries.RegistryObject;
+        if (registryFile.exists()) {
+            val existingContent = registryFile.readText()
 
-            /**
-             * Forge-specific block registration for $className
-             */
-            public class ${className}Forge {
-                // Example Forge registration:
-                // public static final DeferredRegister<Block> BLOCKS =
-                //     DeferredRegister.create(ForgeRegistries.BLOCKS, "$modId");
-                //
-                // public static final DeferredRegister<Item> ITEMS =
-                //     DeferredRegister.create(ForgeRegistries.ITEMS, "$modId");
-                //
-                // public static final RegistryObject<Block> ${blockName.uppercase()} =
-                //     BLOCKS.register($className.ID, () -> $className.INSTANCE);
-                //
-                // public static final RegistryObject<Item> ${blockName.uppercase()}_ITEM =
-                //     ITEMS.register($className.ID, () -> new BlockItem(${blockName.uppercase()}.get(), new Item.Properties()));
-            }
-        """.trimIndent()
+            val newBlockField = "    public static final RegistrySupplier<Block> $constantName = BLOCKS.register(\"$blockName\", () -> new ${className}());"
+            val newItemField = "    public static final RegistrySupplier<Item> ${constantName}_ITEM = ITEMS.register(\"$blockName\", () -> new BlockItem($constantName.get(), new Item.Properties()));"
+            val newImport = "import com.$sanitizedModId.blocks.$className;"
 
-        val file = File(projectDir, "shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
-        FileUtil.writeText(file, content)
+            val updatedContent = existingContent
+                .replace("    public static void init()", "$newBlockField\n$newItemField\n\n    public static void init()")
+                .let { content ->
+                    if (!content.contains(newImport)) {
+                        content.replace("import net.minecraft.world.level.block.Block;", "import net.minecraft.world.level.block.Block;\nimport com.$sanitizedModId.blocks.$className;")
+                    } else content
+                }
 
-        Logger.info("  ✓ Created Forge registration: shared/forge/src/main/java/com/$sanitizedModId/platform/forge/${className}Forge.java")
+            FileUtil.writeText(registryFile, updatedContent)
+            Logger.info("  ✓ Added $className to registry/ModBlocks.java")
+        } else {
+            val content = """
+                package com.$sanitizedModId.registry;
+
+                import com.$sanitizedModId.blocks.$className;
+                import dev.architectury.registry.registries.DeferredRegister;
+                import dev.architectury.registry.registries.RegistrySupplier;
+                import net.minecraft.core.registries.Registries;
+                import net.minecraft.world.item.BlockItem;
+                import net.minecraft.world.item.Item;
+                import net.minecraft.world.level.block.Block;
+
+                public class ModBlocks {
+                    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create("$modId", Registries.BLOCK);
+                    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create("$modId", Registries.ITEM);
+
+                    public static final RegistrySupplier<Block> $constantName = BLOCKS.register("$blockName", () -> new ${className}());
+                    public static final RegistrySupplier<Item> ${constantName}_ITEM = ITEMS.register("$blockName", () -> new BlockItem($constantName.get(), new Item.Properties()));
+
+                    public static void init() {
+                        BLOCKS.register();
+                        ITEMS.register();
+                    }
+                }
+            """.trimIndent()
+
+            FileUtil.writeText(registryFile, content)
+            Logger.info("  ✓ Created registry/ModBlocks.java with $className")
+        }
     }
 
-    private fun generateNeoForgeRegistration(projectDir: File, blockName: String, modId: String, sanitizedModId: String) {
-        val className = toClassName(blockName)
-        val content = """
-            package com.$sanitizedModId.platform.neoforge;
-
-            import com.$sanitizedModId.blocks.$className;
-            import net.minecraft.core.registries.Registries;
-            import net.minecraft.world.item.BlockItem;
-            import net.minecraft.world.item.Item;
-            import net.minecraft.world.level.block.Block;
-            import net.neoforged.neoforge.registries.DeferredRegister;
-            import net.neoforged.neoforge.registries.DeferredBlock;
-            import net.neoforged.neoforge.registries.DeferredItem;
-
-            /**
-             * NeoForge-specific block registration for $className
-             */
-            public class ${className}NeoForge {
-                // Example NeoForge registration:
-                // public static final DeferredRegister.Blocks BLOCKS =
-                //     DeferredRegister.createBlocks("$modId");
-                //
-                // public static final DeferredRegister.Items ITEMS =
-                //     DeferredRegister.createItems("$modId");
-                //
-                // public static final DeferredBlock<Block> ${blockName.uppercase()} =
-                //     BLOCKS.register($className.ID, () -> $className.INSTANCE);
-                //
-                // public static final DeferredItem<BlockItem> ${blockName.uppercase()}_ITEM =
-                //     ITEMS.registerSimpleBlockItem(${blockName.uppercase()});
-            }
-        """.trimIndent()
-
-        val file = File(projectDir, "shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
-        FileUtil.writeText(file, content)
-
-        Logger.info("  ✓ Created NeoForge registration: shared/neoforge/src/main/java/com/$sanitizedModId/platform/neoforge/${className}NeoForge.java")
-    }
-
-    private fun toClassName(snakeCase: String): String {
-        return snakeCase.split("_").joinToString("") { it.capitalize() }
-    }
+    private fun toClassName(snakeCase: String): String = StringUtil.toClassName(snakeCase)
 
     // ========== Blockstate Generators ==========
 

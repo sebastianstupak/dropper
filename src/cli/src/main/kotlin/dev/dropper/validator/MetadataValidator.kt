@@ -1,6 +1,7 @@
 package dev.dropper.validator
 
-import org.yaml.snakeyaml.Yaml
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import java.io.File
 
 /**
@@ -9,7 +10,7 @@ import java.io.File
 class MetadataValidator : Validator {
     override val name = "Metadata Validator"
 
-    private val yaml = Yaml()
+    private val yamlMapper = ObjectMapper(YAMLFactory())
     private val validModIdRegex = Regex("^[a-z][a-z0-9_]*$")
     private val validVersionRegex = Regex("^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$")
     private val validMinecraftVersions = setOf(
@@ -42,7 +43,7 @@ class MetadataValidator : Validator {
 
         try {
             @Suppress("UNCHECKED_CAST")
-            val config = yaml.load<Map<String, Any>>(configFile.readText())
+            val config = yamlMapper.readValue(configFile, Map::class.java) as Map<String, Any>
             @Suppress("UNCHECKED_CAST")
             val mod = config["mod"] as? Map<String, Any>
 
